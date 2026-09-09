@@ -1,0 +1,3 @@
+{
+  "extends": "@kousa/config/tsconfig.base.json"
+}
