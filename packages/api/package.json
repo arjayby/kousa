@@ -1,30 +1,35 @@
 {
-  "name": "@kousa/api",
-  "type": "module",
-  "exports": {
-    ".": {
-      "default": "./src/index.ts"
-    },
-    "./*": {
-      "default": "./src/*.ts"
-    }
-  },
-  "scripts": {},
-  "dependencies": {
-    "@kousa/billing": "workspace:*",
-    "@kousa/auth": "workspace:*",
-    "@kousa/db": "workspace:*",
-    "@kousa/env": "workspace:*",
-    "@orpc/client": "catalog:",
-    "@orpc/openapi": "catalog:",
-    "@orpc/server": "catalog:",
-    "@orpc/zod": "catalog:",
-    "dotenv": "catalog:",
-    "next": "catalog:",
-    "zod": "catalog:"
-  },
-  "devDependencies": {
-    "@kousa/config": "workspace:*",
-    "typescript": "catalog:"
-  }
+	"name": "@kousa/api",
+	"type": "module",
+	"exports": {
+		".": {
+			"default": "./src/index.ts"
+		},
+		"./*": {
+			"default": "./src/*.ts"
+		}
+	},
+	"scripts": {
+		"check-types": "tsc --noEmit --composite false",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@kousa/billing": "workspace:*",
+		"@kousa/auth": "workspace:*",
+		"@kousa/db": "workspace:*",
+		"@kousa/env": "workspace:*",
+		"@orpc/client": "catalog:",
+		"@orpc/openapi": "catalog:",
+		"@orpc/server": "catalog:",
+		"@orpc/zod": "catalog:",
+		"dotenv": "catalog:",
+		"next": "catalog:",
+		"zod": "catalog:",
+		"@kousa/projects": "workspace:*"
+	},
+	"devDependencies": {
+		"@kousa/config": "workspace:*",
+		"typescript": "catalog:",
+		"vitest": "^5.0.0"
+	}
 }

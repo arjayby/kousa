@@ -13,6 +13,7 @@ This project was created with [Better-T-Stack](https://github.com/AmanVarshney01
 - **PostgreSQL** - Database engine
 - **Authentication** - Better-Auth
 - **Polar sandbox billing** - Verified payments grant credits once per order
+- **Projects and permissions** - Private projects with owner, editor, and viewer access through single-use invitations
 - **Biome** - Linting and formatting
 - **Turborepo** - Optimized monorepo build system
 
@@ -31,6 +32,8 @@ Alchemy provisions Neon, passes its connection credentials directly to the deplo
 Generate and commit migration SQL with `pnpm run db:generate`. Alchemy runs the database package's `db:migrate:deploy` command with Neon's direct connection after provisioning, then supplies the pooled connection to the app. This uses the scaffold's Drizzle 0.x migration format and migration history; Alchemy's built-in migration runner requires Drizzle 1.x.
 
 Sandbox credit purchases and webhook setup are documented in [packages/billing/README.md](packages/billing/README.md). The $5 test pack grants 500 credits after a verified `order.paid` delivery. Add `POLAR_WEBHOOK_SECRET` to `apps/web/.env` when connecting a Polar endpoint or local listener.
+
+Project creation, access rules, and invitation links are documented in [packages/projects/README.md](packages/projects/README.md). No additional environment variables are required.
 
 Then, run the development server:
 
@@ -99,6 +102,7 @@ kousa/
 │   ├── api/         # API layer / business logic
 │   ├── auth/        # Authentication configuration & logic
 │   ├── billing/     # Credit pack catalog, fulfillment, and webhook verification
+│   ├── projects/    # Project contracts, permissions, and invitation service
 │   └── db/          # Database schema & queries
 ```
 
@@ -108,7 +112,7 @@ kousa/
 - `pnpm run build`: Build all applications
 - `pnpm run dev:web`: Start only the web application
 - `pnpm run check-types`: Check TypeScript types across all apps
-- `pnpm test`: Run billing integration tests against an isolated local Postgres engine
+- `pnpm test`: Run billing and project permissions integration tests against isolated local Postgres engines
 - `pnpm run db:push`: Push schema changes to database
 - `pnpm run db:generate`: Generate SQL migrations from the Drizzle schema
 - `pnpm run db:migrate`: Run database migrations
