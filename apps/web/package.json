@@ -10,6 +10,8 @@
     "build:cloudflare": "opennextjs-cloudflare build"
   },
   "dependencies": {
+    "@kousa/billing": "workspace:*",
+    "@kousa/db": "workspace:*",
     "@kousa/api": "workspace:*",
     "@kousa/auth": "workspace:*",
     "@kousa/env": "workspace:*",

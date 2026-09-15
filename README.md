@@ -12,6 +12,7 @@ This project was created with [Better-T-Stack](https://github.com/AmanVarshney01
 - **Drizzle** - TypeScript-first ORM
 - **PostgreSQL** - Database engine
 - **Authentication** - Better-Auth
+- **Polar sandbox billing** - Verified payments grant credits once per order
 - **Biome** - Linting and formatting
 - **Turborepo** - Optimized monorepo build system
 
@@ -27,7 +28,9 @@ pnpm install
 
 Alchemy provisions Neon, passes its connection credentials directly to the deployed application, and manages database deployment in the same stack as the consuming app. You do not need to copy a hosted `DATABASE_URL` into the app environment.
 
-Generate and commit migration SQL with `pnpm run db:generate`. Deployment applies checked-in migrations after provisioning the database.
+Generate and commit migration SQL with `pnpm run db:generate`. Alchemy runs the database package's `db:migrate:deploy` command with Neon's direct connection after provisioning, then supplies the pooled connection to the app. This uses the scaffold's Drizzle 0.x migration format and migration history; Alchemy's built-in migration runner requires Drizzle 1.x.
+
+Sandbox credit purchases and webhook setup are documented in [packages/billing/README.md](packages/billing/README.md). The $5 test pack grants 500 credits after a verified `order.paid` delivery. Add `POLAR_WEBHOOK_SECRET` to `apps/web/.env` when connecting a Polar endpoint or local listener.
 
 Then, run the development server:
 
@@ -95,6 +98,7 @@ kousa/
 │   ├── ui/          # Shared shadcn/ui components and styles
 │   ├── api/         # API layer / business logic
 │   ├── auth/        # Authentication configuration & logic
+│   ├── billing/     # Credit pack catalog, fulfillment, and webhook verification
 │   └── db/          # Database schema & queries
 ```
 
@@ -104,8 +108,9 @@ kousa/
 - `pnpm run build`: Build all applications
 - `pnpm run dev:web`: Start only the web application
 - `pnpm run check-types`: Check TypeScript types across all apps
+- `pnpm test`: Run billing integration tests against an isolated local Postgres engine
 - `pnpm run db:push`: Push schema changes to database
-- `pnpm run db:generate`: Generate database client/types
+- `pnpm run db:generate`: Generate SQL migrations from the Drizzle schema
 - `pnpm run db:migrate`: Run database migrations
 - `pnpm run db:studio`: Open database studio UI
 - `pnpm run check`: Run Biome formatting and linting

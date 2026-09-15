@@ -1,31 +1,28 @@
 import { createAuth } from "@kousa/auth";
+import { createBilling } from "@kousa/billing/runtime";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-
-import { authClient } from "@/lib/auth-client";
 
 import Dashboard from "./dashboard";
 
 export default async function DashboardPage() {
-  const session = await createAuth().api.getSession({
-    headers: await headers(),
-  });
+	const session = await createAuth().api.getSession({
+		headers: await headers(),
+	});
 
-  if (!session?.user) {
-    redirect("/login");
-  }
+	if (!session?.user) {
+		redirect("/login");
+	}
 
-  const { data: customerState } = await authClient.customer.state({
-    fetchOptions: {
-      headers: await headers(),
-    },
-  });
+	const { balance } = await createBilling().summary(session.user.id);
 
-  return (
-    <div>
-      <h1>Dashboard</h1>
-      <p>Welcome {session.user.name}</p>
-      <Dashboard session={session} customerState={customerState} />
-    </div>
-  );
+	return (
+		<div className="container mx-auto flex flex-col gap-6 px-4 py-8">
+			<div>
+				<h1 className="font-semibold text-2xl">Dashboard</h1>
+				<p className="text-muted-foreground">Welcome {session.user.name}</p>
+			</div>
+			<Dashboard userId={session.user.id} initialBalance={balance} />
+		</div>
+	);
 }
