@@ -1,4 +1,6 @@
 import type { ProjectStore } from "@kousa/db/project-store";
+import { EmailDeliveryError, type EmailSender } from "@kousa/email/sender";
+import { projectInvitationEmail } from "@kousa/email/templates";
 import {
 	changeMemberInput,
 	createInviteInput,
@@ -7,21 +9,32 @@ import {
 	listProjectsInput,
 	memberInput,
 	permissionsFor,
+	projectAccessInput,
 	projectIdInput,
 	renameProjectInput,
+	resendInviteInput,
 	revokeInviteInput,
 } from "./contracts";
 
 export class ProjectError extends Error {
 	constructor(
-		public readonly code: "NOT_FOUND" | "FORBIDDEN" | "INVALID_INVITE",
+		public readonly code:
+			| "NOT_FOUND"
+			| "FORBIDDEN"
+			| "INVALID_INVITE"
+			| "CONFLICT"
+			| "EMAIL_NOT_VERIFIED",
 	) {
 		super(
-			code === "INVALID_INVITE"
-				? "This invitation is unavailable. It may have expired, been revoked, or already been used."
-				: code === "FORBIDDEN"
-					? "You do not have permission to do this."
-					: "Project not found.",
+			code === "CONFLICT"
+				? "This email already has access or a pending invitation, or was invited too recently. Manage the existing entry below."
+				: code === "EMAIL_NOT_VERIFIED"
+					? "Verify your email address before accepting this invitation."
+					: code === "INVALID_INVITE"
+						? "This invitation is unavailable for this account. Sign in with the invited email address, or ask the owner for a new invitation."
+						: code === "FORBIDDEN"
+							? "You do not have permission to do this."
+							: "Project not found.",
 		);
 	}
 }
@@ -36,7 +49,51 @@ export async function hashInviteToken(token: string) {
 	).join("");
 }
 
-export function createProjectService(store: ProjectStore) {
+export function createProjectService(
+	store: ProjectStore,
+	options: { email: EmailSender; appUrl: string },
+) {
+	function newToken() {
+		return Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) =>
+			byte.toString(16).padStart(2, "0"),
+		).join("");
+	}
+	async function deliver(
+		invite: NonNullable<Awaited<ReturnType<ProjectStore["createInvite"]>>>,
+		projectName: string,
+		token: string,
+		tokenHash: string,
+	) {
+		let outcome: { messageId: string | null } | { error: string };
+		try {
+			const url = new URL("/invite", options.appUrl);
+			if (!["http:", "https:"].includes(url.protocol))
+				throw new EmailDeliveryError("not_configured");
+			url.hash = token;
+			outcome = await options.email.send(
+				projectInvitationEmail({
+					to: invite.email,
+					projectName,
+					role: invite.role,
+					expiresAt: invite.expiresAt,
+					url: url.toString(),
+				}),
+			);
+		} catch (error) {
+			outcome = {
+				error: error instanceof EmailDeliveryError ? error.code : "unconfirmed",
+			};
+		}
+		await store.completeDelivery(invite.id, tokenHash, outcome);
+		return {
+			id: invite.id,
+			email: invite.email,
+			deliveryStatus:
+				"error" in outcome ? ("failed" as const) : ("sent" as const),
+			deliveryError: "error" in outcome ? outcome.error : null,
+		};
+	}
+
 	async function get(actorId: string, input: unknown) {
 		const { projectId } = projectIdInput.parse(input);
 		const found = await store.get(actorId, projectId);
@@ -46,6 +103,7 @@ export function createProjectService(store: ProjectStore) {
 	async function requireOwner(actorId: string, projectId: string) {
 		const found = await get(actorId, { projectId });
 		if (found.role !== "owner") throw new ProjectError("FORBIDDEN");
+		return found;
 	}
 	return {
 		get,
@@ -65,13 +123,17 @@ export function createProjectService(store: ProjectStore) {
 			return { id: projectId };
 		},
 		async access(actorId: string, input: unknown) {
-			const { projectId } = projectIdInput.parse(input);
+			const { projectId, offset } = projectAccessInput.parse(input);
 			await requireOwner(actorId, projectId);
 			const [members, invites] = await Promise.all([
 				store.members(actorId, projectId),
-				store.invites(actorId, projectId),
+				store.invites(actorId, projectId, offset),
 			]);
-			return { members, invites };
+			return {
+				members,
+				invites,
+				emailDeliveryReady: options.email.isConfigured(),
+			};
 		},
 		async changeMember(actorId: string, input: unknown) {
 			const { projectId, userId, role } = changeMemberInput.parse(input);
@@ -88,21 +150,35 @@ export function createProjectService(store: ProjectStore) {
 			return { userId };
 		},
 		async createInvite(actorId: string, input: unknown) {
-			const { projectId, role } = createInviteInput.parse(input);
-			await requireOwner(actorId, projectId);
-			const token = Array.from(
-				crypto.getRandomValues(new Uint8Array(32)),
-				(byte) => byte.toString(16).padStart(2, "0"),
-			).join("");
+			const { projectId, email, role, expiresInDays } =
+				createInviteInput.parse(input);
+			const project = await requireOwner(actorId, projectId);
+			const token = newToken();
+			const tokenHash = await hashInviteToken(token);
 			const created = await store.createInvite(
 				actorId,
 				projectId,
+				email,
 				role,
-				await hashInviteToken(token),
-				new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+				tokenHash,
+				expiresInDays,
 			);
-			if (!created) throw new ProjectError("NOT_FOUND");
-			return { ...created, token };
+			if (!created) throw new ProjectError("CONFLICT");
+			return deliver(created, project.name, token, tokenHash);
+		},
+		async resendInvite(actorId: string, input: unknown) {
+			const { projectId, inviteId } = resendInviteInput.parse(input);
+			const project = await requireOwner(actorId, projectId);
+			const token = newToken();
+			const tokenHash = await hashInviteToken(token);
+			const updated = await store.resendInvite(
+				actorId,
+				projectId,
+				inviteId,
+				tokenHash,
+			);
+			if (!updated) throw new ProjectError("CONFLICT");
+			return deliver(updated, project.name, token, tokenHash);
 		},
 		async revokeInvite(actorId: string, input: unknown) {
 			const { projectId, inviteId } = revokeInviteInput.parse(input);
@@ -111,9 +187,12 @@ export function createProjectService(store: ProjectStore) {
 				throw new ProjectError("NOT_FOUND");
 			return { id: inviteId };
 		},
-		async previewInvite(input: unknown) {
+		async previewInvite(actorId: string, input: unknown) {
 			const { token } = inviteTokenInput.parse(input);
-			const found = await store.previewInvite(await hashInviteToken(token));
+			const found = await store.previewInvite(
+				actorId,
+				await hashInviteToken(token),
+			);
 			if (!found) throw new ProjectError("INVALID_INVITE");
 			return found;
 		},
@@ -123,7 +202,15 @@ export function createProjectService(store: ProjectStore) {
 				actorId,
 				await hashInviteToken(token),
 			);
-			if (!accepted) throw new ProjectError("INVALID_INVITE");
+			if (!accepted) {
+				const preview = await store.previewInvite(
+					actorId,
+					await hashInviteToken(token),
+				);
+				if (preview?.requiresEmailVerification)
+					throw new ProjectError("EMAIL_NOT_VERIFIED");
+				throw new ProjectError("INVALID_INVITE");
+			}
 			return accepted;
 		},
 	};

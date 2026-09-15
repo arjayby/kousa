@@ -28,6 +28,7 @@
 		"@kousa/projects": "workspace:*"
 	},
 	"devDependencies": {
+		"@kousa/email": "workspace:*",
 		"@kousa/config": "workspace:*",
 		"typescript": "catalog:",
 		"vitest": "^5.0.0"

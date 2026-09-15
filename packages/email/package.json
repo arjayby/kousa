@@ -1,21 +1,21 @@
 {
-	"name": "@kousa/projects",
+	"name": "@kousa/email",
 	"private": true,
 	"type": "module",
 	"exports": {
 		"./*": "./src/*.ts"
 	},
 	"scripts": {
-		"check-types": "tsc --noEmit"
+		"check-types": "tsc --noEmit",
+		"test": "vitest run"
 	},
 	"dependencies": {
-		"@kousa/email": "workspace:*",
 		"@kousa/env": "workspace:*",
-		"@kousa/db": "workspace:*",
 		"zod": "catalog:"
 	},
 	"devDependencies": {
 		"@kousa/config": "workspace:*",
-		"typescript": "catalog:"
+		"typescript": "catalog:",
+		"vitest": "^5.0.0"
 	}
 }

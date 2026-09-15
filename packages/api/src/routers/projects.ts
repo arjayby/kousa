@@ -5,8 +5,10 @@ import {
 	inviteTokenInput,
 	listProjectsInput,
 	memberInput,
+	projectAccessInput,
 	projectIdInput,
 	renameProjectInput,
+	resendInviteInput,
 	revokeInviteInput,
 } from "@kousa/projects/contracts";
 import { createProjects } from "@kousa/projects/runtime";
@@ -24,7 +26,11 @@ export function createProjectsRouter(
 		} catch (error) {
 			if (error instanceof ProjectError)
 				throw new ORPCError(
-					error.code === "INVALID_INVITE" ? "NOT_FOUND" : error.code,
+					error.code === "INVALID_INVITE"
+						? "NOT_FOUND"
+						: error.code === "EMAIL_NOT_VERIFIED"
+							? "FORBIDDEN"
+							: error.code,
 					{ message: error.message },
 				);
 			throw error;
@@ -52,7 +58,7 @@ export function createProjectsRouter(
 				service().rename(context.session.user.id, input),
 			),
 		access: procedure
-			.input(projectIdInput)
+			.input(projectAccessInput)
 			.handler(({ context, input }) =>
 				service().access(context.session.user.id, input),
 			),
@@ -71,6 +77,11 @@ export function createProjectsRouter(
 			.handler(({ context, input }) =>
 				service().createInvite(context.session.user.id, input),
 			),
+		resendInvite: procedure
+			.input(resendInviteInput)
+			.handler(({ context, input }) =>
+				service().resendInvite(context.session.user.id, input),
+			),
 		revokeInvite: procedure
 			.input(revokeInviteInput)
 			.handler(({ context, input }) =>
@@ -78,7 +89,9 @@ export function createProjectsRouter(
 			),
 		previewInvite: procedure
 			.input(inviteTokenInput)
-			.handler(({ input }) => service().previewInvite(input)),
+			.handler(({ context, input }) =>
+				service().previewInvite(context.session.user.id, input),
+			),
 		acceptInvite: procedure
 			.input(inviteTokenInput)
 			.handler(({ context, input }) =>

@@ -50,7 +50,8 @@ export function InvitePage() {
 		return (
 			<main className="container mx-auto px-4 py-8">
 				<p className="text-center text-muted-foreground">
-					Sign in or create an account to review your project invitation.
+					Sign in or create an account with the email address that received this
+					invitation.
 				</p>
 				{showSignIn ? (
 					<SignInForm
@@ -74,6 +75,7 @@ export function InvitePage() {
 			key={`${session.data.user.id}:${token}`}
 			token={token}
 			userName={session.data.user.name}
+			userEmail={session.data.user.email}
 		/>
 	);
 }
@@ -81,9 +83,11 @@ export function InvitePage() {
 function InviteAcceptance({
 	token,
 	userName,
+	userEmail,
 }: {
 	token: string;
 	userName: string;
+	userEmail: string;
 }) {
 	const router = useRouter();
 	const [preview, setPreview] = useState<Awaited<
@@ -91,10 +95,14 @@ function InviteAcceptance({
 	> | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [pending, setPending] = useState(false);
+	const [previewRequest, setPreviewRequest] = useState({ token });
+	const [verificationSent, setVerificationSent] = useState(false);
 	useEffect(() => {
 		let active = true;
+		setError(null);
+		setPreview(null);
 		client.projects
-			.previewInvite({ token })
+			.previewInvite(previewRequest)
 			.then((value) => {
 				if (active) setPreview(value);
 			})
@@ -109,7 +117,7 @@ function InviteAcceptance({
 		return () => {
 			active = false;
 		};
-	}, [token]);
+	}, [previewRequest]);
 	return (
 		<main className="container mx-auto px-4 py-8">
 			<Card className="mx-auto max-w-lg">
@@ -117,7 +125,9 @@ function InviteAcceptance({
 					<CardTitle>
 						<h1>{preview ? `Join ${preview.name}` : "Project invitation"}</h1>
 					</CardTitle>
-					<CardDescription>Signed in as {userName}.</CardDescription>
+					<CardDescription>
+						Signed in as {userName} ({userEmail}).
+					</CardDescription>
 				</CardHeader>
 				<CardContent className="flex flex-col gap-3">
 					{!preview && !error && <Skeleton className="h-20 w-full" />}
@@ -128,10 +138,71 @@ function InviteAcceptance({
 								: "You have been invited as a viewer. You can open this project without making changes."}
 						</p>
 					)}
+					{preview?.requiresEmailVerification && (
+						<>
+							<p>Verify {preview.email} before accepting this invitation.</p>
+							<Button
+								variant="outline"
+								disabled={pending || verificationSent}
+								onClick={async () => {
+									setPending(true);
+									setError(null);
+									try {
+										const result = await authClient.sendVerificationEmail({
+											email: preview.email ?? userEmail,
+											callbackURL: `${window.location.origin}/email-verified`,
+										});
+										if (result.error)
+											throw new Error(
+												"Could not send the verification email. Please try again later.",
+											);
+										setVerificationSent(true);
+									} catch (error) {
+										setError(
+											error instanceof Error
+												? error.message
+												: "Could not send verification email.",
+										);
+									} finally {
+										setPending(false);
+									}
+								}}
+							>
+								Send verification email
+							</Button>
+							{verificationSent && (
+								<p role="status">
+									Check your inbox, then return here to accept the invitation.
+								</p>
+							)}
+							<Button
+								variant="ghost"
+								disabled={pending}
+								onClick={() => setPreviewRequest({ token })}
+							>
+								I've verified my email
+							</Button>
+						</>
+					)}
 					{error && <p role="alert">{error}</p>}
 				</CardContent>
 				<CardFooter className="flex flex-wrap gap-3">
-					{preview && (
+					<Button
+						variant="ghost"
+						disabled={pending}
+						onClick={async () => {
+							setPending(true);
+							try {
+								await authClient.signOut();
+							} catch {
+								setError("Could not sign out. Try again.");
+								setPending(false);
+							}
+						}}
+					>
+						Use a different account
+					</Button>
+					{preview && !preview.requiresEmailVerification && (
 						<Button
 							disabled={pending}
 							onClick={async () => {

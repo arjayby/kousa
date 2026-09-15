@@ -1,6 +1,8 @@
 import { creditPack } from "@kousa/billing/catalog";
 import { createDb } from "@kousa/db";
 import * as schema from "@kousa/db/schema/auth";
+import { createEmail } from "@kousa/email/runtime";
+import { verificationEmail } from "@kousa/email/templates";
 import { env } from "@kousa/env/server";
 import { checkout, polar, portal } from "@polar-sh/better-auth";
 import { betterAuth } from "better-auth";
@@ -21,6 +23,12 @@ export function createAuth() {
 		trustedOrigins: [env.BETTER_AUTH_URL],
 		emailAndPassword: {
 			enabled: true,
+		},
+		emailVerification: {
+			expiresIn: 3600,
+			sendVerificationEmail: async ({ user, url }) => {
+				await createEmail().send(verificationEmail(user.email, url));
+			},
 		},
 		secret: env.BETTER_AUTH_SECRET,
 		baseURL: env.BETTER_AUTH_URL,

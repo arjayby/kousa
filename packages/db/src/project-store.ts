@@ -19,8 +19,29 @@ type ProjectDatabase = Pick<
 	"insert" | "select" | "update" | "delete" | "execute"
 >;
 type MemberRole = typeof projectMember.$inferSelect.role;
+const inviteRow = z.object({
+	id: z.string(),
+	email: z.string(),
+	role: z.enum(["editor", "viewer"]),
+	expiresAt: z.coerce.date(),
+	expiresInDays: z.union([z.literal(1), z.literal(7), z.literal(30)]),
+});
+const readInvite = (result: unknown) =>
+	z.object({ rows: z.array(inviteRow) }).parse(result).rows[0] ?? null;
+const inviteReturning = sql`id, email, role, expires_at as "expiresAt", expires_in_days as "expiresInDays"`;
 
 export function createProjectStore(db: ProjectDatabase) {
+	const eligibleRecipient = (
+		projectId: string,
+		email: string | typeof projectInvite.email,
+	) => sql`not exists (
+ select 1 from "user" u where lower(btrim(u.email)) = ${email} and (
+ u.id = (select owner_id from project where id = ${projectId}) or
+ exists (select 1 from project_member m where m.project_id = ${projectId} and m.user_id = u.id)
+ ))`;
+	const canResend = sql`(${projectInvite.deliveryStatus} = 'failed' or
+ (${projectInvite.deliveryStatus} = 'sending' and ${projectInvite.deliveryAttemptedAt} < now() - interval '2 minutes') or
+ (${projectInvite.deliveryStatus} = 'sent' and ${projectInvite.deliveryAttemptedAt} < now() - interval '1 minute'))`;
 	const owns = (actorId: string, projectId: string) =>
 		exists(
 			db
@@ -103,6 +124,7 @@ export function createProjectStore(db: ProjectDatabase) {
 				.select({
 					userId: projectMember.userId,
 					name: user.name,
+					email: user.email,
 					role: projectMember.role,
 				})
 				.from(projectMember)
@@ -147,50 +169,106 @@ export function createProjectStore(db: ProjectDatabase) {
 		async createInvite(
 			actorId: string,
 			projectId: string,
+			email: string,
 			role: MemberRole,
 			tokenHash: string,
-			expiresAt: Date,
+			expiresInDays: 1 | 7 | 30,
 		) {
 			const result: unknown = await db.execute(sql`
-				insert into ${projectInvite} (project_id, token_hash, role, expires_at)
-				select ${project.id}, ${tokenHash}, ${role}::project_member_role, ${expiresAt.toISOString()}::timestamptz
-				from ${project} where ${project.id} = ${projectId} and ${project.ownerId} = ${actorId}
-				returning id, role, expires_at as "expiresAt"
-			`);
-			return (
-				z
-					.object({
-						rows: z.array(
-							z.object({
-								id: z.string(),
-								role: z.enum(["editor", "viewer"]),
-								expiresAt: z.coerce.date(),
-							}),
-						),
-					})
-					.parse(result).rows[0] ?? null
-			);
+ insert into ${projectInvite} (project_id, email, role, token_hash, expires_in_days, expires_at)
+ select ${project.id}, ${email}, ${role}::project_member_role, ${tokenHash}, ${expiresInDays}, now() + ${expiresInDays} * interval '1 day'
+ from ${project} where ${project.id} = ${projectId} and ${project.ownerId} = ${actorId} and ${eligibleRecipient(projectId, email)}
+ on conflict (project_id, email) do update set
+ role = excluded.role, token_hash = excluded.token_hash, expires_in_days = excluded.expires_in_days,
+ expires_at = excluded.expires_at, accepted_at = null, accepted_by = null, revoked_at = null,
+ delivery_status = 'sending', delivery_attempted_at = now(), sent_at = null, delivery_error = null, message_id = null
+ where project_invite.accepted_at is not null or project_invite.revoked_at is not null or project_invite.expires_at <= now()
+ returning ${inviteReturning}
+ `);
+			return readInvite(result);
 		},
-		async invites(actorId: string, projectId: string) {
-			return db
+		async resendInvite(
+			actorId: string,
+			projectId: string,
+			inviteId: string,
+			tokenHash: string,
+		) {
+			const result: unknown = await db.execute(sql`
+ update ${projectInvite} set token_hash = ${tokenHash},
+ expires_at = now() + expires_in_days * interval '1 day',
+ accepted_at = null, accepted_by = null, revoked_at = null, delivery_status = 'sending',
+ delivery_attempted_at = now(), sent_at = null, delivery_error = null, message_id = null
+ where id = ${inviteId} and project_id = ${projectId} and email is not null
+ and ${owns(actorId, projectId)} and ${eligibleRecipient(projectId, projectInvite.email)} and ${canResend}
+ returning ${inviteReturning}
+ `);
+			return readInvite(result);
+		},
+		async completeDelivery(
+			inviteId: string,
+			tokenHash: string,
+			outcome: { messageId: string | null } | { error: string },
+		) {
+			// A late delivery response must never overwrite a newer resend's status.
+			await db
+				.update(projectInvite)
+				.set(
+					"error" in outcome
+						? {
+								deliveryStatus: "failed",
+								deliveryError: outcome.error,
+							}
+						: {
+								deliveryStatus: "sent",
+								sentAt: new Date(),
+								messageId: outcome.messageId,
+								deliveryError: null,
+							},
+				)
+				.where(
+					and(
+						eq(projectInvite.id, inviteId),
+						eq(projectInvite.tokenHash, tokenHash),
+					),
+				);
+		},
+		async invites(actorId: string, projectId: string, offset: number) {
+			const rows = await db
 				.select({
 					id: projectInvite.id,
+					email: projectInvite.email,
 					role: projectInvite.role,
 					expiresAt: projectInvite.expiresAt,
+					expiresInDays: projectInvite.expiresInDays,
 					createdAt: projectInvite.createdAt,
+					acceptedAt: projectInvite.acceptedAt,
+					revokedAt: projectInvite.revokedAt,
+					sentAt: projectInvite.sentAt,
+					status: sql<"pending" | "accepted" | "revoked" | "expired">`case
+ when ${projectInvite.acceptedAt} is not null then 'accepted'
+ when ${projectInvite.revokedAt} is not null then 'revoked'
+ when ${projectInvite.expiresAt} <= now() then 'expired' else 'pending' end`,
+					deliveryStatus: sql<
+						"sending" | "sent" | "failed"
+					>`case when ${projectInvite.deliveryStatus} = 'sending'
+ and ${projectInvite.deliveryAttemptedAt} < now() - interval '2 minutes' then 'failed' else ${projectInvite.deliveryStatus} end`,
+					deliveryError: sql<
+						string | null
+					>`case when ${projectInvite.deliveryStatus} = 'sending'
+ and ${projectInvite.deliveryAttemptedAt} < now() - interval '2 minutes' then 'unconfirmed' else ${projectInvite.deliveryError} end`,
+					canResend: sql<boolean>`${projectInvite.email} is not null and ${eligibleRecipient(projectId, projectInvite.email)} and ${canResend}`,
 				})
 				.from(projectInvite)
 				.where(
-					and(
-						eq(projectInvite.projectId, projectId),
-						owns(actorId, projectId),
-						isNull(projectInvite.acceptedAt),
-						isNull(projectInvite.revokedAt),
-						gt(projectInvite.expiresAt, sql`now()`),
-					),
+					and(eq(projectInvite.projectId, projectId), owns(actorId, projectId)),
 				)
-				.orderBy(desc(projectInvite.createdAt))
-				.limit(100);
+				.orderBy(
+					desc(projectInvite.deliveryAttemptedAt),
+					desc(projectInvite.id),
+				)
+				.offset(offset)
+				.limit(21);
+			return { items: rows.slice(0, 20), hasMore: rows.length > 20 };
 		},
 		async revokeInvite(actorId: string, projectId: string, inviteId: string) {
 			const [revoked] = await db
@@ -208,15 +286,24 @@ export function createProjectStore(db: ProjectDatabase) {
 				.returning({ id: projectInvite.id });
 			return revoked ?? null;
 		},
-		async previewInvite(tokenHash: string) {
+		async previewInvite(actorId: string, tokenHash: string) {
 			const [found] = await db
 				.select({
 					name: project.name,
+					email: projectInvite.email,
+					requiresEmailVerification: sql<boolean>`not ${user.emailVerified}`,
 					role: projectInvite.role,
 					expiresAt: projectInvite.expiresAt,
 				})
 				.from(projectInvite)
 				.innerJoin(project, eq(project.id, projectInvite.projectId))
+				.innerJoin(
+					user,
+					and(
+						eq(user.id, actorId),
+						sql`lower(btrim(${user.email})) = ${projectInvite.email}`,
+					),
+				)
 				.where(
 					and(
 						eq(projectInvite.tokenHash, tokenHash),
@@ -237,6 +324,7 @@ export function createProjectStore(db: ProjectDatabase) {
 					update ${projectInvite} set accepted_at = now(), accepted_by = ${actorId}
 					where token_hash = ${tokenHash} and accepted_at is null and revoked_at is null and expires_at > now()
 					and exists (select 1 from ${project} where ${project.id} = ${projectInvite.projectId} and ${project.ownerId} <> ${actorId})
+ and exists (select 1 from "user" u where u.id = ${actorId} and lower(btrim(u.email)) = ${projectInvite.email} and u.email_verified = true)
 					returning project_id, role
 				), membership as (
 					insert into ${projectMember} (project_id, user_id, role)

@@ -16,8 +16,26 @@ export const memberInput = projectIdInput.extend({
 	userId: z.string().min(1).max(128),
 });
 export const changeMemberInput = memberInput.extend({ role: memberRole });
-export const createInviteInput = projectIdInput.extend({ role: memberRole });
+export const invitationEmail = z
+	.string()
+	.trim()
+	.toLowerCase()
+	.pipe(z.email("Enter a valid email address.").max(254));
+export const invitationExpiry = z.union([
+	z.literal(1),
+	z.literal(7),
+	z.literal(30),
+]);
+export const createInviteInput = projectIdInput.extend({
+	email: invitationEmail,
+	role: memberRole,
+	expiresInDays: invitationExpiry.default(7),
+});
+export const projectAccessInput = projectIdInput.extend({
+	offset: z.number().int().min(0).max(1_000_000).default(0),
+});
 export const revokeInviteInput = projectIdInput.extend({ inviteId: z.uuid() });
+export const resendInviteInput = revokeInviteInput;
 export const inviteTokenInput = z.object({
 	token: z.string().regex(/^[a-f0-9]{64}$/, "Invalid invitation."),
 });

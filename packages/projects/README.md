@@ -6,26 +6,34 @@ Projects are private by default. `/dashboard` lists the current account's owned 
 | --- | --- | --- | --- |
 | Open project | Yes | Yes | Yes |
 | Rename project | Yes | Yes | No |
-| Create or revoke invite links | Yes | No | No |
+| Send, resend, or revoke invitations | Yes | No | No |
 | List and manage collaborators | Yes | No | No |
 
 Ownership lives on the project row. It cannot be removed or reassigned through collaborator operations. Memberships contain only editor and viewer roles. Ownership transfer, project deletion, teams, and canvas editing are outside this milestone.
 
 ## Invitation flow
 
-1. The owner creates a viewer or editor link from the project page.
-2. The owner copies and shares it. Kousa does not send an email.
-3. The recipient signs in or creates an account on the invitation page, reviews the role, and clicks **Accept invitation**.
-4. Kousa claims the invitation and inserts the membership in one database statement. Only one account can claim it, including under concurrent requests.
+1. The owner enters an email, chooses editor or viewer, and selects a 1, 7, or 30 day expiry.
+2. Kousa saves the invitation and sends its unique link through Resend. The owner sees the recipient, role, expiry, invitation status, and email-send status.
+3. The recipient signs in or creates an account with that email. If it is unverified, Kousa sends a separate verification email through Better Auth. The recipient verifies it and returns to the invitation to accept.
+4. Kousa checks the current account's email and verification status in the database, claims the invitation, and inserts membership in one database statement. Another account cannot preview or accept it.
 
-Links expire after seven days. An unused link can be revoked. Whoever possesses a link can accept it, so share it with the intended recipient only. Existing members retain their current role when accepting another invitation. Change their role using the owner's access controls. Removing a member does not revoke other unused invitations they may possess; revoke those separately. Accepted links cannot restore removed access.
+Email addresses are trimmed and lowercased. There is one current invitation per project and email, with pending, accepted, expired, or revoked status. The list includes all statuses, with 20 entries per page. It is not an audit log of every send attempt.
 
-Invitation tokens contain 32 random bytes. The database stores only their SHA-256 hashes. Raw tokens are returned once and appear in the generated URL fragment, not a query parameter or path. The fragment stays in the browser during sign-in and is removed after acceptance. RPC requests submit the token in a POST body, and error logging records error codes instead of request inputs or database causes. Pending-invitation listings never return tokens or hashes.
+Resending rotates the token, invalidates the old link, and renews the chosen expiry. Successful sends have a one-minute resend cooldown. A send without a response becomes retryable after two minutes; a reported failure can be retried immediately. Resends do not happen automatically. An inactive invitation can be replaced with a new role. Active members' roles are changed through collaborator controls instead.
+
+Email status is separate from invitation status. **Sent** means Resend accepted the message, not that it reached the inbox. Missing configuration displays **Not sent**. Provider rejections and uncertain results display a failure that the owner can retry. If a network response is lost but the email arrives, its link can still be accepted. A late response from an older send cannot overwrite a newer attempt's status.
+
+Invitation tokens contain 32 random bytes. The database stores only their SHA-256 hashes. Raw tokens appear only in emailed URL fragments, not the owner's API response, a query parameter, or a path. The fragment stays in the browser during sign-in and is removed after acceptance. RPC requests submit tokens in POST bodies; error logging records error codes instead of request inputs or database causes. Invitation listings never return tokens or hashes. Verification callbacks do not include the invitation token.
+
+Existing memberships retain their role if acceptance races with an owner assigning access. Accepted links cannot restore removed access. The owner can send a new invitation after removing a member. Existing sign-in and billing flows do not require email verification; invitation acceptance does.
 
 ## Enforcement and tests
 
 The oRPC router authenticates every operation, including invitation preview and acceptance. The actor always comes from the session. The service validates inputs and handles permission errors; database queries filter reads by access and include authorization in writes. An inaccessible project returns the same not-found response as a nonexistent one.
 
-`pnpm test` runs the real oRPC authentication and validation middleware, project service, Drizzle queries, and checked-in SQL migrations against isolated in-memory Postgres. Tests cover account isolation, pagination, each role, owner preservation, member downgrade/removal, token storage, expiration/revocation, concurrent acceptance, and replay after removal. Tests do not connect to Neon or create real accounts.
+`pnpm test` runs the real oRPC authentication and validation middleware, project service, Drizzle queries, and checked-in SQL migrations against isolated in-memory Postgres. Tests cover account isolation, roles, pagination, email matching and verification, duplicate and concurrent requests, delivery failures, resend rotation, expiry, revocation, and replay after removal. Email transport tests cover the Resend API with stubs. Tests do not connect to Neon or send real email.
 
-There is no new environment configuration. Alchemy applies `0002_needy_liz_osborn.sql` on the next development startup. Future canvas and collaboration endpoints must check project access on every operation and handle permission changes for open connections. These project permissions do not grant access to another account's billing balance.
+See [Resend email setup](../email/README.md) for the sending domain and environment variables. Alchemy applies `0003_wet_bromley.sql` on development startup. This migration revokes old unclaimed invitations without a recipient email and preserves accepted memberships. A dedicated migration test checks both cases.
+
+Future canvas and collaboration endpoints must check project access on every operation and handle permission changes for open connections. These project permissions do not grant access to another account's billing balance.

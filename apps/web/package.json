@@ -10,11 +10,12 @@
 		"build:cloudflare": "opennextjs-cloudflare build"
 	},
 	"dependencies": {
-		"@kousa/billing": "workspace:*",
-		"@kousa/db": "workspace:*",
 		"@kousa/api": "workspace:*",
 		"@kousa/auth": "workspace:*",
+		"@kousa/billing": "workspace:*",
+		"@kousa/db": "workspace:*",
 		"@kousa/env": "workspace:*",
+		"@kousa/projects": "workspace:*",
 		"@kousa/ui": "workspace:*",
 		"@opennextjs/cloudflare": "catalog:",
 		"@orpc/client": "catalog:",
@@ -28,6 +29,7 @@
 		"@tanstack/react-query": "^5.101.4",
 		"babel-plugin-react-compiler": "^1.0.0",
 		"better-auth": "catalog:",
+		"critters": "npm:beasties@0.5.4",
 		"dotenv": "catalog:",
 		"evlog": "^2.27.1",
 		"lucide-react": "catalog:",
@@ -36,8 +38,7 @@
 		"react": "catalog:",
 		"react-dom": "catalog:",
 		"sonner": "catalog:",
-		"zod": "catalog:",
-		"@kousa/projects": "workspace:*"
+		"zod": "catalog:"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "catalog:",

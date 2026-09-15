@@ -2,11 +2,13 @@ import { sql } from "drizzle-orm";
 import {
 	check,
 	index,
+	integer,
 	pgEnum,
 	pgTable,
 	primaryKey,
 	text,
 	timestamp,
+	uniqueIndex,
 	uuid,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
@@ -69,7 +71,19 @@ export const projectInvite = pgTable(
 			.notNull()
 			.references(() => project.id, { onDelete: "cascade" }),
 		tokenHash: text("token_hash").notNull().unique(),
+		// Null is reserved for historical, disabled invitations from before email targeting.
+		email: text("email"),
 		role: projectMemberRole("role").notNull(),
+		expiresInDays: integer("expires_in_days").notNull().default(7),
+		deliveryStatus: text("delivery_status").notNull().default("sending"),
+		deliveryAttemptedAt: timestamp("delivery_attempted_at", {
+			withTimezone: true,
+		})
+			.defaultNow()
+			.notNull(),
+		sentAt: timestamp("sent_at", { withTimezone: true }),
+		deliveryError: text("delivery_error"),
+		messageId: text("message_id"),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.defaultNow()
 			.notNull(),
@@ -80,5 +94,27 @@ export const projectInvite = pgTable(
 			onDelete: "set null",
 		}),
 	},
-	(table) => [index("project_invite_project_id_idx").on(table.projectId)],
+	(table) => [
+		index("project_invite_project_id_idx").on(table.projectId),
+		uniqueIndex("project_invite_project_email_uidx").on(
+			table.projectId,
+			table.email,
+		),
+		check(
+			"project_invite_email_required",
+			sql`${table.email} is not null or ${table.revokedAt} is not null or ${table.acceptedAt} is not null`,
+		),
+		check(
+			"project_invite_email_normalized",
+			sql`${table.email} = lower(btrim(${table.email}))`,
+		),
+		check(
+			"project_invite_expiry_days",
+			sql`${table.expiresInDays} in (1, 7, 30)`,
+		),
+		check(
+			"project_invite_delivery_status",
+			sql`${table.deliveryStatus} in ('sending', 'sent', 'failed')`,
+		),
+	],
 );

@@ -13,7 +13,8 @@ This project was created with [Better-T-Stack](https://github.com/AmanVarshney01
 - **PostgreSQL** - Database engine
 - **Authentication** - Better-Auth
 - **Polar sandbox billing** - Verified payments grant credits once per order
-- **Projects and permissions** - Private projects with owner, editor, and viewer access through single-use invitations
+- **Projects and permissions** - Private projects with owner, editor, and viewer access through email invitations
+- **Resend email** - Expiring invitations bound to a verified email, with roles and invitation status
 - **Biome** - Linting and formatting
 - **Turborepo** - Optimized monorepo build system
 
@@ -33,7 +34,7 @@ Generate and commit migration SQL with `pnpm run db:generate`. Alchemy runs the 
 
 Sandbox credit purchases and webhook setup are documented in [packages/billing/README.md](packages/billing/README.md). The $5 test pack grants 500 credits after a verified `order.paid` delivery. Add `POLAR_WEBHOOK_SECRET` to `apps/web/.env` when connecting a Polar endpoint or local listener.
 
-Project creation, access rules, and invitation links are documented in [packages/projects/README.md](packages/projects/README.md). No additional environment variables are required.
+Project creation and access rules are documented in [packages/projects/README.md](packages/projects/README.md). Configure the sending domain and local email credentials using [packages/email/README.md](packages/email/README.md). Without email configuration, invitations are saved with a **Not sent** status.
 
 Then, run the development server:
 
@@ -87,6 +88,16 @@ Deploys are staged and default to a personal `dev_<username>` stage. For product
 cd packages/infra && pnpm exec alchemy deploy --stage production
 ```
 
+The web package supplies Next.js's optional `critters` dependency through the maintained [Beasties fork](https://github.com/danielroe/beasties). OpenNext needs to resolve that module when bundling the current Next.js runtime, even with critical CSS optimization disabled.
+
+For a packaging check without deployment, stop the development server and run:
+
+```bash
+DATABASE_URL=postgresql://build:build@127.0.0.1:9/kousa pnpm --filter web build:cloudflare
+```
+
+This placeholder lets Next.js construct the database client while determining which pages require a request. The build does not query the database. Alchemy supplies the real connection at runtime; never use this placeholder to run the application.
+
 ## Git Hooks and Formatting
 
 - Run checks: `pnpm run check`
@@ -102,6 +113,7 @@ kousa/
 │   ├── api/         # API layer / business logic
 │   ├── auth/        # Authentication configuration & logic
 │   ├── billing/     # Credit pack catalog, fulfillment, and webhook verification
+│   ├── email/       # Resend email transport and invitation/verification templates
 │   ├── projects/    # Project contracts, permissions, and invitation service
 │   └── db/          # Database schema & queries
 ```
@@ -112,7 +124,7 @@ kousa/
 - `pnpm run build`: Build all applications
 - `pnpm run dev:web`: Start only the web application
 - `pnpm run check-types`: Check TypeScript types across all apps
-- `pnpm test`: Run billing and project permissions integration tests against isolated local Postgres engines
+- `pnpm test`: Run billing and project integration tests against isolated Postgres engines, plus email transport tests
 - `pnpm run db:push`: Push schema changes to database
 - `pnpm run db:generate`: Generate SQL migrations from the Drizzle schema
 - `pnpm run db:migrate`: Run database migrations
