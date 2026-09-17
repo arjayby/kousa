@@ -1,10 +1,12 @@
 # Generation verification
 
-Last updated September 17, 2026, after adding workflow-wide execution. Speech workflow results were recorded for commit `631fb41`; video workflow results for `7942495`.
+Last updated September 17, 2026, after refining the workflow output picker. Workflow-wide execution results were recorded for commit `2d49fda`; speech workflow results for `631fb41`; video workflow results for `7942495`.
 
 Single-output and multi-output workflows across text, image, video and speech are implemented. Automated tests and browser checks passed, but successful speech and video generation through the real provider remain unverified. Local development can continue; complete the relevant provider checklist before releasing those features.
 
 ## Completed checks
+
+The table records the workflow-wide execution milestone. Checks for the subsequent picker refinement are recorded separately below.
 
 | Check | Result |
 | --- | --- |
@@ -23,11 +25,18 @@ Single-output and multi-output workflows across text, image, video and speech ar
 
 The workflow tests use isolated Postgres, fake providers and local media fixtures. New multi-output checks execute all four node kinds, share an exact text result across branches, preserve a completed video branch when speech fails, resume speech for 2 credits without repeating earlier work, enforce total cost and permissions, reject changed request-ID reuse in SQL, and resume older single-output plans. They cover exact output propagation, saved inputs and voice settings, recovery without resubmission, resuming only unfinished steps, access changes, and credit accounting. Speech tests also cover the 1,000-character Unicode limit, private audio retrieval, and preserving previous audio after a failed run. These checks do not establish provider eligibility, network reachability, or successful playback of a real provider result.
 
-No AI request was sent during the workflow-wide execution milestone. One read-only preview returned HTTP 500; retrying the same selection succeeded. The current browser preview showed 480 credits; the five-node graph was not changed. No additional environment variables or services are required.
+No AI request was sent during the workflow-wide execution milestone. One read-only preview returned HTTP 500; retrying the same selection succeeded. That milestone's browser preview showed 480 credits; the five-node graph was not changed. No additional environment variables or services are required.
 
 No AI request was sent during the earlier media-library milestone. The temporary image node used to check reuse was undone, leaving the original five-node Workflow example graph intact. Its Street narration node remains for later verification. The earlier speech-workflow milestone ended at 481 credits; balances and test counts recorded for earlier milestones are historical results.
 
 A real Text → Text → Image workflow was already verified, including completion after reload and shared progress across two tabs. See the dated results in [graph execution](graph-execution.md#setup-and-verification).
+
+## Output picker refinement
+
+- The five targeted graph suites passed all 65 tests, including eight new tests for redundant output selections, shared inputs, fixed project images, live graph edits and cycles. All 10 workspace type-check tasks passed. The full suite and production bundles were not rerun for this refinement.
+- The in-app browser confirmed that selecting Visual prompt followed by Coffee scene deselects and disables Visual prompt with **Included automatically**. The preview still includes Campaign brief, Visual prompt and Coffee scene for 5 credits. Removing Coffee scene re-enables its inputs without checking them and disables review until another output is selected.
+- Coffee video and Voiceover remain independently selected. Their preview lists six steps for 18 credits, with Campaign brief counted once. All outputs selected the four terminal nodes in the current eleven-node canvas.
+- Next.js reported no runtime or compilation errors. No AI generation was started, the preview balance remained 458 credits, and the canvas content was not edited. No environment changes or migrations are needed.
 
 ## Deferred provider checks
 

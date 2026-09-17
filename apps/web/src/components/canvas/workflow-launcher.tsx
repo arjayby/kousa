@@ -1,6 +1,7 @@
 "use client";
 
 import { graphOutputIds } from "@kousa/generation/graph-plan";
+import { selectGraphOutputs } from "@kousa/generation/graph-selection";
 import { Button } from "@kousa/ui/components/button";
 import { Checkbox } from "@kousa/ui/components/checkbox";
 import {
@@ -13,6 +14,8 @@ import {
 } from "@kousa/ui/components/dialog";
 import {
 	Field,
+	FieldContent,
+	FieldDescription,
 	FieldGroup,
 	FieldLabel,
 	FieldLegend,
@@ -35,14 +38,16 @@ export function WorkflowLauncher({
 	const [open, setOpen] = useState(false);
 	const [chosen, setChosen] = useState<string[]>([]);
 	const id = useId();
-	const outputs = graphOutputIds(documentFromGraph(graph));
+	const document = documentFromGraph(graph);
+	const outputs = graphOutputIds(document);
 	const selected = graph.nodes
 		.filter((node) => node.selected)
 		.map((node) => node.id);
-	// Collaborators can remove nodes while the chooser is open.
-	const targets = chosen.filter((nodeId) =>
-		graph.nodes.some((node) => node.id === nodeId),
-	);
+	// Recompute when collaborators change nodes, connections, or image sources.
+	const { targets, included } = selectGraphOutputs(document, chosen);
+	function choose(nodeIds: string[]) {
+		setChosen(selectGraphOutputs(document, nodeIds).targets);
+	}
 	const disabled =
 		!workflow.canRun ||
 		!workflow.configured ||
@@ -58,7 +63,7 @@ export function WorkflowLauncher({
 				size="sm"
 				disabled={disabled || !graph.nodes.length}
 				onClick={() => {
-					setChosen(outputs);
+					choose(outputs);
 					setOpen(true);
 				}}
 			>
@@ -87,7 +92,7 @@ export function WorkflowLauncher({
 							variant="outline"
 							size="sm"
 							disabled={workflow.pending || !outputs.length}
-							onClick={() => setChosen(outputs)}
+							onClick={() => choose(outputs)}
 						>
 							All outputs
 						</Button>
@@ -95,7 +100,7 @@ export function WorkflowLauncher({
 							variant="outline"
 							size="sm"
 							disabled={workflow.pending || !selected.length}
-							onClick={() => setChosen(selected)}
+							onClick={() => choose(selected)}
 						>
 							Use canvas selection
 						</Button>
@@ -110,7 +115,8 @@ export function WorkflowLauncher({
 					</div>
 					<p className="text-muted-foreground text-xs">
 						All outputs selects nodes with no outgoing connections. You can also
-						choose any intermediate node.
+						choose any intermediate node. Inputs marked “Included automatically”
+						will run with your selected outputs.
 					</p>
 					<FieldSet disabled={workflow.pending}>
 						<FieldLegend variant="label">
@@ -118,27 +124,51 @@ export function WorkflowLauncher({
 						</FieldLegend>
 						<FieldGroup className="max-h-64 overflow-y-auto py-1">
 							{graph.nodes.map((node) => (
-								<Field key={node.id} orientation="horizontal">
+								<Field
+									key={node.id}
+									orientation="horizontal"
+									data-disabled={workflow.pending || included.has(node.id)}
+								>
 									<Checkbox
 										id={`${id}-${node.id}`}
 										checked={targets.includes(node.id)}
+										disabled={workflow.pending || included.has(node.id)}
+										aria-describedby={
+											included.has(node.id)
+												? `${id}-${node.id}-included`
+												: undefined
+										}
 										onCheckedChange={(checked) =>
-											setChosen((current) =>
-												checked
-													? [...current, node.id]
-													: current.filter((value) => value !== node.id),
-											)
+											setChosen((current) => {
+												const active = selectGraphOutputs(
+													document,
+													current,
+												).targets;
+												return selectGraphOutputs(
+													document,
+													checked
+														? [...active, node.id]
+														: active.filter((value) => value !== node.id),
+												).targets;
+											})
 										}
 									/>
-									<FieldLabel
-										htmlFor={`${id}-${node.id}`}
-										className="min-w-0 break-words"
-									>
-										{node.data.label || node.type}
-										<span className="shrink-0 text-muted-foreground text-xs">
-											{node.type}
-										</span>
-									</FieldLabel>
+									<FieldContent>
+										<FieldLabel
+											htmlFor={`${id}-${node.id}`}
+											className="min-w-0 break-words"
+										>
+											{node.data.label || node.type}
+											<span className="shrink-0 text-muted-foreground text-xs">
+												{node.type}
+											</span>
+										</FieldLabel>
+										{included.has(node.id) ? (
+											<FieldDescription id={`${id}-${node.id}-included`}>
+												Included automatically
+											</FieldDescription>
+										) : null}
+									</FieldContent>
 								</Field>
 							))}
 						</FieldGroup>

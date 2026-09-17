@@ -14,6 +14,7 @@ import {
 	videoDurations,
 	videoModels,
 } from "./contracts";
+import { graphDependencies } from "./graph-selection";
 import {
 	buildImagePrompt,
 	buildPrompt,
@@ -87,6 +88,7 @@ export async function planGraph(
 			"Choose between 1 and 20 workflow outputs.",
 		);
 	const nodes = new Map(graph.nodes.map((node) => [node.id, node]));
+	const dependencies = graphDependencies(graph);
 	const visiting = new Set<string>();
 	const visited = new Set<string>();
 	const ordered: string[] = [];
@@ -114,21 +116,7 @@ export async function planGraph(
 				"Choose text, image, video, or speech nodes for this workflow.",
 			);
 		visiting.add(id);
-		for (const edge of graph.edges
-			.filter((edge) => edge.target === id)
-			.sort((a, b) => a.id.localeCompare(b.id))) {
-			const source = nodes.get(edge.source);
-			// A selected project image is a fixed input, not a request to regenerate it.
-			if (
-				node.type === "video" &&
-				edge.targetHandle === "image" &&
-				source?.type === "image" &&
-				(source.data.imageSource ??
-					(source.data.assetId ? "project" : "generated")) === "project"
-			)
-				continue;
-			visit(edge.source);
-		}
+		for (const source of dependencies.get(id) ?? []) visit(source);
 		visiting.delete(id);
 		visited.add(id);
 		ordered.push(id);

@@ -8,9 +8,9 @@ The canvas shows a workflow progress button and a status on each participating n
 
 ## Multiple outputs
 
-The toolbar's **Run workflow** chooser defaults to **All outputs**: nodes without outgoing connections, including disconnected nodes. **Use canvas selection** replaces that set with the nodes selected on the canvas. Any intermediate node can also be selected explicitly. The next dialog identifies each selected output, lists shared inputs once, and shows the combined credit reservation before starting.
+The toolbar's **Run workflow** chooser defaults to **All outputs**: nodes without outgoing connections, including disconnected nodes. **Use canvas selection** replaces that set with the nodes selected on the canvas. Any intermediate node can also be selected explicitly. Selecting a downstream output automatically deselects its upstream inputs and disables their checkboxes with **Included automatically**. They remain part of the run. Removing the output makes those inputs selectable again without checking them. Both bulk-selection buttons use the same rule, and separate output branches remain selectable together. The next dialog identifies each selected output, lists shared inputs once, and shows the combined credit reservation before starting.
 
-For example, Text → Image → Video and the same Text → Speech cost 16 credits together (1 + 3 + 10 + 2). The common text runs once and feeds both branches by its exact generation ID. Selecting that text as an additional output does not add another generation or charge. Changing the output set invalidates the reviewed hash, even when it would execute the same steps; merely reordering the selection does not.
+For example, Text → Image → Video and the same Text → Speech cost 16 credits together (1 + 3 + 10 + 2). The common text runs once and feeds both branches by its exact generation ID. Its checkbox is disabled because it is included automatically. Changing the output set invalidates the reviewed hash, even when it would execute the same steps; merely reordering the selection does not.
 
 Branches execute one step at a time in dependency order. There are no parallel provider submissions. A failure stops the whole workflow, releases unfinished reservations, and leaves successful branches saved. **Review and resume** keeps the original output selection, prompts, settings and successful child IDs. Only the unfinished steps reserve credits again. Changes to the canvas after the run started do not alter its resume plan.
 
@@ -20,7 +20,7 @@ The progress dialog marks selected outputs and shows both their completion count
 
 When an Image node shows **Latest generation**, a video workflow runs that image and its text dependencies first, even if older outputs already exist. Video receives the new image from this workflow. On resume, a completed image child is reused by its original generation ID for zero additional credits. The video does not switch to a later image generated elsewhere.
 
-When the source Image node has a project image selected, video uses that fixed asset. Its image-generation branch is excluded from the plan and has no generation charge unless that image is also explicitly selected as an output or needed by another branch. Selecting it separately regenerates the image, but the video still uses its original fixed asset. An independently connected Text → Video prompt branch still runs. The review dialog explains whether the video uses a new workflow image or a selected project image. Missing or inaccessible project images fail validation before any credits are reserved.
+When the source Image node has a project image selected, video uses that fixed asset. Its image-generation branch is excluded from the plan and has no generation charge unless that image is also explicitly selected as an output or needed by another branch. The picker keeps that image branch selectable because it is not generated automatically. Selecting it separately regenerates the image, but the video still uses its original fixed asset. An independently connected Text → Video prompt branch still runs. The review dialog explains whether the video uses a new workflow image or a selected project image. Missing or inaccessible project images fail validation before any credits are reserved.
 
 Five-second video costs 10 Kousa credits; ten-second video costs 20. A Text → Image → Video run costs 14 or 24 credits. Each additional text node costs one credit. A selected project image → Video run costs 10 or 20 credits. All prices come from the same generation contract as individual jobs.
 
@@ -94,6 +94,14 @@ Multi-output workflow verification on September 17, 2026:
 - Selecting Scene idea and Kyoto scene showed two outputs across three steps for 5 credits. **Clear** disabled review; **Use canvas selection** selected the highlighted node. An initial custom-preview request returned HTTP 500; retrying succeeded.
 - The historical failed speech run remained readable and offered resume for 2 credits, reusing its completed text for zero credits. No new generation or resume was started. The balance stayed at 480 credits and the five-node graph was unchanged.
 - Execution and partial-failure resume across all four node types passed with fake providers and local media fixtures. A real multi-output speech/video run remains deferred under the existing provider prerequisites.
+
+Output picker refinement verification on September 17, 2026:
+
+- All 65 tests in the five targeted graph suites passed, including eight new selection tests. All 10 workspace type-check tasks passed. The full test suite and production bundles were not rerun for this refinement.
+- In the in-app browser, selecting Visual prompt followed by Coffee scene left one selected output. Visual prompt and Campaign brief became unchecked, disabled inputs marked **Included automatically**. Review still listed all three steps for 5 credits.
+- Unchecking Coffee scene left zero outputs, re-enabled its inputs without selecting them, and disabled review. Selecting Coffee video and Voiceover kept two outputs and reviewed six steps for 18 credits, with Campaign brief appearing once. All outputs selected four terminal nodes across the two example workflows.
+- Tests also cover selected project images, separately connected video prompts, shared inputs, bulk selections, live canvas edits and cycles. The picker and planner share their dependency rules.
+- Next.js reported no runtime or compilation errors. No generation was started; the preview balance remained 458 credits. No setup or migration is required.
 
 ## Pending live video workflow verification
 
