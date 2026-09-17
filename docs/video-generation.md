@@ -8,7 +8,7 @@ Connected text uses its last successful output, or its written text if it has no
 
 ## Provider and setup
 
-The model is `bytedance/seedance-v1.0-pro-fast` through the existing Vercel AI Gateway key. No additional provider keys are needed. Image-to-video also needs a public HTTPS origin serving the app and its private media binding (see below). Run `pnpm dev` from the repository root: Alchemy applies migrations through `0013_image_to_video`, starts the jobs Worker and Next.js, and connects both to shared private R2 storage.
+The model is `bytedance/seedance-v1.0-pro-fast` through the existing Vercel AI Gateway key. No additional provider keys are needed. Image-to-video also needs a public HTTPS origin serving the app and its private media binding (see below). Run `pnpm dev` from the repository root: Alchemy applies migrations through `0014_video_workflows`, starts the jobs Worker and Next.js, and connects both to shared private R2 storage.
 
 On September 17, 2026, [Gateway's model page](https://vercel.com/ai-gateway/models/seedance-v1.0-pro-fast) listed 480p output at **$0.0097 per second** and **Free Tier: No**. That is approximately $0.0485 for 5 seconds or $0.097 for 10 seconds before any other charges. Paid Gateway credits are required; the free $5 allowance cannot run this model. Availability and pricing may change.
 
@@ -40,6 +40,8 @@ A lost submission response is not automatically resubmitted. Kousa releases its 
 
 ## Verification
 
+The [verification summary](verification.md) records the latest passing checks and deferred provider tests. The counts below describe separate milestones, not additional tests to add together.
+
 Automated tests use locally generated H.264 color clips and a mock Gateway; they do not contact a paid provider. They cover uploaded/generated input selection, image-only requests, changed-image conflicts, same-project validation, scoped GET/HEAD delivery, invalid/expired tokens, revoked access, token persistence failures, saved-operation recovery, duplicate submissions, lost acknowledgements, transient polling/storage failures, timeout, immutable settings, actor billing, revoked permissions, private byte ranges, malformed MP4s, bounded downloads, and concurrent shared settings.
 
 Pending real-provider checks:
@@ -53,9 +55,10 @@ Pending real-provider checks:
 - [ ] Confirm the payer is charged exactly 10 Kousa credits once; test 10-second pricing separately.
 - [ ] Verify portrait and square output before exposing all aspect ratios in production.
 
-Audio attachment and cancellation remain later steps. [Run to this node](graph-execution.md) supports Text → Text → Image → Video, including exact image propagation and resuming completed upstream steps. Speech’s real-provider verification is also still pending.
+Audio attachment and cancellation remain later steps. [Run to this node](graph-execution.md) supports Text → Text → Image → Video, including exact image propagation and resuming completed upstream steps. Its [live workflow checklist](graph-execution.md#pending-live-video-workflow-verification) is also pending, along with speech's real-provider verification.
 
-Text-to-video verification (earlier milestone, September 17, 2026): all 219 tests passed, workspace types passed, and both Cloudflare bundles built. Alchemy applied migration `0011_video_generation` to the development database. The in-app browser confirmed the Video controls, 5/10-second pricing, Text → Video connection, unsupported-audio validation, saved settings, and live prompt/settings updates across two tabs. Next.js reported no runtime or compilation errors. The test account remains at 491 credits. A five-second landscape node named “Kousa motion” is connected to the existing Text node; no provider request was submitted.
-
+Text-to-video verification (earlier milestone, September 17, 2026): all 219 tests passed, workspace types passed, and both Cloudflare bundles built. Alchemy applied migration `0011_video_generation` to the development database. The in-app browser confirmed the Video controls, 5/10-second pricing, Text → Video connection, unsupported-audio validation, saved settings, and live prompt/settings updates across two tabs. Next.js reported no runtime or compilation errors. At that milestone, the test account remained at 491 credits. A five-second landscape node named “Kousa motion” was connected to the existing Text node; no provider request was submitted.
 
 Image-to-video verification on September 17, 2026: all **257 tests** passed, all ten workspace type-check tasks passed, and the jobs and OpenNext Cloudflare builds succeeded. Alchemy applied `0013_image_to_video` to the development database. In-app browser checks confirmed generated-image and manually selected project-image previews, missing-image validation, 5/10-second pricing, saved connections and settings after reload, and the localhost delivery guard. The actual input endpoint returned a private, non-cacheable 404 for invalid access; its query was absent from application request logs. Next.js reported no runtime or compilation issues. No AI request was submitted in this milestone. “Kyoto motion” remains connected to “Kyoto scene” in the Workflow example project, ready for later funded verification with a public origin.
+
+Video workflow verification on September 17, 2026, commit `7942495`: all **273 tests**, all ten workspace type-check tasks, and both Cloudflare builds passed. Alchemy applied `0014_video_workflows`. Browser checks confirmed the 15/25-credit four-step previews, 10-credit selected-image path, image-source explanations, and disabled start when the public origin is missing. No provider request was sent; the balance stayed at 481 credits. [Detailed results](graph-execution.md#setup-and-verification).

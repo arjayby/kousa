@@ -32,6 +32,8 @@ See [background generation](background-generation.md) for interrupted provider c
 
 ## Verification
 
+See the [verification summary](verification.md) for the latest repository checks. Speech's provider checks below remain pending; passing later test suites does not complete them.
+
 Pending real-provider checks:
 
 - [ ] Generate a short clip through Gateway and the native background workflow.
@@ -42,4 +44,4 @@ Pending real-provider checks:
 
 `pnpm test` covers immutable speech inputs, voice/model allowlists, connected text, limits, permissions, one-time charging, receipt recovery, failed-run refunds, MP3 validation, private byte-range playback, and shared voice edits. The MP3 fixture is a generated 0.2-second sine tone, not a provider recording. Production builds and a real Gateway/native Workflow run are separate checks; a mock provider test cannot establish account eligibility or production performance.
 
-Verified locally on September 17, 2026: 194 tests passed, workspace types and both Cloudflare bundles passed. The in-app browser confirmed the speech controls, Text → Speech connection, persistence, and live voice/direction updates across two tabs. Next.js reported no runtime or compilation errors after fixing an uncontrolled shared-field warning. Real speech generation and playback of a Gateway result remain unverified: the account rejected the initial API probe and paid credits could not be enabled. No Kousa credits were spent; the test account remains at 491.
+Verified locally on September 17, 2026: 194 tests passed, workspace types and both Cloudflare bundles passed. The in-app browser confirmed the speech controls, Text → Speech connection, persistence, and live voice/direction updates across two tabs. Next.js reported no runtime or compilation errors after fixing an uncontrolled shared-field warning. Real speech generation and playback of a Gateway result remain unverified: the account rejected the initial API probe and paid credits could not be enabled. No Kousa credits were spent during that milestone; the test account remained at 491.

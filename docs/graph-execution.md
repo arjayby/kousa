@@ -42,7 +42,7 @@ Automated checks cover graph order, shared ancestors, exclusions, cycles, unsupp
 
 Run the tests with `pnpm test`, and types with `pnpm check-types`. `pnpm --filter @kousa/jobs build` creates a Worker dry-run bundle. Stop dev before `pnpm --filter web build:cloudflare`; outside Alchemy, that compile check needs a syntactically valid `DATABASE_URL` even though it does not query the database during the build.
 
-Speech and video real-provider verification remains deferred until the Gateway account supports those models.
+Speech and video real-provider verification remains deferred until the Gateway account supports those models. See the [verification summary](verification.md) for completed checks and remaining prerequisites.
 
 Initial Text → Text → Image verification on September 17, 2026:
 
@@ -59,3 +59,14 @@ Text → Image → Video extension verification on September 17, 2026:
 - In the in-app browser, the existing Text → Text → Image → Video canvas quoted 15 credits for five seconds and 25 for ten seconds. Selecting a project image reduced the plan to the video step at 10 credits. The preview explained which starting image would be used.
 - The missing public HTTPS image origin disabled starting before any credits could be reserved. Browser and Next.js runtime checks reported no errors. Original canvas selections were restored after verification.
 - No provider calls were made, and the balance remained at 481 credits. Exact image propagation, durable execution, recovery, access checks and credit accounting were exercised with isolated Postgres and fake providers. A real video workflow remains unverified until public HTTPS image delivery and paid Gateway access are available.
+
+## Pending live video workflow verification
+
+These checks require paid Gateway access and a reachable [public HTTPS image origin](video-generation.md#private-starting-images). They have not been run against the real video provider.
+
+- [ ] Run Text → Image → Video with **Latest generation** selected. Confirm video receives the image asset from this workflow's image step, even when that node has an older successful output.
+- [ ] Confirm the five-second preview quotes 14 credits, or 15 for the existing Text → Text → Image → Video example. Check the initiating user's final charge matches the preview exactly once.
+- [ ] Reload while video is pending and inspect progress in a second tab. Confirm completion persists without a second provider submission.
+- [ ] Play, seek and download the saved clip as an editor and viewer, including after reload.
+- [ ] Run with a selected project image. Confirm its generation ancestors are excluded and the five-second video-only plan charges 10 credits once.
+- [ ] Exercise a controlled failure after upstream steps finish. Review and resume, confirming completed steps cost zero, the video uses the original completed image, and only unfinished steps are charged. Recovery and failure accounting currently have automated coverage only.
