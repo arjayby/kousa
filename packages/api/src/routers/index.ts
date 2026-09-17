@@ -3,10 +3,12 @@ import type { RouterClient } from "@orpc/server";
 
 import { protectedProcedure, publicProcedure } from "../index";
 import { createGenerationRouter } from "./generation";
+import { createGraphRouter } from "./graph";
 import { createProjectsRouter } from "./projects";
 
 export const appRouter = {
 	generation: createGenerationRouter(),
+	graph: createGraphRouter(),
 	projects: createProjectsRouter(),
 	credits: {
 		summary: protectedProcedure.handler(({ context }) =>

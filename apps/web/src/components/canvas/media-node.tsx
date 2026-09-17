@@ -15,6 +15,7 @@ import {
 	useNodeRun,
 	useNodeSpeech,
 	useNodeVideo,
+	useWorkflowStep,
 } from "./canvas-generation";
 import { AssetPreview, AudioPreview, VideoPreview } from "./canvas-media";
 import type { StudioNode } from "./use-canvas";
@@ -47,6 +48,7 @@ export const MediaNode = memo(function MediaNode({
 }: NodeProps<StudioNode>) {
 	const kind = type ?? "text";
 	const run = useNodeRun(id);
+	const workflowStep = useWorkflowStep(id);
 	const imageResult = useNodeImage(id);
 	const speechResult = useNodeSpeech(id);
 	const videoResult = useNodeVideo(id);
@@ -71,6 +73,22 @@ export const MediaNode = memo(function MediaNode({
 				</div>
 			</div>
 			<div className="studio-node-body">
+				{workflowStep ? (
+					<p className="mb-2 text-[10px] text-muted-foreground">
+						Workflow ·{" "}
+						{workflowStep.reused
+							? "Reused"
+							: workflowStep.status === "succeeded"
+								? "Complete"
+								: workflowStep.status === "running"
+									? "Generating"
+									: workflowStep.status === "failed"
+										? "Failed"
+										: workflowStep.status === "blocked"
+											? "Blocked"
+											: "Waiting"}
+					</p>
+				) : null}
 				{kind === "image" && assetId ? (
 					<AssetPreview key={assetId} assetId={assetId} compact />
 				) : null}

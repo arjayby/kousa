@@ -1,7 +1,8 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { creditGrant } from "./schema/credits";
 import { generationRun } from "./schema/generations";
+import { graphRun } from "./schema/graph-runs";
 
 type Database = Pick<
 	PgDatabase<PgQueryResultHKT>,
@@ -18,6 +19,9 @@ export const availableCredits = (userId: string) =>
 ) - (
 	select coalesce(sum(credits), 0) from ${generationRun} where user_id = ${userId}
 	and (status = 'succeeded' or (status in ('queued', 'running') and expires_at > now()))
+) - (
+	select coalesce(sum(remaining_credits), 0) from ${graphRun} where user_id = ${userId}
+	and status = 'running' and expires_at > now()
 )`.mapWith(Number);
 
 export function createGenerationStore(db: Database) {
@@ -115,6 +119,7 @@ export function createGenerationStore(db: Database) {
 				.from(generationRun)
 				.where(
 					and(
+						isNull(generationRun.graphRunId),
 						inArray(generationRun.status, ["queued", "running"]),
 						sql`${generationRun.expiresAt} > now()`,
 					),

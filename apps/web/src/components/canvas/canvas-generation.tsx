@@ -54,6 +54,7 @@ import {
 	AudioPreview,
 	VideoPreview,
 } from "./canvas-media";
+import { useGraphRuns, WorkflowControls } from "./canvas-workflow";
 import {
 	documentFromGraph,
 	type StudioGraph,
@@ -75,6 +76,7 @@ export function useCanvasGeneration({
 	loaded: boolean;
 }) {
 	const cache = useQueryClient();
+	const workflow = useGraphRuns({ userId, projectId, graph, canRun, loaded });
 	const nodeIds = graph.nodes
 		.filter(
 			(n) =>
@@ -163,6 +165,7 @@ export function useCanvasGeneration({
 		}
 	}
 	return {
+		workflow,
 		runs,
 		imageResults: new Map(
 			(query.data?.imageResults ?? []).map((run) => [run.nodeId, run]),
@@ -186,9 +189,13 @@ export function useCanvasGeneration({
 		error,
 		canRun,
 		graph,
-		myRunActive: (query.data?.runs ?? []).some(
-			(r) => r.userId === userId && isRunActive(r),
-		),
+		myRunActive:
+			!!workflow.active ||
+			workflow.pending ||
+			workflow.uncertain ||
+			(query.data?.runs ?? []).some(
+				(r) => r.userId === userId && isRunActive(r),
+			),
 	};
 }
 type GenerationContextValue = ReturnType<typeof useCanvasGeneration>;
@@ -197,6 +204,11 @@ export const GenerationContext = createContext<GenerationContextValue | null>(
 );
 export function useNodeRun(id: string): PublicRun | undefined {
 	return useContext(GenerationContext)?.runs.get(id);
+}
+export function useWorkflowStep(id: string) {
+	const workflow = useContext(GenerationContext)?.workflow;
+	const run = workflow?.active ?? workflow?.latest;
+	return run?.steps.find((step) => step.nodeId === id);
 }
 
 export function useNodeImage(id: string): PublicRun | undefined {
@@ -430,6 +442,18 @@ export function GenerationPanel({
 					everyone.
 				</p>
 			)}
+			{kind === "text" || kind === "image" ? (
+				<WorkflowControls
+					workflow={generation.workflow}
+					nodeId={node.id}
+					canEdit={canEdit}
+					onStart={
+						kind === "image"
+							? () => update({ imageSource: "generated" }, "imageSource")
+							: undefined
+					}
+				/>
+			) : null}
 			{pending ? (
 				<p role="status" className="text-muted-foreground text-xs">
 					{runProgress(run) ?? "Queuing…"} You can leave this page. The result

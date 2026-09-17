@@ -4,11 +4,13 @@ import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { createCreditStore } from "./src/credit-store";
 import { createGenerationStore } from "./src/generation-store";
+import { createGraphStore } from "./src/graph-store";
 import { createMediaStore } from "./src/media-store";
 import { createProjectStore } from "./src/project-store";
 import { user } from "./src/schema/auth";
 import { creditGrant } from "./src/schema/credits";
 import { generationRun } from "./src/schema/generations";
+import { graphRun } from "./src/schema/graph-runs";
 import { mediaAsset } from "./src/schema/media";
 import { project, projectMember } from "./src/schema/projects";
 
@@ -21,11 +23,13 @@ export async function createGenerationTestDatabase() {
 	});
 	return {
 		store: createGenerationStore(db),
+		graphs: createGraphStore(db),
 		media: createMediaStore(db),
 		credits: createCreditStore(db),
 		projects: createProjectStore(db),
 		async reset() {
 			await db.delete(generationRun);
+			await db.delete(graphRun);
 			await db.delete(mediaAsset);
 			await db.delete(project);
 			await db.delete(creditGrant);
@@ -74,6 +78,12 @@ export async function createGenerationTestDatabase() {
 				.update(generationRun)
 				.set({ expiresAt: new Date(0) })
 				.where(eq(generationRun.id, id));
+		},
+		expireGraph(id: string) {
+			return db
+				.update(graphRun)
+				.set({ expiresAt: new Date(0) })
+				.where(eq(graphRun.id, id));
 		},
 		interrupt(id: string) {
 			return db

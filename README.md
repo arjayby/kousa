@@ -50,6 +50,8 @@ Open [http://localhost:3001](http://localhost:3001) in your browser to see the f
 
 ## UI Customization
 
+Connected text and image workflows are documented in [Run to this node](docs/graph-execution.md).
+
 Generation setup and billing behavior are documented in [Text generation](docs/text-generation.md), [Image generation](docs/image-generation.md), [Speech generation](docs/speech-generation.md), and [Video generation](docs/video-generation.md).
 
 React web apps in this stack share shadcn/ui primitives through `packages/ui`.

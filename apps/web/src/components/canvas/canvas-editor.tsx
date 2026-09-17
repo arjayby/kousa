@@ -55,6 +55,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { GenerationContext, useCanvasGeneration } from "./canvas-generation";
 import { CanvasMediaProvider } from "./canvas-media";
 import { CanvasCursors, CanvasPeople } from "./canvas-presence";
+import { WorkflowMonitor } from "./canvas-workflow";
 import { MediaNode, nodeDescriptions, nodeIcons } from "./media-node";
 import { NodeInspector } from "./node-inspector";
 import {
@@ -478,6 +479,7 @@ function Editor({
 					})}
 				</section>
 				<div className="ml-auto flex items-center gap-1">
+					<WorkflowMonitor workflow={generation.workflow} />
 					{session ? <CanvasPeople session={session} /> : null}
 					<Button
 						variant="ghost"

@@ -5,6 +5,7 @@ import {
 } from "cloudflare:workers";
 import { databaseClient } from "@kousa/db/client";
 import { createGenerationStore } from "@kousa/db/generation-store";
+import { createGraphStore } from "@kousa/db/graph-store";
 import { createMediaStore } from "@kousa/db/media-store";
 import { createProjectStore } from "@kousa/db/project-store";
 import {
@@ -13,6 +14,7 @@ import {
 	createGatewaySpeechProvider,
 } from "@kousa/generation/gateway";
 import { createGatewayVideoProvider } from "@kousa/generation/gateway-video";
+import { executeGraphWorkflow } from "@kousa/generation/graph-workflow";
 import { createGenerationRunner } from "@kousa/generation/runner";
 import { executeGenerationWorkflow } from "@kousa/generation/workflow";
 import { createMediaService } from "@kousa/media/service";
@@ -42,7 +44,7 @@ function runtime(env: JobsEnv) {
 		createGatewaySpeechProvider(env.AI_GATEWAY_API_KEY),
 		createGatewayVideoProvider(env.AI_GATEWAY_API_KEY),
 	);
-	return { store, runner };
+	return { store, runner, graphs: createGraphStore(db) };
 }
 export class GenerationWorkflow extends WorkflowEntrypoint<
 	JobsEnv,
@@ -54,7 +56,10 @@ export class GenerationWorkflow extends WorkflowEntrypoint<
 	) {
 		const id = z.uuid().parse(event.payload.runId);
 		if (event.instanceId !== id) throw new Error("Workflow identity mismatch");
-		return executeGenerationWorkflow(id, runtime(this.env).runner, step);
+		const { store, runner, graphs } = runtime(this.env);
+		if (await graphs.get(id))
+			return executeGraphWorkflow(id, graphs, store, runner, step);
+		return executeGenerationWorkflow(id, runner, step);
 	}
 }
 async function enqueue(env: JobsEnv, ids: string[]) {
@@ -65,19 +70,28 @@ async function enqueue(env: JobsEnv, ids: string[]) {
 	);
 }
 async function recover(env: JobsEnv) {
-	const { store, runner } = runtime(env);
+	const { store, runner, graphs } = runtime(env);
 	await store.expire();
+	await graphs.expire();
 	const pending = await store.pending();
+	const pendingGraphs = await graphs.pending();
 	await enqueue(
 		env,
-		pending.map((run) => run.id),
+		[...pending, ...pendingGraphs].map((run) => run.id),
 	);
-	for (const run of pending) {
+	for (const run of [...pending, ...pendingGraphs]) {
 		const instance = await env.GENERATION.get(run.id);
 		const status = await instance.status();
 		if (status.status === "errored" || status.status === "terminated") {
-			await runner.fail(run.id);
-			await runner.cleanup(run.id);
+			if (pendingGraphs.some((graph) => graph.id === run.id)) {
+				await graphs.finish(
+					run.id,
+					"The workflow was interrupted. Resume to continue unfinished steps.",
+				);
+			} else {
+				await runner.fail(run.id);
+				await runner.cleanup(run.id);
+			}
 		}
 	}
 }
@@ -89,10 +103,16 @@ export default {
 		const parsed = z.uuid().safeParse(match?.[1]);
 		if (request.method !== "POST" || !parsed.success)
 			return new Response("Not found", { status: 404 });
-		const { store } = runtime(env);
+		const { store, graphs } = runtime(env);
+		const graph = await graphs.get(parsed.data);
+		if (graph?.status === "running" && graph.expiresAt.getTime() > Date.now()) {
+			await enqueue(env, [graph.id]);
+			return new Response(null, { status: 202 });
+		}
 		const run = await store.get(parsed.data);
 		if (
 			!run ||
+			run.graphRunId ||
 			!["queued", "running"].includes(run.status) ||
 			run.expiresAt.getTime() <= Date.now()
 		)

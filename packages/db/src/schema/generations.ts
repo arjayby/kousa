@@ -11,6 +11,7 @@ import {
 	uuid,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
+import { graphRun } from "./graph-runs";
 import { mediaAsset } from "./media";
 import { project } from "./projects";
 
@@ -20,6 +21,9 @@ export const generationRun = pgTable(
 	"generation_run",
 	{
 		id: uuid("id").primaryKey(),
+		graphRunId: uuid("graph_run_id").references(() => graphRun.id, {
+			onDelete: "restrict",
+		}),
 		projectId: uuid("project_id")
 			.notNull()
 			.references(() => project.id, { onDelete: "restrict" }),
