@@ -75,6 +75,12 @@ export async function createGenerationTestDatabase() {
 				.set({ expiresAt: new Date(0) })
 				.where(eq(generationRun.id, id));
 		},
+		interrupt(id: string) {
+			return db
+				.update(generationRun)
+				.set({ providerStartedAt: new Date(Date.now() - 180_000) })
+				.where(eq(generationRun.id, id));
+		},
 		close: () => db.$client.close(),
 	};
 }

@@ -12,7 +12,8 @@ import {
 } from "vitest";
 import { defaultTextModel } from "../src/contracts";
 import { buildPrompt, textInputHash, textInputSnapshot } from "../src/input";
-import { createGenerationService, type TextProvider } from "../src/service";
+import type { TextProvider } from "../src/service";
+import { inlineService } from "./helpers";
 
 let database: Awaited<ReturnType<typeof createGenerationTestDatabase>>;
 let projectId: string;
@@ -34,8 +35,7 @@ const projects = () =>
 			send: async () => ({ messageId: null }),
 		},
 	});
-const service = () =>
-	createGenerationService(database.store, projects(), provider);
+const service = () => inlineService(database.store, projects(), provider);
 const input = async (nodeId = target.id) => ({
 	id: crypto.randomUUID(),
 	projectId,
@@ -217,11 +217,8 @@ describe("generation and credit ledger", () => {
 			finish: vi.fn().mockRejectedValue(new Error("Database offline")),
 		};
 		await expect(
-			createGenerationService(store, projects(), provider).generate(
-				"owner",
-				request,
-			),
-		).rejects.toThrow("Database offline");
+			inlineService(store, projects(), provider).generate("owner", request),
+		).resolves.toMatchObject({ status: "running" });
 		expect((await service().generate("owner", request)).status).toBe("running");
 		expect(generate).toHaveBeenCalledTimes(1);
 	});

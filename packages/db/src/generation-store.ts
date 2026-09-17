@@ -17,7 +17,7 @@ export const availableCredits = (userId: string) =>
 	select coalesce(sum(credits), 0) from ${creditGrant} where user_id = ${userId}
 ) - (
 	select coalesce(sum(credits), 0) from ${generationRun} where user_id = ${userId}
-	and (status = 'succeeded' or (status = 'running' and expires_at > now()))
+	and (status = 'succeeded' or (status in ('queued', 'running') and expires_at > now()))
 )`.mapWith(Number);
 
 export function createGenerationStore(db: Database) {
@@ -40,7 +40,7 @@ export function createGenerationStore(db: Database) {
 				| "prompt"
 				| "inputHash"
 				| "credits"
-			> & { kind?: GenerationRun["kind"] },
+			> & { kind?: GenerationRun["kind"]; size?: string | null },
 		) {
 			// This Postgres function locks the payer and project before checking balance
 			// and reserving. It is one transaction even over Neon's HTTP driver.
@@ -48,14 +48,14 @@ export function createGenerationStore(db: Database) {
 				.select({
 					claim: sql<Claim>`kousa_claim_generation(
 				${input.id}::uuid, ${input.userId}, ${input.projectId}::uuid, ${input.nodeId}::uuid,
-				${input.modelId}, ${input.prompt}, ${input.inputHash}, ${input.credits}::integer, ${input.kind ?? "text"}
+				${input.modelId}, ${input.prompt}, ${input.inputHash}, ${input.credits}::integer, ${input.kind ?? "text"}, ${input.size ?? null}
 			)`,
 				})
 				.from(sql`(select 1) as request`);
 			if (!row) throw new Error("Generation reservation unavailable");
 			return row.claim;
 		},
-		async expire(projectId: string) {
+		async expire(projectId?: string) {
 			await db
 				.update(generationRun)
 				.set({
@@ -65,11 +65,42 @@ export function createGenerationStore(db: Database) {
 				})
 				.where(
 					and(
-						eq(generationRun.projectId, projectId),
-						eq(generationRun.status, "running"),
+						projectId ? eq(generationRun.projectId, projectId) : undefined,
+						inArray(generationRun.status, ["queued", "running"]),
 						sql`${generationRun.expiresAt} <= now()`,
 					),
 				);
+		},
+		async start(id: string) {
+			const [result] = await db
+				.select({ started: sql<boolean>`kousa_start_generation(${id}::uuid)` })
+				.from(sql`(select 1) as request`);
+			return result?.started ?? false;
+		},
+		async markSaving(id: string) {
+			await db
+				.update(generationRun)
+				.set({ stage: "saving" })
+				.where(
+					and(
+						eq(generationRun.id, id),
+						eq(generationRun.status, "running"),
+						sql`${generationRun.expiresAt} > now()`,
+					),
+				);
+		},
+		async pending() {
+			return db
+				.select({ id: generationRun.id })
+				.from(generationRun)
+				.where(
+					and(
+						inArray(generationRun.status, ["queued", "running"]),
+						sql`${generationRun.expiresAt} > now()`,
+					),
+				)
+				.orderBy(generationRun.createdAt)
+				.limit(100);
 		},
 		async latest(projectId: string, nodeIds?: string[]) {
 			if (nodeIds?.length === 0) return [];
@@ -135,17 +166,30 @@ export function createGenerationStore(db: Database) {
 				  }
 				| { error: string },
 		) {
+			if (!("error" in result)) {
+				const [finished] = await db
+					.select({
+						ok: sql<boolean>`kousa_finish_generation(${id}::uuid, ${result.output}, NULL, ${result.inputTokens}::integer, ${result.outputTokens}::integer)`,
+					})
+					.from(sql`(select 1) as request`);
+				if (!finished?.ok) return null;
+				const [run] = await db
+					.select()
+					.from(generationRun)
+					.where(eq(generationRun.id, id));
+				return run ?? null;
+			}
 			const [run] = await db
 				.update(generationRun)
 				.set({
 					...result,
-					status: "error" in result ? "failed" : "succeeded",
+					status: "failed",
 					completedAt: new Date(),
 				})
 				.where(
 					and(
 						eq(generationRun.id, id),
-						eq(generationRun.status, "running"),
+						inArray(generationRun.status, ["queued", "running"]),
 						sql`${generationRun.expiresAt} > now()`,
 					),
 				)

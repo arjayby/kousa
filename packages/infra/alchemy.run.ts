@@ -42,15 +42,51 @@ export const databaseEnv = managedDatabase.pipe(
 
 export const databaseProviders = Layer.mergeAll(Neon.providers());
 
+const mediaBucket = Cloudflare.R2.Bucket("media", {
+	publicAccess: false,
+	forceDestroy: false,
+});
+const gatewayKey = Config.redacted("AI_GATEWAY_API_KEY").pipe(
+	Config.withDefault(Redacted.make("")),
+);
+export const generationJobs = Cloudflare.Worker(
+	"generation-jobs",
+	Effect.gen(function* () {
+		const databaseBindings = yield* databaseEnv;
+		const media = yield* mediaBucket;
+		const key = yield* gatewayKey;
+		yield* Command.Dev("generation-dev", {
+			command: "pnpm run dev:worker",
+			cwd: "../../apps/jobs",
+			env: { ...databaseBindings, AI_GATEWAY_API_KEY: key },
+		});
+		return {
+			main: "../../apps/jobs/src/worker.ts",
+			workersDev: false,
+			compatibility: { date: "2026-09-01", flags: ["nodejs_compat"] },
+			// Leave room for Neon's five-minute idle suspension between recovery scans.
+			crons: ["*/15 * * * *"],
+			dev: { mode: "external" as const, url: "http://127.0.0.1:8787" },
+			env: {
+				...databaseBindings,
+				AI_GATEWAY_API_KEY: key,
+				MEDIA: media,
+				GENERATION: Cloudflare.Workflow<{ runId: string }>(
+					"GenerationWorkflow",
+					{ className: "GenerationWorkflow" },
+				),
+			},
+		};
+	}),
+);
+
 export const web = Cloudflare.Website.StaticSite(
 	"web",
 	Effect.gen(function* () {
 		// Resolve the resource declaration before StaticSite serializes subprocess env.
 		const databaseBindings = yield* databaseEnv;
-		const media = yield* Cloudflare.R2.Bucket("media", {
-			publicAccess: false,
-			forceDestroy: false,
-		});
+		const media = yield* mediaBucket;
+		const jobs = yield* generationJobs;
 		const emailFrom = yield* Config.string("EMAIL_FROM").pipe(
 			Config.withDefault("invites@mail.kousa.app"),
 			Effect.orDie,
@@ -69,6 +105,7 @@ export const web = Cloudflare.Website.StaticSite(
 			},
 			env: {
 				MEDIA: media,
+				GENERATION_JOBS: jobs,
 				AI_GATEWAY_API_KEY: Config.redacted("AI_GATEWAY_API_KEY").pipe(
 					Config.withDefault(Redacted.make("")),
 				),

@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "kousa-jobs-local",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "secrets": { "required": ["DATABASE_URL", "AI_GATEWAY_API_KEY"] },
+  "workflows": [{ "name": "kousa-generation-local", "binding": "GENERATION", "class_name": "GenerationWorkflow" }],
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "kousa-media-local" }],
+  "triggers": { "crons": ["*/15 * * * *"] },
+  "dev": { "ip": "127.0.0.1", "port": 8787 }
+}

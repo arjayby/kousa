@@ -1,5 +1,6 @@
 "use client";
 
+import { runProgress } from "@kousa/generation/contracts";
 import {
 	imageOutputAssetId,
 	inputPorts,
@@ -68,13 +69,12 @@ export const MediaNode = memo(function MediaNode({
 				) : null}
 				{run ? (
 					<p className="mb-2 text-[10px] text-muted-foreground">
-						{run.status === "running"
-							? "Generating…"
-							: run.status === "succeeded"
+						{runProgress(run) ??
+							(run.status === "succeeded"
 								? kind === "image" && assetId !== imageResult?.assetId
 									? "Generated image saved"
 									: "Generated output"
-								: "Generation failed · Credit released"}
+								: "Generation failed · Credits released")}
 					</p>
 				) : null}
 				{run?.output || data.content ? (

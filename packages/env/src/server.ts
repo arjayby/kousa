@@ -2,7 +2,7 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 function getNodeEnvValue(key: string) {
-  if (key === "DB" || key === "MEDIA") {
+  if (key === "DB" || key === "MEDIA" || key === "GENERATION_JOBS") {
     return undefined;
   }
 

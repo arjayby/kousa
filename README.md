@@ -14,6 +14,7 @@ This project was created with [Better-T-Stack](https://github.com/AmanVarshney01
 - **Authentication** - Better-Auth
 - **Polar sandbox billing** - Verified payments grant credits once per order
 - **Projects and permissions** - Private projects with owner, editor, and viewer access through email invitations
+- **Background generation** - Durable Cloudflare Workflows for text/image jobs, shared progress, recovery, and protected credit reservations
 - **Node canvas** - Text, image, video, and speech nodes with connections, undo/redo, and shared project saving with editor/viewer permissions
 - **Resend email** - Expiring invitations bound to a verified email, with roles and invitation status
 - **Biome** - Linting and formatting
@@ -42,6 +43,8 @@ Then, run the development server:
 ```bash
 pnpm run dev
 ```
+
+Alchemy starts Next.js and the local generation Worker, applies migrations, and supplies the existing Gateway key to both. No new environment variables are needed. See [background generation](docs/background-generation.md) for local persistence, recovery, and deployment.
 
 Open [http://localhost:3001](http://localhost:3001) in your browser to see the fullstack application.
 
@@ -110,7 +113,8 @@ This placeholder lets Next.js construct the database client while determining wh
 ```
 kousa/
 ├── apps/
-│   └── web/         # Fullstack application (Next.js)
+│   ├── web/         # Fullstack application (Next.js)
+│   └── jobs/        # Private Cloudflare Worker, Workflows and recovery schedule
 ├── packages/
 │   ├── ui/          # Shared shadcn/ui components and styles
 │   ├── api/         # API layer / business logic

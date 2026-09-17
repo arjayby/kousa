@@ -14,7 +14,8 @@ import {
 	generationInputHash,
 	imageInputSnapshot,
 } from "../src/input";
-import { createGenerationService, type ImageProvider } from "../src/service";
+import type { ImageProvider } from "../src/service";
+import { inlineService } from "./helpers";
 
 let db: Awaited<ReturnType<typeof createGenerationTestDatabase>>;
 let projectId: string;
@@ -41,11 +42,12 @@ const projects = () =>
 		},
 	});
 const service = (store = db.store) =>
-	createGenerationService(
+	inlineService(
 		store,
 		projects(),
 		{ configured: true, generate: textGenerate },
-		{ provider: { configured: true, generate }, media },
+		{ configured: true, generate },
+		media,
 	);
 const request = async (nodeId = target.id) => ({
 	projectId,
@@ -207,9 +209,9 @@ it("does not refund or regenerate if the final commit succeeds but its response 
 			throw new Error("Connection lost after commit");
 		}),
 	};
-	await expect(service(store).generate("owner", input)).rejects.toThrow(
-		"Connection lost",
-	);
+	await expect(service(store).generate("owner", input)).resolves.toMatchObject({
+		status: "succeeded",
+	});
 	expect((await service().generate("owner", input)).status).toBe("succeeded");
 	expect(generate).toHaveBeenCalledTimes(1);
 	expect(await db.store.balance("owner")).toBe(7);
@@ -287,6 +289,7 @@ it("refuses a cross-project asset without publishing it or completing the debit"
 	});
 	const claimed = reservation();
 	await db.store.claim(claimed);
+	await db.store.start(claimed.id);
 	await expect(db.store.finishImage(claimed.id, asset.id)).rejects.toThrow();
 	expect(await media.list("owner", otherProject.id)).toEqual([]);
 	expect((await db.store.get(claimed.id))?.status).toBe("running");

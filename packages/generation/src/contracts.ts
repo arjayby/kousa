@@ -50,10 +50,23 @@ export type PublicRun = {
 	modelId: string;
 	kind: "text" | "image";
 	assetId: string | null;
-	status: "running" | "succeeded" | "failed";
+	status: "queued" | "running" | "succeeded" | "failed";
+	stage: "queued" | "generating" | "saving";
 	output: string | null;
 	error: string | null;
 	credits: number;
 	createdAt: string;
 	inputHash: string;
 };
+
+export function isRunActive(run: { status: PublicRun["status"] } | undefined) {
+	return run?.status === "queued" || run?.status === "running";
+}
+export function runProgress(
+	run: Pick<PublicRun, "status" | "stage"> | undefined,
+) {
+	if (run?.status === "queued") return "Queued";
+	if (run?.status === "running")
+		return run.stage === "saving" ? "Saving result…" : "Generating…";
+	return null;
+}

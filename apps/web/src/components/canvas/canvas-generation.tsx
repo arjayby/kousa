@@ -5,8 +5,10 @@ import {
 	imageCreditCost,
 	imageModels,
 	imageSizes,
+	isRunActive,
 	type PublicRun,
 	resolveTextModel,
+	runProgress,
 	textCreditCost,
 	textModels,
 } from "@kousa/generation/contracts";
@@ -156,7 +158,7 @@ export function useCanvasGeneration({
 		canRun,
 		graph,
 		myRunActive: (query.data?.runs ?? []).some(
-			(r) => r.userId === userId && r.status === "running",
+			(r) => r.userId === userId && isRunActive(r),
 		),
 	};
 }
@@ -191,8 +193,7 @@ export function GenerationPanel({
 	);
 	const imageResult = generation.imageResults.get(node.id);
 	const run = generation.runs.get(node.id);
-	const pending =
-		generation.pendingNode === node.id || run?.status === "running";
+	const pending = generation.pendingNode === node.id || isRunActive(run);
 	const checking = generation.uncertain?.nodeId === node.id;
 	let inputError: string | null = null;
 	try {
@@ -294,7 +295,7 @@ export function GenerationPanel({
 						{checking
 							? "Check run"
 							: pending
-								? "Generating…"
+								? (runProgress(run) ?? "Queuing…")
 								: `Generate ${kind}`}
 					</Button>
 					<p className="text-muted-foreground text-xs">
@@ -328,7 +329,8 @@ export function GenerationPanel({
 			)}
 			{pending ? (
 				<p role="status" className="text-muted-foreground text-xs">
-					Generating {kind}… The result will appear here.
+					{runProgress(run) ?? "Queuing…"} You can leave this page. The result
+					will be saved to this project.
 				</p>
 			) : null}
 			{error ? (

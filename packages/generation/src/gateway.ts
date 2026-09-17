@@ -1,6 +1,6 @@
 import { createGateway, generateImage, generateText } from "ai";
 import { maxOutputTokens } from "./contracts";
-import type { ImageProvider, TextProvider } from "./service";
+import type { ImageProvider, TextProvider } from "./providers";
 
 export function createGatewayProvider(
 	apiKey: string | undefined,

@@ -13,7 +13,7 @@ import { user } from "./auth";
 import { mediaAsset } from "./media";
 import { project } from "./projects";
 
-// Server-owned runs also form the debit ledger: running reserves, succeeded spends,
+// Server-owned runs form the debit ledger: queued/running reserve, succeeded spends,
 // failed releases. No client-written canvas field can create or finalize a charge.
 export const generationRun = pgTable(
 	"generation_run",
@@ -34,9 +34,14 @@ export const generationRun = pgTable(
 			onDelete: "restrict",
 		}),
 		prompt: text("prompt").notNull(),
+		size: text("size"),
+		stage: text("stage", { enum: ["queued", "generating", "saving"] })
+			.notNull()
+			.default("generating"),
+		providerStartedAt: timestamp("provider_started_at", { withTimezone: true }),
 		inputHash: text("input_hash").notNull(),
 		status: text("status", {
-			enum: ["running", "succeeded", "failed"],
+			enum: ["queued", "running", "succeeded", "failed"],
 		}).notNull(),
 		credits: integer("credits").notNull(),
 		output: text("output"),
@@ -52,15 +57,22 @@ export const generationRun = pgTable(
 	(t) => [
 		index("generation_project_node_idx").on(t.projectId, t.nodeId, t.createdAt),
 		index("generation_user_idx").on(t.userId),
+		index("generation_pending_idx")
+			.on(t.expiresAt)
+			.where(sql`${t.status} in ('queued', 'running')`),
+		check(
+			"generation_stage_valid",
+			sql`${t.stage} in ('queued', 'generating', 'saving')`,
+		),
 		uniqueIndex("generation_active_node_uidx")
 			.on(t.projectId, t.nodeId)
-			.where(sql`${t.status} = 'running'`),
+			.where(sql`${t.status} in ('queued', 'running')`),
 		uniqueIndex("generation_active_user_uidx")
 			.on(t.userId)
-			.where(sql`${t.status} = 'running'`),
+			.where(sql`${t.status} in ('queued', 'running')`),
 		check(
 			"generation_status_valid",
-			sql`${t.status} in ('running', 'succeeded', 'failed')`,
+			sql`${t.status} in ('queued', 'running', 'succeeded', 'failed')`,
 		),
 		check("generation_credits_positive", sql`${t.credits} > 0`),
 		check("generation_kind_valid", sql`${t.kind} in ('text', 'image')`),
