@@ -9,15 +9,20 @@ import {
 	imageModels,
 	listGenerationsInput,
 	type PublicRun,
+	speechCreditCost,
+	speechModels,
+	speechVoices,
 	textCreditCost,
 	textModels,
 } from "./contracts";
 import {
 	buildImagePrompt,
 	buildPrompt,
+	buildSpeechScript,
 	GenerationError,
 	generationInputHash,
 	imageInputSnapshot,
+	speechInputSnapshot,
 	textInputSnapshot,
 } from "./input";
 
@@ -30,6 +35,8 @@ function publicRun(run: GenerationRun): PublicRun {
 		userId: run.userId,
 		modelId: run.modelId,
 		kind: run.kind,
+		transcript: run.kind === "speech" ? run.prompt : null,
+		voiceId: run.voiceId,
 		assetId: run.assetId,
 		status: run.status,
 		stage: run.stage,
@@ -47,6 +54,7 @@ export function createGenerationService(
 	jobs: {
 		textConfigured: boolean;
 		imageConfigured: boolean;
+		speechConfigured?: boolean;
 		dispatch: (id: string) => Promise<void>;
 	},
 ) {
@@ -80,15 +88,18 @@ export function createGenerationService(
 			const { projectId, nodeIds } = listGenerationsInput.parse(raw);
 			await projects.get(actorId, { projectId });
 			await store.expire(projectId);
-			const [runs, balance, imageResults] = await Promise.all([
+			const [runs, balance, imageResults, speechResults] = await Promise.all([
 				store.latest(projectId, nodeIds),
 				store.balance(actorId),
 				store.outputs(projectId, nodeIds, "image"),
+				store.outputs(projectId, nodeIds, "speech"),
 			]);
 			return {
 				runs: runs.map(publicRun),
 				balance,
 				imageResults: imageResults.map(publicRun),
+				speechResults: speechResults.map(publicRun),
+				speechConfigured: jobs.speechConfigured ?? false,
 				imageConfigured: jobs.imageConfigured,
 				configured: jobs.textConfigured,
 			};
@@ -108,12 +119,20 @@ export function createGenerationService(
 				return publicRun(previous);
 			}
 			const { document } = await projects.getCanvas(actorId, input);
-			const kind =
-				document.nodes.find((node) => node.id === input.nodeId)?.type ===
-				"image"
-					? "image"
-					: "text";
-			if (!(kind === "image" ? jobs.imageConfigured : jobs.textConfigured))
+			const kind = document.nodes.find(
+				(node) => node.id === input.nodeId,
+			)?.type;
+			if (kind !== "text" && kind !== "image" && kind !== "speech")
+				throw new GenerationError(
+					"BAD_REQUEST",
+					"Choose a text, image, or speech node to generate.",
+				);
+			const configured = {
+				text: jobs.textConfigured,
+				image: jobs.imageConfigured,
+				speech: jobs.speechConfigured,
+			}[kind];
+			if (!configured)
 				throw new GenerationError(
 					"SERVICE_UNAVAILABLE",
 					"AI generation is not configured yet.",
@@ -126,16 +145,30 @@ export function createGenerationService(
 					"The shared prompt changed or is still saving. Wait for it to sync, then try again.",
 				);
 			const snapshot =
-				kind === "image"
+				kind === "speech"
 					? {
-							kind: "image" as const,
-							...imageInputSnapshot(document, input.nodeId),
+							kind: "speech" as const,
+							...speechInputSnapshot(document, input.nodeId),
 						}
-					: {
-							kind: "text" as const,
-							...textInputSnapshot(document, input.nodeId),
-						};
-			const models = kind === "image" ? imageModels : textModels;
+					: kind === "image"
+						? {
+								kind: "image" as const,
+								...imageInputSnapshot(document, input.nodeId),
+							}
+						: {
+								kind: "text" as const,
+								...textInputSnapshot(document, input.nodeId),
+							};
+			const models = {
+				text: textModels,
+				image: imageModels,
+				speech: speechModels,
+			}[kind];
+			if (
+				snapshot.kind === "speech" &&
+				!speechVoices.some((voice) => voice.id === snapshot.voiceId)
+			)
+				throw new GenerationError("BAD_REQUEST", "Choose an available voice.");
 			if (!models.some((model) => model.id === snapshot.modelId))
 				throw new GenerationError(
 					"BAD_REQUEST",
@@ -146,10 +179,16 @@ export function createGenerationService(
 				snapshot.sources.map((s) => s.id),
 			);
 			const prompt =
-				snapshot.kind === "image"
-					? buildImagePrompt(snapshot, outputs)
-					: buildPrompt(snapshot, outputs);
-			const credits = kind === "image" ? imageCreditCost : textCreditCost;
+				snapshot.kind === "speech"
+					? buildSpeechScript(snapshot, outputs)
+					: snapshot.kind === "image"
+						? buildImagePrompt(snapshot, outputs)
+						: buildPrompt(snapshot, outputs);
+			const credits = {
+				text: textCreditCost,
+				image: imageCreditCost,
+				speech: speechCreditCost,
+			}[kind];
 			const claim = await store.claim({
 				...input,
 				userId: actorId,
@@ -158,6 +197,9 @@ export function createGenerationService(
 				credits,
 				kind,
 				size: snapshot.kind === "image" ? snapshot.size : null,
+				voiceId: snapshot.kind === "speech" ? snapshot.voiceId : null,
+				voiceDirection:
+					snapshot.kind === "speech" ? snapshot.voiceDirection : null,
 			});
 			if (claim.error) {
 				if (claim.error === "NO_CREDITS")

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { maxImageBytes, mediaParams } from "./contracts";
+import { MediaRangeError } from "./range";
 import { MediaError, type MediaService } from "./service";
 
 const privateHeaders = {
@@ -44,7 +45,7 @@ export function createMediaHandler(deps: {
 	return async (request: Request, input: unknown) => {
 		try {
 			const { projectId, assetId } = mediaParams.parse(input);
-			if (request.method !== "GET" && request.method !== "POST")
+			if (!["GET", "HEAD", "POST"].includes(request.method))
 				throw new MediaError(405, "Method not allowed.");
 			if (
 				request.method === "POST" &&
@@ -81,17 +82,38 @@ export function createMediaHandler(deps: {
 					{ assets: await service.list(actorId, projectId) },
 					{ headers: privateHeaders },
 				);
-			const { asset, object } = await service.read(actorId, projectId, assetId);
-			return new Response(object.body, {
+			const { asset, object, range } = await service.read(
+				actorId,
+				projectId,
+				assetId,
+				request.method === "HEAD" ? null : request.headers.get("range"),
+			);
+			if (request.method === "HEAD") await object.body.cancel();
+			return new Response(request.method === "HEAD" ? null : object.body, {
+				status: range ? 206 : 200,
 				headers: {
 					...privateHeaders,
 					"Content-Type": asset.mimeType,
+					"Accept-Ranges": "bytes",
+					...(range
+						? {
+								"Content-Range": `bytes ${range.offset}-${range.offset + range.length - 1}/${asset.bytes}`,
+							}
+						: {}),
 					"Content-Length": String(object.bytes),
-					"Content-Disposition": `inline; filename="image"; filename*=UTF-8''${encodeURIComponent(asset.name).replace(/'/g, "%27")}`,
+					"Content-Disposition": `inline; filename="media"; filename*=UTF-8''${encodeURIComponent(asset.name).replace(/'/g, "%27")}`,
 					"Content-Security-Policy": "default-src 'none'; sandbox",
 				},
 			});
 		} catch (error) {
+			if (error instanceof MediaRangeError)
+				return new Response(null, {
+					status: 416,
+					headers: {
+						...privateHeaders,
+						"Content-Range": `bytes */${error.total}`,
+					},
+				});
 			const status =
 				error instanceof MediaError
 					? error.status

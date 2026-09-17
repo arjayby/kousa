@@ -3,12 +3,20 @@ import type {
 	GenerationStore,
 } from "@kousa/db/generation-store";
 import type { MediaService } from "@kousa/media/service";
-import { imageModels, imageSizes, isRunActive, textModels } from "./contracts";
-import type { ImageProvider, TextProvider } from "./providers";
+import {
+	imageModels,
+	imageSizes,
+	isRunActive,
+	speechModels,
+	speechVoices,
+	textModels,
+} from "./contracts";
+import type { ImageProvider, SpeechProvider, TextProvider } from "./providers";
 
 export type TextResult = Awaited<ReturnType<TextProvider["generate"]>>;
 export type Artifact =
 	| ({ kind: "text" } & TextResult)
+	| ({ kind: "speech" } & Awaited<ReturnType<SpeechProvider["generate"]>>)
 	| ({ kind: "image" } & Awaited<ReturnType<ImageProvider["generate"]>>);
 export interface ArtifactStore {
 	get(id: string): Promise<Artifact | null>;
@@ -24,7 +32,9 @@ export function createGenerationRunner(
 	artifacts: ArtifactStore,
 	text: TextProvider,
 	image: ImageProvider,
-	media: Pick<MediaService, "stage">,
+	media: Pick<MediaService, "stage"> &
+		Partial<Pick<MediaService, "stageSpeech">>,
+	speech?: SpeechProvider,
 ) {
 	async function active(id: string): Promise<GenerationRun | null> {
 		const run = await store.get(id);
@@ -62,7 +72,30 @@ export function createGenerationRunner(
 			}
 			let result: Artifact;
 			try {
-				if (run.kind === "image") {
+				if (run.kind === "speech") {
+					if (
+						!speech?.configured ||
+						!speechModels.some((m) => m.id === run.modelId) ||
+						!speechVoices.some((v) => v.id === run.voiceId) ||
+						!run.voiceId
+					)
+						throw new Error("Unavailable speech model or voice");
+					result = {
+						kind: "speech",
+						...(await speech.generate({
+							modelId: run.modelId,
+							text: run.prompt,
+							voiceId: run.voiceId,
+							voiceDirection: run.voiceDirection ?? "",
+						})),
+					};
+					if (
+						!result.bytes.length ||
+						result.bytes.length > 10 * 1024 * 1024 ||
+						result.mimeType !== "audio/mpeg"
+					)
+						throw new Error("Invalid speech output");
+				} else if (run.kind === "image") {
 					if (
 						!image.configured ||
 						!imageModels.some((m) => m.id === run.modelId)
@@ -128,6 +161,14 @@ export function createGenerationRunner(
 					inputTokens: result.inputTokens,
 					outputTokens: result.outputTokens,
 				};
+			if (result.kind === "speech") {
+				if (!media.stageSpeech) throw new Error("Audio storage unavailable");
+				const asset = await media.stageSpeech(run.userId, run.projectId, {
+					...result,
+					name: `Generated speech ${id.slice(0, 8)}.mp3`,
+				});
+				return { assetId: asset.id };
+			}
 			const extension =
 				result.mimeType === "image/jpeg"
 					? "jpg"
@@ -142,7 +183,7 @@ export function createGenerationRunner(
 		},
 		async finalize(id: string, result: PreparedResult): Promise<undefined> {
 			if (!result || !(await active(id))) return;
-			if ("assetId" in result) await store.finishImage(id, result.assetId);
+			if ("assetId" in result) await store.finishMedia(id, result.assetId);
 			else await store.finish(id, result);
 			const run = await store.get(id);
 			if (run) await store.expire(run.projectId);

@@ -14,6 +14,7 @@ export function createGeneration() {
 		{
 			textConfigured: configured,
 			imageConfigured: configured,
+			speechConfigured: configured,
 			async dispatch(id) {
 				// Pass a URL and init across the Node/Miniflare boundary: its fetcher
 				// cannot recognize Node's Request object as its own Request class.

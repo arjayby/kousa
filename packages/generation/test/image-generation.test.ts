@@ -204,8 +204,8 @@ it("does not refund or regenerate if the final commit succeeds but its response 
 	const input = await request();
 	const store = {
 		...db.store,
-		finishImage: vi.fn(async (id: string, assetId: string) => {
-			await db.store.finishImage(id, assetId);
+		finishMedia: vi.fn(async (id: string, assetId: string) => {
+			await db.store.finishMedia(id, assetId);
 			throw new Error("Connection lost after commit");
 		}),
 	};
@@ -290,7 +290,7 @@ it("refuses a cross-project asset without publishing it or completing the debit"
 	const claimed = reservation();
 	await db.store.claim(claimed);
 	await db.store.start(claimed.id);
-	await expect(db.store.finishImage(claimed.id, asset.id)).rejects.toThrow();
+	await expect(db.store.finishMedia(claimed.id, asset.id)).rejects.toThrow();
 	expect(await media.list("owner", otherProject.id)).toEqual([]);
 	expect((await db.store.get(claimed.id))?.status).toBe("running");
 });

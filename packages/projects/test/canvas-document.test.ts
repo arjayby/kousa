@@ -355,3 +355,41 @@ it("syncs image generation settings and output selection independently of concur
 	).toBeUndefined();
 	restored.destroy();
 });
+
+it("persists speech model and voice changes while preserving concurrent shared scripts", () => {
+	const node = createCanvasNode("speech", { x: 0, y: 0 });
+	node.data.speechModel = "model-a";
+	node.data.voiceId = "voice-a";
+	const seed = seedCanvasDocument({ ...emptyCanvas(), nodes: [node] });
+	const a = new Y.Doc();
+	const b = new Y.Doc();
+	Y.applyUpdate(a, seed);
+	Y.applyUpdate(b, seed);
+	const first = createCanvasDocumentModel(a);
+	const second = createCanvasDocumentModel(b);
+	const before = first.read().document;
+	first.apply(before, {
+		...before,
+		nodes: before.nodes.map((n) => ({
+			...n,
+			data: { ...n.data, voiceId: "voice-b", speechModel: "model-b" },
+		})),
+	});
+	second.editText(node.id, "content", (text) => text.insert(0, "Hello"));
+	second.editText(node.id, "voiceDirection", (text) => text.insert(0, "Calm"));
+	merge(a, b);
+	expect(second.read().document.nodes[0]?.data).toMatchObject({
+		voiceId: "voice-b",
+		speechModel: "model-b",
+		content: "Hello",
+		voiceDirection: "Calm",
+	});
+	const restored = new Y.Doc();
+	Y.applyUpdate(restored, seedCanvasDocument(second.read().document));
+	expect(readCanvasDocument(restored).document).toEqual(first.read().document);
+	first.destroy();
+	second.destroy();
+	a.destroy();
+	b.destroy();
+	restored.destroy();
+});

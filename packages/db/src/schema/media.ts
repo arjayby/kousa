@@ -26,8 +26,9 @@ export const mediaAsset = pgTable(
 		name: text("name").notNull(),
 		mimeType: text("mime_type").notNull(),
 		bytes: integer("bytes").notNull(),
-		width: integer("width").notNull(),
-		height: integer("height").notNull(),
+		width: integer("width"),
+		height: integer("height"),
+		durationMs: integer("duration_ms"),
 		status: text("status").notNull().default("pending"),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.notNull()
@@ -42,12 +43,12 @@ export const mediaAsset = pgTable(
 		check("media_asset_status", sql`${table.status} in ('pending', 'ready')`),
 		check(
 			"media_asset_mime",
-			sql`${table.mimeType} in ('image/png', 'image/jpeg', 'image/webp')`,
+			sql`${table.mimeType} in ('image/png', 'image/jpeg', 'image/webp', 'audio/mpeg')`,
 		),
 		check("media_asset_bytes", sql`${table.bytes} between 1 and 10485760`),
 		check(
 			"media_asset_dimensions",
-			sql`${table.width} > 0 and ${table.height} > 0 and ${table.width}::bigint * ${table.height} <= 40000000`,
+			sql`(${table.mimeType} <> 'audio/mpeg' and ${table.width} is not null and ${table.height} is not null and ${table.width} > 0 and ${table.height} > 0 and ${table.width}::bigint * ${table.height} <= 40000000 and ${table.durationMs} is null) or (${table.mimeType} = 'audio/mpeg' and ${table.width} is null and ${table.height} is null and ${table.durationMs} is not null and ${table.durationMs} between 1 and 180000)`,
 		),
 		check("media_asset_hash", sql`${table.sha256} ~ '^[a-f0-9]{64}$'`),
 	],

@@ -10,6 +10,7 @@ import { createProjectStore } from "@kousa/db/project-store";
 import {
 	createGatewayImageProvider,
 	createGatewayProvider,
+	createGatewaySpeechProvider,
 } from "@kousa/generation/gateway";
 import { createGenerationRunner } from "@kousa/generation/runner";
 import { executeGenerationWorkflow } from "@kousa/generation/workflow";
@@ -37,6 +38,7 @@ function runtime(env: JobsEnv) {
 			createProjectStore(db),
 			r2Storage(env.MEDIA),
 		),
+		createGatewaySpeechProvider(env.AI_GATEWAY_API_KEY),
 	);
 	return { store, runner };
 }

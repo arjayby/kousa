@@ -40,7 +40,12 @@ export function createGenerationStore(db: Database) {
 				| "prompt"
 				| "inputHash"
 				| "credits"
-			> & { kind?: GenerationRun["kind"]; size?: string | null },
+			> & {
+				kind?: GenerationRun["kind"];
+				size?: string | null;
+				voiceId?: string | null;
+				voiceDirection?: string | null;
+			},
 		) {
 			// This Postgres function locks the payer and project before checking balance
 			// and reserving. It is one transaction even over Neon's HTTP driver.
@@ -48,7 +53,7 @@ export function createGenerationStore(db: Database) {
 				.select({
 					claim: sql<Claim>`kousa_claim_generation(
 				${input.id}::uuid, ${input.userId}, ${input.projectId}::uuid, ${input.nodeId}::uuid,
-				${input.modelId}, ${input.prompt}, ${input.inputHash}, ${input.credits}::integer, ${input.kind ?? "text"}, ${input.size ?? null}
+				${input.modelId}, ${input.prompt}, ${input.inputHash}, ${input.credits}::integer, ${input.kind ?? "text"}, ${input.size ?? null}, ${input.voiceId ?? null}, ${input.voiceDirection ?? null}
 			)`,
 				})
 				.from(sql`(select 1) as request`);
@@ -143,10 +148,10 @@ export function createGenerationStore(db: Database) {
 					desc(generationRun.id),
 				);
 		},
-		async finishImage(id: string, assetId: string) {
+		async finishMedia(id: string, assetId: string) {
 			const [result] = await db
 				.select({
-					finished: sql<boolean>`kousa_finish_image_generation(${id}::uuid, ${assetId}::uuid)`,
+					finished: sql<boolean>`kousa_finish_generation(${id}::uuid, NULL, ${assetId}::uuid, NULL, NULL)`,
 				})
 				.from(sql`(select 1) as request`);
 			if (!result?.finished) return null;

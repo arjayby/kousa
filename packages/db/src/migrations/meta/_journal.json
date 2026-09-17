@@ -71,6 +71,13 @@
 			"when": 1789633765472,
 			"tag": "0009_durable_generation",
 			"breakpoints": true
+		},
+		{
+			"idx": 10,
+			"version": "7",
+			"when": 1789636122427,
+			"tag": "0010_speech_generation",
+			"breakpoints": true
 		}
 	]
 }

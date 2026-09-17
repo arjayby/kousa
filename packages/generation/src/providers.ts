@@ -14,3 +14,13 @@ export interface ImageProvider {
 		size: `${number}x${number}`;
 	}): Promise<{ bytes: Uint8Array<ArrayBuffer>; mimeType: string }>;
 }
+
+export interface SpeechProvider {
+	configured: boolean;
+	generate(input: {
+		modelId: string;
+		text: string;
+		voiceId: string;
+		voiceDirection: string;
+	}): Promise<{ bytes: Uint8Array<ArrayBuffer>; mimeType: string }>;
+}

@@ -5,7 +5,10 @@ export interface MediaStorage {
 		bytes: Uint8Array<ArrayBuffer>,
 		mimeType: string,
 	): Promise<void>;
-	get(key: string): Promise<{ body: ReadableStream; bytes: number } | null>;
+	get(
+		key: string,
+		range?: { offset: number; length: number },
+	): Promise<{ body: ReadableStream; bytes: number } | null>;
 }
 export function r2Storage(bucket: R2Bucket): MediaStorage {
 	return {
@@ -17,10 +20,13 @@ export function r2Storage(bucket: R2Bucket): MediaStorage {
 				},
 			});
 		},
-		async get(key) {
-			const object = await bucket.get(key);
+		async get(key, range) {
+			const object = await bucket.get(key, range ? { range } : undefined);
 			return object
-				? { body: object.body as ReadableStream, bytes: object.size }
+				? {
+						body: object.body as ReadableStream,
+						bytes: range?.length ?? object.size,
+					}
 				: null;
 		},
 	};

@@ -1,6 +1,6 @@
-import { createGateway, generateImage, generateText } from "ai";
+import { createGateway, generateImage, generateSpeech, generateText } from "ai";
 import { maxOutputTokens } from "./contracts";
-import type { ImageProvider, TextProvider } from "./providers";
+import type { ImageProvider, SpeechProvider, TextProvider } from "./providers";
 
 export function createGatewayProvider(
 	apiKey: string | undefined,
@@ -42,6 +42,31 @@ export function createGatewayImageProvider(
 			return {
 				bytes: new Uint8Array(result.image.uint8Array),
 				mimeType: result.image.mediaType,
+			};
+		},
+	};
+}
+
+export function createGatewaySpeechProvider(
+	apiKey: string | undefined,
+): SpeechProvider {
+	return {
+		configured: Boolean(apiKey?.trim()),
+		async generate({ modelId, text, voiceId, voiceDirection }) {
+			// Fish S2 uses natural-language bracket cues, not the SDK's instructions field.
+			// Keep the immutable spoken script separate for the saved transcript.
+			const cue = voiceDirection.replace(/[[\]\r\n]/g, " ").trim();
+			const result = await generateSpeech({
+				model: createGateway({ apiKey }).speechModel(modelId),
+				text: cue ? `[${cue}] ${text}` : text,
+				voice: voiceId,
+				outputFormat: "mp3",
+				maxRetries: 0,
+				abortSignal: AbortSignal.timeout(90_000),
+			});
+			return {
+				bytes: new Uint8Array(result.audio.uint8Array),
+				mimeType: result.audio.mediaType,
 			};
 		},
 	};

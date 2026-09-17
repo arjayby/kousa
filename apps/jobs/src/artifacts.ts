@@ -16,12 +16,13 @@ export function r2Artifacts(bucket: R2Bucket): ArtifactStore {
 			if (object.customMetadata?.kind === "text")
 				return textResult.parse(await object.json());
 			if (
-				object.customMetadata?.kind !== "image" ||
+				(object.customMetadata?.kind !== "image" &&
+					object.customMetadata?.kind !== "speech") ||
 				object.size > 10 * 1024 * 1024
 			)
 				throw new Error("Invalid stored generation result");
 			return {
-				kind: "image",
+				kind: object.customMetadata.kind,
 				bytes: new Uint8Array(await object.arrayBuffer()),
 				mimeType:
 					object.httpMetadata?.contentType ?? "application/octet-stream",

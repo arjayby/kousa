@@ -27,7 +27,7 @@ export const generationRun = pgTable(
 			.notNull()
 			.references(() => user.id, { onDelete: "restrict" }),
 		modelId: text("model_id").notNull(),
-		kind: text("kind", { enum: ["text", "image"] })
+		kind: text("kind", { enum: ["text", "image", "speech"] })
 			.notNull()
 			.default("text"),
 		assetId: uuid("asset_id").references(() => mediaAsset.id, {
@@ -35,6 +35,8 @@ export const generationRun = pgTable(
 		}),
 		prompt: text("prompt").notNull(),
 		size: text("size"),
+		voiceId: text("voice_id"),
+		voiceDirection: text("voice_direction"),
 		stage: text("stage", { enum: ["queued", "generating", "saving"] })
 			.notNull()
 			.default("generating"),
@@ -75,10 +77,13 @@ export const generationRun = pgTable(
 			sql`${t.status} in ('queued', 'running', 'succeeded', 'failed')`,
 		),
 		check("generation_credits_positive", sql`${t.credits} > 0`),
-		check("generation_kind_valid", sql`${t.kind} in ('text', 'image')`),
+		check(
+			"generation_kind_valid",
+			sql`${t.kind} in ('text', 'image', 'speech')`,
+		),
 		check(
 			"generation_result_valid",
-			sql`(${t.status} = 'succeeded' and ${t.completedAt} is not null and ((${t.kind} = 'text' and ${t.output} is not null and length(${t.output}) > 0 and ${t.assetId} is null) or (${t.kind} = 'image' and ${t.output} is null and ${t.assetId} is not null))) or (${t.status} <> 'succeeded' and ${t.output} is null and ${t.assetId} is null)`,
+			sql`(${t.status} = 'succeeded' and ${t.completedAt} is not null and ((${t.kind} = 'text' and ${t.output} is not null and length(${t.output}) > 0 and ${t.assetId} is null) or (${t.kind} in ('image', 'speech') and ${t.output} is null and ${t.assetId} is not null))) or (${t.status} <> 'succeeded' and ${t.output} is null and ${t.assetId} is null)`,
 		),
 	],
 );

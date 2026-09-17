@@ -31,6 +31,23 @@ export const imageSizes = {
 	"9:16": "576x1024",
 	"4:3": "1024x768",
 } as const;
+// Requires a Gateway account with paid credits enabled, even though the model
+// currently has zero provider cost. https://vercel.com/ai-gateway/models/s2.1-pro-free
+export const speechModels = [
+	{ id: "fish-audio/s2.1-pro-free", name: "Fish Audio S2.1 Pro" },
+] as const;
+export const defaultSpeechModel = speechModels[0].id;
+// Stock voices from the model's Gateway playground; no user voice cloning.
+export const speechVoices = [
+	{ id: "933563129e564b19a115bedd57b7406a", name: "Sarah" },
+	{ id: "f48d143a59a946ab87c0130fd081f349", name: "Polo" },
+	{ id: "b347db033a6549378b48d00acb0d06cd", name: "Selene" },
+	{ id: "bf322df2096a46f18c579d0baa36f41d", name: "Adrian" },
+	{ id: "536d3a5e000945adb7038665781a4aca", name: "Ethan" },
+] as const;
+export const defaultSpeechVoice = speechVoices[0].id;
+export const speechCreditCost = 2;
+export const maxSpeechCharacters = 1_000;
 export const maxInputBytes = 12_000;
 export const maxOutputTokens = 2_048;
 export const generationProjectInput = z.object({ projectId: z.uuid() });
@@ -48,7 +65,9 @@ export type PublicRun = {
 	nodeId: string;
 	userId: string;
 	modelId: string;
-	kind: "text" | "image";
+	kind: "text" | "image" | "speech";
+	transcript: string | null;
+	voiceId: string | null;
 	assetId: string | null;
 	status: "queued" | "running" | "succeeded" | "failed";
 	stage: "queued" | "generating" | "saving";

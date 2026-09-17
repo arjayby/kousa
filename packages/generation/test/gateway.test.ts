@@ -3,6 +3,8 @@ import { beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
 	generateText: vi.fn(),
 	generateImage: vi.fn(),
+	generateSpeech: vi.fn(),
+	speechModel: vi.fn(),
 	imageModel: vi.fn(),
 	model: vi.fn(),
 	createGateway: vi.fn(),
@@ -10,12 +12,14 @@ const mocks = vi.hoisted(() => ({
 vi.mock("ai", () => ({
 	generateText: mocks.generateText,
 	generateImage: mocks.generateImage,
+	generateSpeech: mocks.generateSpeech,
 	createGateway: mocks.createGateway,
 }));
 
 import {
 	createGatewayImageProvider,
 	createGatewayProvider,
+	createGatewaySpeechProvider,
 } from "../src/gateway";
 
 beforeEach(() => {
@@ -68,6 +72,34 @@ it("requests one bounded image and returns bytes without automatic retries", asy
 			prompt: "A red balloon",
 			size: "1024x576",
 			n: 1,
+			maxRetries: 0,
+			abortSignal: expect.any(AbortSignal),
+		}),
+	);
+});
+
+it("requests MP3 speech with a fixed voice, Fish delivery cue and no paid-call retry", async () => {
+	mocks.createGateway.mockReturnValue({ speechModel: mocks.speechModel });
+	mocks.speechModel.mockReturnValue("speech-model");
+	const bytes = new Uint8Array([1, 2, 3]);
+	mocks.generateSpeech.mockResolvedValue({
+		audio: { uint8Array: bytes, mediaType: "audio/mpeg" },
+	});
+	expect(
+		await createGatewaySpeechProvider("test-key").generate({
+			modelId: "fish-audio/s2.1-pro-free",
+			text: "Welcome",
+			voiceId: "voice",
+			voiceDirection: "[warm]\ncalm",
+		}),
+	).toEqual({ bytes, mimeType: "audio/mpeg" });
+	expect(mocks.speechModel).toHaveBeenCalledWith("fish-audio/s2.1-pro-free");
+	expect(mocks.generateSpeech).toHaveBeenCalledWith(
+		expect.objectContaining({
+			model: "speech-model",
+			text: "[warm  calm] Welcome",
+			voice: "voice",
+			outputFormat: "mp3",
 			maxRetries: 0,
 			abortSignal: expect.any(AbortSignal),
 		}),

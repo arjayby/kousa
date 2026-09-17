@@ -6,3 +6,5 @@ export async function GET(
 ) {
 	return handleMedia(request, await context.params);
 }
+
+export const HEAD = GET;

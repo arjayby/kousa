@@ -18,7 +18,7 @@ export function createMediaStore(db: Database) {
 		) {
 			const result = await db.execute(sql`select reserve_media_asset(
 				${input.projectId}::uuid, ${input.uploaderId}, ${input.sha256}, ${input.name},
-				${input.mimeType}, ${input.bytes}, ${input.width}, ${input.height}
+				${input.mimeType}, ${input.bytes}, ${input.width ?? null}, ${input.height ?? null}, ${input.durationMs ?? null}
 			) as id`);
 			const id = z
 				.object({ rows: z.array(z.object({ id: z.string() })) })

@@ -1,7 +1,15 @@
 import type { MediaAsset, MediaStore } from "@kousa/db/media-store";
 import type { ProjectStore } from "@kousa/db/project-store";
 import { imageSize } from "image-size";
-import { imageMimeTypes, maxImageBytes, publicAssetSchema } from "./contracts";
+import { parseBuffer } from "music-metadata";
+import {
+	imageMimeTypes,
+	maxAudioBytes,
+	maxAudioDurationMs,
+	maxImageBytes,
+	publicAssetSchema,
+} from "./contracts";
+import { parseMediaRange } from "./range";
 import type { MediaStorage } from "./storage";
 
 export class MediaError extends Error {
@@ -13,7 +21,7 @@ export class MediaError extends Error {
 	}
 }
 const objectKey = (asset: MediaAsset) =>
-	`projects/${asset.projectId}/images/${asset.id}`;
+	`projects/${asset.projectId}/${asset.mimeType === "audio/mpeg" ? "audio" : "images"}/${asset.id}`;
 export function createMediaService(
 	store: MediaStore,
 	projects: Pick<ProjectStore, "get">,
@@ -23,7 +31,7 @@ export function createMediaService(
 		const project = await projects.get(actorId, projectId);
 		if (!project) throw new MediaError(404, "Project not found.");
 		if (write && project.role === "viewer")
-			throw new MediaError(403, "Only owners and editors can upload images.");
+			throw new MediaError(403, "Only owners and editors can save media.");
 	}
 	// Generated files stay private until the generation ledger publishes them.
 	async function stage(
@@ -56,6 +64,60 @@ export function createMediaService(
 			dimensions.width * dimensions.height > 40_000_000
 		)
 			throw new MediaError(413, "Images must be no larger than 40 megapixels.");
+		return save(actorId, projectId, file, {
+			width: dimensions.width,
+			height: dimensions.height,
+			durationMs: null,
+		});
+	}
+	async function stageSpeech(
+		actorId: string,
+		projectId: string,
+		file: { bytes: Uint8Array<ArrayBuffer>; name: string; mimeType: string },
+	) {
+		await authorize(actorId, projectId, true);
+		if (!file.bytes.length || file.bytes.length > maxAudioBytes)
+			throw new MediaError(413, "Audio must be between 1 byte and 10 MB.");
+		if (file.mimeType !== "audio/mpeg")
+			throw new MediaError(415, "Expected MP3 audio.");
+		let durationMs: number;
+		try {
+			const { format } = await parseBuffer(
+				file.bytes,
+				{ mimeType: file.mimeType },
+				{ duration: true, skipCovers: true },
+			);
+			if (
+				format.container !== "MPEG" ||
+				(format.codec !== "MPEG 1 Layer 3" &&
+					format.codec !== "MPEG 2 Layer 3" &&
+					format.codec !== "MPEG 2.5 Layer 3") ||
+				!format.duration ||
+				!Number.isFinite(format.duration)
+			)
+				throw new Error("Invalid MP3");
+			durationMs = Math.ceil(format.duration * 1000);
+		} catch {
+			throw new MediaError(415, "The generated file is not valid MP3 audio.");
+		}
+		if (durationMs < 1 || durationMs > maxAudioDurationMs)
+			throw new MediaError(413, "Audio must be no longer than 3 minutes.");
+		return save(actorId, projectId, file, {
+			width: null,
+			height: null,
+			durationMs,
+		});
+	}
+	async function save(
+		actorId: string,
+		projectId: string,
+		file: { bytes: Uint8Array<ArrayBuffer>; name: string; mimeType: string },
+		metadata: {
+			width: number | null;
+			height: number | null;
+			durationMs: number | null;
+		},
+	) {
 		const sha256 = Array.from(
 			new Uint8Array(await crypto.subtle.digest("SHA-256", file.bytes)),
 			(b) => b.toString(16).padStart(2, "0"),
@@ -68,27 +130,26 @@ export function createMediaService(
 					.trim(),
 			)
 				.slice(0, 180)
-				.join("") || "Image";
+				.join("") || "Media";
 		const asset = await store.reserve({
 			projectId,
 			uploaderId: actorId,
 			sha256,
 			name,
-			mimeType,
+			mimeType: file.mimeType,
 			bytes: file.bytes.length,
-			width: dimensions.width,
-			height: dimensions.height,
+			...metadata,
 		});
 		if (asset === "forbidden")
 			throw new MediaError(403, "Your editing access has changed.");
 		if (asset === "full")
 			throw new MediaError(
 				409,
-				"This project has reached its image limit (100 files or 100 MB).",
+				"This project has reached its media limit (100 files or 100 MB).",
 			);
 		// Repeating the same upload safely resumes interrupted writes. No deletion on
 		// uncertain completion: the database may have committed before the response failed.
-		await storage.put(objectKey(asset), file.bytes, mimeType);
+		await storage.put(objectKey(asset), file.bytes, file.mimeType);
 		return publicAssetSchema.parse(asset);
 	}
 	return {
@@ -100,6 +161,7 @@ export function createMediaService(
 			);
 		},
 		stage,
+		stageSpeech,
 		async upload(
 			actorId: string,
 			projectId: string,
@@ -111,17 +173,19 @@ export function createMediaService(
 				throw new MediaError(403, "Your editing access has changed.");
 			return publicAssetSchema.parse(completed);
 		},
-		async read(actorId: string, projectId: string, assetId: string) {
+		async read(
+			actorId: string,
+			projectId: string,
+			assetId: string,
+			rangeHeader?: string | null,
+		) {
 			await authorize(actorId, projectId);
 			const asset = await store.get(projectId, assetId);
-			if (!asset) throw new MediaError(404, "Image not found.");
-			const object = await storage.get(objectKey(asset));
-			if (!object)
-				throw new MediaError(
-					404,
-					"Image file is unavailable. An editor can upload it again.",
-				);
-			return { asset: publicAssetSchema.parse(asset), object };
+			if (!asset) throw new MediaError(404, "Media not found.");
+			const range = parseMediaRange(rangeHeader, asset.bytes);
+			const object = await storage.get(objectKey(asset), range ?? undefined);
+			if (!object) throw new MediaError(404, "Media file is unavailable.");
+			return { asset: publicAssetSchema.parse(asset), object, range };
 		},
 	};
 }

@@ -5,7 +5,7 @@ import {
 } from "@kousa/projects/canvas-document";
 import { Input } from "@kousa/ui/components/input";
 import { Textarea } from "@kousa/ui/components/textarea";
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import * as Y from "yjs";
 
 type Model = ReturnType<typeof createCanvasDocumentModel>;
@@ -35,6 +35,8 @@ export function SharedTextField({
 		positions: Y.RelativePosition[];
 	} | null>(null);
 	const text = model.getText(nodeId, field);
+	// Yjs updates the DOM and caret below; the uncontrolled default stays fixed.
+	const [initialValue] = useState(() => text?.toString() ?? "");
 	useLayoutEffect(() => {
 		const element = ref.current;
 		if (!text || !element) return;
@@ -95,7 +97,7 @@ export function SharedTextField({
 			{...props}
 			ref={ref}
 			readOnly={readOnly || !text}
-			defaultValue={text?.toString() ?? ""}
+			defaultValue={initialValue}
 			onChange={(event) => {
 				if (readOnly || composition.current) return;
 				model.editText(nodeId, field, (shared) =>

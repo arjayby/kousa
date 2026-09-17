@@ -139,8 +139,8 @@ export function AssetPreview({
 		<img
 			src={source}
 			alt={asset?.name ?? "Project image"}
-			width={asset?.width}
-			height={asset?.height}
+			width={asset?.width ?? undefined}
+			height={asset?.height ?? undefined}
 			loading="lazy"
 			draggable={false}
 			onError={() => setFailedSource(source)}
@@ -153,7 +153,13 @@ export function AssetPreview({
 	);
 }
 
-export function AssetDownload({ assetId }: { assetId: string }) {
+export function AssetDownload({
+	assetId,
+	kind = "image",
+}: {
+	assetId: string;
+	kind?: "image" | "audio";
+}) {
 	const media = useContext(MediaContext);
 	if (!media) return null;
 	const asset = media.assets.find((asset) => asset.id === assetId);
@@ -161,9 +167,9 @@ export function AssetDownload({ assetId }: { assetId: string }) {
 		<a
 			className="text-xs underline underline-offset-4"
 			href={mediaUrl(media.projectId, assetId)}
-			download={asset?.name ?? "generated-image"}
+			download={asset?.name ?? `generated-${kind}`}
 		>
-			Download image
+			Download {kind}
 		</a>
 	);
 }
@@ -194,7 +200,9 @@ export function ImageMediaPanel({
 	const items = [
 		{ value: "none", label: "No image" },
 		{ value: "generated", label: "Latest generation" },
-		...media.assets.map((asset) => ({ value: asset.id, label: asset.name })),
+		...media.assets
+			.filter((asset) => asset.mimeType.startsWith("image/"))
+			.map((asset) => ({ value: asset.id, label: asset.name })),
 	];
 	if (
 		node.data.assetId &&
@@ -312,7 +320,7 @@ export function ImageMediaPanel({
 						</Select>
 						<FieldDescription>
 							Removing an attachment keeps the file available for other nodes.
-							Project limit: 100 images or 100 MB.
+							Project limit: 100 media files or 100 MB.
 						</FieldDescription>
 					</Field>
 				</>
@@ -353,5 +361,55 @@ export function ImageMediaPanel({
 				</div>
 			) : null}
 		</section>
+	);
+}
+
+export function AudioPreview({
+	assetId,
+	transcript,
+	compact = false,
+}: {
+	assetId: string;
+	transcript: string | null;
+	compact?: boolean;
+}) {
+	const media = useContext(MediaContext);
+	const [failedSource, setFailedSource] = useState<string | null>(null);
+	if (!media) return null;
+	const source = `${mediaUrl(media.projectId, assetId)}?v=${media.previewAttempts[assetId] ?? 0}`;
+	return (
+		<div className="nodrag nopan nowheel flex min-w-0 flex-col gap-2">
+			{failedSource === source ? (
+				<div role="alert" className="flex flex-col gap-2 text-xs">
+					<p>Audio unavailable.</p>
+					<Button
+						size="sm"
+						variant="outline"
+						onClick={() => media.retryPreview(assetId)}
+					>
+						Retry audio
+					</Button>
+				</div>
+			) : (
+				// biome-ignore lint/a11y/useMediaCaption: Prerecorded speech has its complete text alternative in the adjacent transcript.
+				<audio
+					key={source}
+					controls
+					preload={compact ? "none" : "metadata"}
+					src={source}
+					aria-label="Generated speech"
+					className="h-10 w-full min-w-0"
+					onError={() => setFailedSource(source)}
+				/>
+			)}
+			{transcript ? (
+				<details className="text-muted-foreground text-xs">
+					<summary className="cursor-pointer">Spoken script</summary>
+					<p className="mt-2 max-h-48 overflow-y-auto whitespace-pre-wrap leading-relaxed">
+						{transcript}
+					</p>
+				</details>
+			) : null}
+		</div>
 	);
 }

@@ -2,6 +2,8 @@
 
 import {
 	defaultImageModel,
+	defaultSpeechModel,
+	defaultSpeechVoice,
 	imageCreditCost,
 	imageModels,
 	imageSizes,
@@ -9,12 +11,16 @@ import {
 	type PublicRun,
 	resolveTextModel,
 	runProgress,
+	speechCreditCost,
+	speechModels,
+	speechVoices,
 	textCreditCost,
 	textModels,
 } from "@kousa/generation/contracts";
 import {
 	generationInputHash,
 	imageInputSnapshot,
+	speechInputSnapshot,
 	textInputSnapshot,
 } from "@kousa/generation/input";
 import type { CanvasNode } from "@kousa/projects/canvas";
@@ -38,7 +44,7 @@ import { CopyIcon, LoaderCircleIcon, PlayIcon } from "lucide-react";
 import { createContext, useContext, useRef, useState } from "react";
 import { toast } from "sonner";
 import { client, orpc } from "@/utils/orpc";
-import { AssetDownload, AssetPreview } from "./canvas-media";
+import { AssetDownload, AssetPreview, AudioPreview } from "./canvas-media";
 import {
 	documentFromGraph,
 	type StudioGraph,
@@ -61,7 +67,9 @@ export function useCanvasGeneration({
 }) {
 	const cache = useQueryClient();
 	const nodeIds = graph.nodes
-		.filter((n) => n.type === "text" || n.type === "image")
+		.filter(
+			(n) => n.type === "text" || n.type === "image" || n.type === "speech",
+		)
 		.map((n) => n.id)
 		.sort();
 	const query = useQuery({
@@ -147,6 +155,10 @@ export function useCanvasGeneration({
 			(query.data?.imageResults ?? []).map((run) => [run.nodeId, run]),
 		),
 		imageConfigured: query.data?.imageConfigured,
+		speechResults: new Map(
+			(query.data?.speechResults ?? []).map((run) => [run.nodeId, run]),
+		),
+		speechConfigured: query.data?.speechConfigured,
 		run,
 		balance: query.data?.balance,
 		configured: query.data?.configured,
@@ -173,6 +185,9 @@ export function useNodeRun(id: string): PublicRun | undefined {
 export function useNodeImage(id: string): PublicRun | undefined {
 	return useContext(GenerationContext)?.imageResults.get(id);
 }
+export function useNodeSpeech(id: string): PublicRun | undefined {
+	return useContext(GenerationContext)?.speechResults.get(id);
+}
 export function GenerationPanel({
 	node,
 	canEdit,
@@ -184,23 +199,51 @@ export function GenerationPanel({
 }) {
 	const generation = useContext(GenerationContext);
 	if (!generation) return null;
-	const kind = node.type === "image" ? "image" : "text";
-	const cost = kind === "image" ? imageCreditCost : textCreditCost;
-	const configured =
-		kind === "image" ? generation.imageConfigured : generation.configured;
-	const modelItems = (kind === "image" ? imageModels : textModels).map(
-		(model) => ({ value: model.id, label: model.name }),
-	);
+	const kind =
+		node.type === "image" || node.type === "speech" ? node.type : "text";
+	const settings = {
+		text: {
+			cost: textCreditCost,
+			models: textModels,
+			configured: generation.configured,
+			model: resolveTextModel(node.data.textModel),
+			field: "textModel",
+			snapshot: textInputSnapshot,
+		},
+		image: {
+			cost: imageCreditCost,
+			models: imageModels,
+			configured: generation.imageConfigured,
+			model: node.data.imageModel ?? defaultImageModel,
+			field: "imageModel",
+			snapshot: imageInputSnapshot,
+		},
+		speech: {
+			cost: speechCreditCost,
+			models: speechModels,
+			configured: generation.speechConfigured,
+			model: node.data.speechModel ?? defaultSpeechModel,
+			field: "speechModel",
+			snapshot: speechInputSnapshot,
+		},
+	}[kind];
+	const { cost, configured } = settings;
+	const modelItems = settings.models.map((model) => ({
+		value: model.id,
+		label: model.name,
+	}));
+	const voiceItems = speechVoices.map((voice) => ({
+		value: voice.id,
+		label: voice.name,
+	}));
+	const speechResult = generation.speechResults.get(node.id);
 	const imageResult = generation.imageResults.get(node.id);
 	const run = generation.runs.get(node.id);
 	const pending = generation.pendingNode === node.id || isRunActive(run);
 	const checking = generation.uncertain?.nodeId === node.id;
 	let inputError: string | null = null;
 	try {
-		(kind === "image" ? imageInputSnapshot : textInputSnapshot)(
-			documentFromGraph(generation.graph),
-			node.id,
-		);
+		settings.snapshot(documentFromGraph(generation.graph), node.id);
 	} catch (error) {
 		inputError = error instanceof Error ? error.message : "Invalid input.";
 	}
@@ -224,30 +267,23 @@ export function GenerationPanel({
 					(kind === "text" ||
 						!generation.graph.edges.some(
 							(edge) =>
-								edge.target === node.id && edge.targetHandle === "prompt",
+								edge.target === node.id &&
+								edge.targetHandle === (kind === "speech" ? "script" : "prompt"),
 						))) ||
 				Boolean(inputError)));
 	return (
 		<section
 			className="flex flex-col gap-4 border-t pt-4"
-			aria-label={`${kind === "image" ? "Image" : "Text"} generation`}
+			aria-label={`${kind[0]?.toUpperCase()}${kind.slice(1)} generation`}
 		>
 			<Field>
 				<FieldLabel htmlFor={`${kind}-model`}>Model</FieldLabel>
 				<Select
 					items={modelItems}
-					value={
-						kind === "image"
-							? (node.data.imageModel ?? defaultImageModel)
-							: resolveTextModel(node.data.textModel)
-					}
+					value={settings.model}
 					disabled={!canEdit || pending}
 					onValueChange={(value) => {
-						if (value)
-							update(
-								kind === "image" ? { imageModel: value } : { textModel: value },
-								`${kind}Model`,
-							);
+						if (value) update({ [settings.field]: value }, `${kind}Model`);
 					}}
 				>
 					<SelectTrigger id={`${kind}-model`} className="w-full">
@@ -267,13 +303,47 @@ export function GenerationPanel({
 					{cost} Kousa {cost === 1 ? "credit" : "credits"} per successful run ·{" "}
 					{kind === "image"
 						? `${imageSizes[node.data.aspectRatio].replace("x", " × ")} pixels`
-						: "Up to 2,048 output tokens"}
+						: kind === "speech"
+							? "MP3 · Up to 1,000 script characters"
+							: "Up to 2,048 output tokens"}
 					.
 				</FieldDescription>
 				<FieldDescription>
-					Models eligible for Vercel free credits.
+					{kind === "speech"
+						? "Requires paid credits enabled on your Vercel AI Gateway account."
+						: "Models eligible for Vercel free credits."}
 				</FieldDescription>
 			</Field>
+			{kind === "speech" ? (
+				<Field>
+					<FieldLabel htmlFor="speech-voice">Voice</FieldLabel>
+					<Select
+						items={voiceItems}
+						value={node.data.voiceId ?? defaultSpeechVoice}
+						disabled={!canEdit || pending}
+						onValueChange={(value) => {
+							if (value) update({ voiceId: value }, "voiceId");
+						}}
+					>
+						<SelectTrigger id="speech-voice" className="w-full">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectGroup>
+								{voiceItems.map((item) => (
+									<SelectItem key={item.value} value={item.value}>
+										{item.label}
+									</SelectItem>
+								))}
+							</SelectGroup>
+						</SelectContent>
+					</Select>
+					<FieldDescription>
+						Voice direction controls delivery, such as calm or excited. Results
+						can vary.
+					</FieldDescription>
+				</Field>
+			) : null}
 			{canEdit ? (
 				<div className="flex flex-col gap-2">
 					<Button
@@ -355,6 +425,31 @@ export function GenerationPanel({
 							<AssetDownload assetId={imageResult.assetId} />
 							<p className="text-muted-foreground text-xs">
 								Saved to this project. Generate again to apply prompt changes.
+							</p>
+						</>
+					) : null}
+				</div>
+			) : null}
+
+			{kind === "speech" ? (
+				<div className="flex flex-col gap-3">
+					<p className="text-muted-foreground text-xs">
+						Reads connected text first, then this script. Connected text uses
+						its last successful output, or its written text. It does not
+						generate a new script.
+					</p>
+					{speechResult?.assetId ? (
+						<>
+							<h3 className="font-medium text-xs">Last generated speech</h3>
+							<AudioPreview
+								key={speechResult.assetId}
+								assetId={speechResult.assetId}
+								transcript={speechResult.transcript}
+							/>
+							<AssetDownload assetId={speechResult.assetId} kind="audio" />
+							<p className="text-muted-foreground text-xs">
+								Saved to this project. Generate again to apply script or voice
+								changes.
 							</p>
 						</>
 					) : null}
