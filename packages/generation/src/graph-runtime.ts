@@ -1,6 +1,7 @@
 import { createDb } from "@kousa/db";
 import { createGenerationStore } from "@kousa/db/generation-store";
 import { createGraphStore } from "@kousa/db/graph-store";
+import { createMediaStore } from "@kousa/db/media-store";
 import { env } from "@kousa/env/server";
 import { createProjects } from "@kousa/projects/runtime";
 import { createGraphService } from "./graph-service";
@@ -12,6 +13,8 @@ export function createGraphs() {
 		createGenerationStore(db),
 		createProjects(),
 		{
+			imageInputOrigin:
+				env.GENERATION_MEDIA_ORIGIN?.trim() || env.BETTER_AUTH_URL,
 			configured: Boolean(
 				env.AI_GATEWAY_API_KEY?.trim() && env.GENERATION_JOBS,
 			),
@@ -23,5 +26,6 @@ export function createGraphs() {
 				if (!response.ok) throw new Error("Job dispatch unavailable");
 			},
 		},
+		createMediaStore(db),
 	);
 }

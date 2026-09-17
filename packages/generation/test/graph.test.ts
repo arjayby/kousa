@@ -282,7 +282,9 @@ it("rejects cycles, unsupported connections and empty prompts before charging", 
 	await expect(planGraph(graph, c.id)).rejects.toThrow("cycle");
 	graph.edges.pop();
 	a.type = "speech";
-	await expect(planGraph(graph, c.id)).rejects.toThrow("text and image");
+	await expect(planGraph(graph, c.id)).rejects.toThrow(
+		"text, image, and video",
+	);
 	a.type = "text";
 	a.data.content = "";
 	await expect(planGraph(graph, c.id)).rejects.toThrow("Write a prompt");

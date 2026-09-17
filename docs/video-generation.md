@@ -53,7 +53,7 @@ Pending real-provider checks:
 - [ ] Confirm the payer is charged exactly 10 Kousa credits once; test 10-second pricing separately.
 - [ ] Verify portrait and square output before exposing all aspect ratios in production.
 
-Audio attachment, cancellation, and extending “Run to this node” to video remain later steps. Graph execution currently supports Text → Text → Image. Speech’s real-provider verification is also still pending.
+Audio attachment and cancellation remain later steps. [Run to this node](graph-execution.md) supports Text → Text → Image → Video, including exact image propagation and resuming completed upstream steps. Speech’s real-provider verification is also still pending.
 
 Text-to-video verification (earlier milestone, September 17, 2026): all 219 tests passed, workspace types passed, and both Cloudflare bundles built. Alchemy applied migration `0011_video_generation` to the development database. The in-app browser confirmed the Video controls, 5/10-second pricing, Text → Video connection, unsupported-audio validation, saved settings, and live prompt/settings updates across two tabs. Next.js reported no runtime or compilation errors. The test account remains at 491 credits. A five-second landscape node named “Kousa motion” is connected to the existing Text node; no provider request was submitted.
 

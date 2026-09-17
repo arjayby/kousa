@@ -1,5 +1,8 @@
 import type { GenerationStore } from "@kousa/db/generation-store";
 import type { GraphRun, GraphStore } from "@kousa/db/graph-store";
+import type { MediaStore } from "@kousa/db/media-store";
+import type { GraphStep } from "@kousa/db/schema/graph-runs";
+import { imageMimeTypes } from "@kousa/media/contracts";
 import type { ProjectService } from "@kousa/projects/service";
 import {
 	graphPreviewInput,
@@ -7,14 +10,45 @@ import {
 	graphStartInput,
 	planGraph,
 } from "./graph-plan";
+import { generationImageOrigin } from "./image-origin";
 import { GenerationError } from "./input";
 
 export function createGraphService(
 	store: GraphStore,
 	generations: GenerationStore,
 	projects: Pick<ProjectService, "get" | "getCanvas">,
-	jobs: { configured: boolean; dispatch: (id: string) => Promise<void> },
+	jobs: {
+		configured: boolean;
+		imageInputOrigin?: string;
+		dispatch: (id: string) => Promise<void>;
+	},
+	media?: Pick<MediaStore, "get">,
 ) {
+	const imageOrigin = generationImageOrigin(jobs.imageInputOrigin);
+	async function prepareInputs(projectId: string, plan: GraphStep[]) {
+		for (const step of plan) {
+			if (step.reused || step.kind !== "video" || !step.image) continue;
+			step.inputImageOrigin = imageOrigin;
+			if (step.image.imageSource === "project") {
+				const asset =
+					step.image.assetId && media
+						? await media.get(projectId, step.image.assetId)
+						: null;
+				if (!asset || !imageMimeTypes.some((type) => type === asset.mimeType))
+					throw new GenerationError(
+						"BAD_REQUEST",
+						"Choose an available image from this project before running the workflow.",
+					);
+			}
+		}
+		return plan.some(
+			(step) => !step.reused && step.kind === "video" && step.image,
+		) && !imageOrigin
+			? [
+					"Image-to-video needs a public HTTPS app URL so the provider can fetch the starting image. No workflow credits will be reserved until this is configured.",
+				]
+			: [];
+	}
 	async function access(actorId: string, projectId: string, edit = false) {
 		const project = await projects.get(actorId, { projectId });
 		if (edit && !project.permissions.canEdit)
@@ -129,19 +163,23 @@ export function createGraphService(
 					"CONFLICT",
 					"The workflow changed or is still saving. Wait for it to sync, then preview again.",
 				);
+			const blockers = await prepareInputs(input.projectId, plan);
 			return {
+				blockers,
 				inputHash,
 				credits: plan.reduce(
 					(sum, step) => sum + (step.reused ? 0 : step.credits),
 					0,
 				),
 				balance: await generations.balance(actorId),
-				steps: plan.map(({ nodeId, label, kind, credits, reused }) => ({
-					nodeId,
-					label,
-					kind,
-					credits,
-					reused,
+				steps: plan.map((step) => ({
+					nodeId: step.nodeId,
+					label: step.label,
+					kind: step.kind,
+					credits: step.credits,
+					reused: step.reused,
+					imageInput:
+						step.kind === "video" && step.image ? step.image.imageSource : null,
 				})),
 			};
 		},
@@ -175,6 +213,9 @@ export function createGraphService(
 					"CONFLICT",
 					"The workflow changed. Preview it again before starting.",
 				);
+			const blockers = await prepareInputs(input.projectId, plan);
+			if (blockers[0])
+				throw new GenerationError("SERVICE_UNAVAILABLE", blockers[0]);
 			const result = await store.claim({
 				...input,
 				userId: actorId,

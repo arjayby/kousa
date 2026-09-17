@@ -15,11 +15,10 @@ import { project } from "./projects";
 
 // Immutable server-built execution plan. Dependencies refer to steps in this plan,
 // never to whichever output happens to be latest when the worker wakes up.
-export type GraphStep = {
+type GraphStepBase = {
 	runId: string;
 	nodeId: string;
 	label: string;
-	kind: "text" | "image";
 	modelId: string;
 	content: string;
 	sources: { id: string; content: string }[];
@@ -28,6 +27,21 @@ export type GraphStep = {
 	credits: number;
 	reused: boolean;
 };
+export type GraphStep = GraphStepBase &
+	(
+		| { kind: "text" | "image" }
+		| {
+				kind: "video";
+				duration: number;
+				aspectRatio: "1:1" | "16:9" | "9:16" | "4:3";
+				image: {
+					nodeId: string;
+					imageSource: "generated" | "project";
+					assetId?: string | null;
+				} | null;
+				inputImageOrigin?: string | null;
+		  }
+	);
 
 export const graphRun = pgTable(
 	"graph_run",

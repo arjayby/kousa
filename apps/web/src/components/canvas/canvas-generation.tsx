@@ -498,7 +498,7 @@ export function GenerationPanel({
 					everyone.
 				</p>
 			)}
-			{kind === "text" || kind === "image" ? (
+			{kind === "text" || kind === "image" || kind === "video" ? (
 				<WorkflowControls
 					workflow={generation.workflow}
 					nodeId={node.id}

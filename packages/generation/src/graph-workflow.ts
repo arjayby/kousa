@@ -1,6 +1,11 @@
 import type { GenerationStore } from "@kousa/db/generation-store";
 import type { GraphStore } from "@kousa/db/graph-store";
-import { buildImagePrompt, buildPrompt, GenerationError } from "./input";
+import {
+	buildImagePrompt,
+	buildPrompt,
+	buildVideoPrompt,
+	GenerationError,
+} from "./input";
 import type { createGenerationRunner } from "./runner";
 import { type DurableSteps, executeGenerationWorkflow } from "./workflow";
 
@@ -48,9 +53,11 @@ export async function executeGraphWorkflow(
 							"An upstream step has not completed.",
 						);
 					const prompt =
-						item.kind === "image"
-							? buildImagePrompt(item, outputs)
-							: buildPrompt(item, outputs);
+						item.kind === "video"
+							? buildVideoPrompt(item, outputs)
+							: item.kind === "image"
+								? buildImagePrompt(item, outputs)
+								: buildPrompt(item, outputs);
 					return store.begin(id, index, prompt);
 				},
 			);

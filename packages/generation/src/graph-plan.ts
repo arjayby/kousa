@@ -6,14 +6,20 @@ import {
 	imageModels,
 	textCreditCost,
 	textModels,
+	videoAspectRatios,
+	videoCreditCost,
+	videoDurations,
+	videoModels,
 } from "./contracts";
 import {
 	buildImagePrompt,
 	buildPrompt,
+	buildVideoPrompt,
 	GenerationError,
 	generationInputHash,
 	imageInputSnapshot,
 	textInputSnapshot,
+	videoInputSnapshot,
 } from "./input";
 
 export const graphProjectInput = z.object({ projectId: z.uuid() });
@@ -48,16 +54,27 @@ export async function planGraph(graph: CanvasDocument, targetId: string) {
 				"BAD_REQUEST",
 				"A workflow node is missing. Refresh the canvas.",
 			);
-		if (node.type !== "text" && node.type !== "image")
+		if (node.type !== "text" && node.type !== "image" && node.type !== "video")
 			throw new GenerationError(
 				"BAD_REQUEST",
-				"Workflows currently support text and image nodes only.",
+				"Workflows currently support text, image, and video nodes only.",
 			);
 		visiting.add(id);
 		for (const edge of graph.edges
 			.filter((edge) => edge.target === id)
-			.sort((a, b) => a.id.localeCompare(b.id)))
+			.sort((a, b) => a.id.localeCompare(b.id))) {
+			const source = nodes.get(edge.source);
+			// A selected project image is a fixed input, not a request to regenerate it.
+			if (
+				node.type === "video" &&
+				edge.targetHandle === "image" &&
+				source?.type === "image" &&
+				(source.data.imageSource ??
+					(source.data.assetId ? "project" : "generated")) === "project"
+			)
+				continue;
 			visit(edge.source);
+		}
 		visiting.delete(id);
 		visited.add(id);
 		ordered.push(id);
@@ -69,9 +86,40 @@ export async function planGraph(graph: CanvasDocument, targetId: string) {
 	}
 	visit(targetId);
 	const plan: GraphStep[] = await Promise.all(
-		ordered.map(async (nodeId) => {
+		ordered.map(async (nodeId): Promise<GraphStep> => {
 			const node = nodes.get(nodeId);
 			if (!node) throw new Error("Missing planned node");
+			if (node.type === "video") {
+				const snapshot = videoInputSnapshot(graph, nodeId);
+				if (
+					!videoModels.some((model) => model.id === snapshot.modelId) ||
+					!videoDurations.some((duration) => duration === snapshot.duration) ||
+					!videoAspectRatios.some((ratio) => ratio === snapshot.aspectRatio)
+				)
+					throw new GenerationError(
+						"BAD_REQUEST",
+						"Choose an available video model, duration, and aspect ratio.",
+					);
+				if (
+					snapshot.image?.imageSource === "project" &&
+					!snapshot.image.assetId
+				)
+					throw new GenerationError(
+						"BAD_REQUEST",
+						"Choose an available image on the connected image node first.",
+					);
+				buildVideoPrompt(snapshot, []);
+				return {
+					...snapshot,
+					kind: "video",
+					label: node.data.label,
+					size: null,
+					inputHash: await generationInputHash(graph, nodeId),
+					credits: videoCreditCost(snapshot.duration),
+					runId: "",
+					reused: false,
+				};
+			}
 			const kind = node.type === "image" ? "image" : "text";
 			const snapshot =
 				kind === "image"
