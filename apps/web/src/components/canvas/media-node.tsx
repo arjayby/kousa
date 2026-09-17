@@ -5,6 +5,7 @@ import { cn } from "@kousa/ui/lib/utils";
 import { Handle, type NodeProps, Position } from "@xyflow/react";
 import { FileTextIcon, ImageIcon, MicIcon, VideoIcon } from "lucide-react";
 import { memo } from "react";
+import { useNodeRun } from "./canvas-generation";
 import type { StudioNode } from "./use-canvas";
 
 export const nodeIcons = {
@@ -27,12 +28,14 @@ const placeholders = {
 };
 
 export const MediaNode = memo(function MediaNode({
+	id,
 	type,
 	data,
 	selected,
 	isConnectable,
 }: NodeProps<StudioNode>) {
 	const kind = type ?? "text";
+	const run = useNodeRun(id);
 	const Icon = nodeIcons[kind];
 	return (
 		<div
@@ -53,9 +56,18 @@ export const MediaNode = memo(function MediaNode({
 				</div>
 			</div>
 			<div className="studio-node-body">
-				{data.content ? (
+				{run ? (
+					<p className="mb-2 text-[10px] text-muted-foreground">
+						{run.status === "running"
+							? "Generating…"
+							: run.status === "succeeded"
+								? "Generated output"
+								: "Generation failed · Credit released"}
+					</p>
+				) : null}
+				{run?.output || data.content ? (
 					<p className="line-clamp-4 whitespace-pre-wrap text-xs leading-relaxed">
-						{data.content}
+						{run?.output ?? data.content}
 					</p>
 				) : (
 					<div className="flex flex-col items-center gap-2 py-3 text-center text-muted-foreground">

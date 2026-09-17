@@ -31,6 +31,7 @@ export const inputPorts: Record<NodeKind, readonly InputPort[]> = {
 
 const nodeDataSchema = z.object({
 	label: z.string().max(80),
+	textModel: z.string().max(120).optional(),
 	content: z.string().max(20_000),
 	aspectRatio: z.enum(aspectRatios),
 	duration: z.union([z.literal(5), z.literal(10)]),

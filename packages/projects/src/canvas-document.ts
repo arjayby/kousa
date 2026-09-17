@@ -28,6 +28,7 @@ function sharedNode(node: CanvasNode) {
 		value.set(field, new Y.Text(node.data[field]));
 	value.set("aspectRatio", node.data.aspectRatio);
 	value.set("duration", node.data.duration);
+	if (node.data.textModel) value.set("textModel", node.data.textModel);
 	return value;
 }
 
@@ -56,6 +57,7 @@ export function readCanvasDocument(doc: Y.Doc) {
 		}
 		const data: Record<string, unknown> = {
 			aspectRatio: value.get("aspectRatio"),
+			textModel: value.get("textModel"),
 			duration: value.get("duration"),
 		};
 		for (const field of textFields) {
@@ -188,7 +190,7 @@ export function createCanvasDocumentModel(doc: Y.Doc) {
 						if (text instanceof Y.Text)
 							replaceSharedText(text, node.data[field]);
 					}
-					for (const field of ["aspectRatio", "duration"] as const)
+					for (const field of ["aspectRatio", "duration", "textModel"] as const)
 						if (node.data[field] !== previous.data[field])
 							value.set(field, node.data[field]);
 				}

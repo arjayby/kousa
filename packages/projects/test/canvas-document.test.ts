@@ -40,6 +40,40 @@ function merge(a: Y.Doc, b: Y.Doc) {
 }
 
 describe("portable shared canvas document", () => {
+	it("syncs the text model without losing concurrent prompt edits and can undo it", () => {
+		const { a, b, text, first, second } = fixture();
+		const before = first.read().document;
+		first.apply(before, {
+			...before,
+			nodes: before.nodes.map((node) =>
+				node.id === text.id
+					? {
+							...node,
+							data: { ...node.data, textModel: "google/gemini-2.5-flash-lite" },
+						}
+					: node,
+			),
+		});
+		second.editText(text.id, "content", (value) =>
+			value.insert(value.length, "!"),
+		);
+		merge(a, b);
+		expect(
+			second.read().document.nodes.find((node) => node.id === text.id)?.data,
+		).toMatchObject({
+			textModel: "google/gemini-2.5-flash-lite",
+			content: "Hello world!",
+		});
+		first.history.undo();
+		merge(a, b);
+		expect(
+			second.read().document.nodes.find((node) => node.id === text.id)?.data,
+		).toMatchObject({ content: "Hello world!" });
+		expect(
+			second.read().document.nodes.find((node) => node.id === text.id)?.data
+				.textModel,
+		).toBeUndefined();
+	});
 	it("imports exactly once when an identical seed is retried", () => {
 		const { a, seed } = fixture();
 		Y.applyUpdate(a, seed);

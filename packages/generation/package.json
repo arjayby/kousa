@@ -1,0 +1,23 @@
+{
+	"name": "@kousa/generation",
+	"type": "module",
+	"exports": {
+		"./*": "./src/*.ts"
+	},
+	"scripts": {
+		"check-types": "tsc --noEmit",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@kousa/db": "workspace:*",
+		"@kousa/env": "workspace:*",
+		"@kousa/projects": "workspace:*",
+		"ai": "^7.0.105",
+		"zod": "catalog:"
+	},
+	"devDependencies": {
+		"@kousa/config": "workspace:*",
+		"typescript": "catalog:",
+		"vitest": "^5.0.0"
+	}
+}

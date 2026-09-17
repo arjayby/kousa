@@ -9,7 +9,8 @@
 		},
 		"./*": {
 			"default": "./src/*.ts"
-		}
+		},
+		"./testing-generation": "./testing-generation.ts"
 	},
 	"scripts": {
 		"db:push": "drizzle-kit push",

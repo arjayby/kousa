@@ -64,6 +64,9 @@ export const web = Cloudflare.Website.StaticSite(
 				flags: ["nodejs_compat", "global_fetch_strictly_public"],
 			},
 			env: {
+				AI_GATEWAY_API_KEY: Config.redacted("AI_GATEWAY_API_KEY").pipe(
+					Config.withDefault(Redacted.make("")),
+				),
 				LIVEBLOCKS_SECRET_KEY: Config.redacted("LIVEBLOCKS_SECRET_KEY").pipe(
 					Config.withDefault(Redacted.make("")),
 				),

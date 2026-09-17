@@ -52,6 +52,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { GenerationContext, useCanvasGeneration } from "./canvas-generation";
 import { CanvasCursors, CanvasPeople } from "./canvas-presence";
 import { MediaNode, nodeDescriptions, nodeIcons } from "./media-node";
 import { NodeInspector } from "./node-inspector";
@@ -152,6 +153,16 @@ function Editor({
 	const persistence = useCanvas(userId, projectId, allowedToEdit);
 	const { graph, dispatch, canUndo, canRedo, sync, canEdit, session } =
 		persistence;
+	const generation = useCanvasGeneration({
+		userId,
+		projectId,
+		graph,
+		loaded: sync.loaded,
+		canRun:
+			canEdit &&
+			sync.connection === "connected" &&
+			sync.sync === "synchronized",
+	});
 	const saveError = sync.error ?? sync.backupError;
 	const statusLabel = sync.error
 		? "Connection needs attention"
@@ -436,7 +447,7 @@ function Editor({
 		setMessage("Starter workflow added. Select a node to make it your own.");
 	}
 
-	return (
+	const content = (
 		<div className="studio-editor" ref={root}>
 			<div className="studio-toolbar">
 				<section
@@ -767,6 +778,11 @@ function Editor({
 				</span>
 			</footer>
 		</div>
+	);
+	return (
+		<GenerationContext.Provider value={generation}>
+			{content}
+		</GenerationContext.Provider>
 	);
 }
 export default function CanvasEditor(props: {

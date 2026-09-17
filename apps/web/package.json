@@ -43,7 +43,8 @@
 		"sonner": "catalog:",
 		"y-indexeddb": "^9.0.12",
 		"yjs": "^13.6.32",
-		"zod": "catalog:"
+		"zod": "catalog:",
+		"@kousa/generation": "workspace:*"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "catalog:",

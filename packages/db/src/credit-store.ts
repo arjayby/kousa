@@ -1,5 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
+import { availableCredits } from "./generation-store";
 import { creditGrant } from "./schema/credits";
 
 type CreditGrantInput = Omit<
@@ -21,13 +22,8 @@ export function createCreditStore(db: CreditDatabase) {
 		},
 		async summary(userId: string) {
 			const [total] = await db
-				.select({
-					balance: sql`coalesce(sum(${creditGrant.credits}), 0)`.mapWith(
-						Number,
-					),
-				})
-				.from(creditGrant)
-				.where(eq(creditGrant.userId, userId));
+				.select({ balance: availableCredits(userId) })
+				.from(sql`(select 1) as request`);
 			return { balance: total?.balance ?? 0 };
 		},
 		async findCheckoutGrant(userId: string, checkoutId: string) {

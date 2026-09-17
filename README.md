@@ -47,6 +47,8 @@ Open [http://localhost:3001](http://localhost:3001) in your browser to see the f
 
 ## UI Customization
 
+Text-node generation setup and billing behavior are documented in [Text generation](docs/text-generation.md).
+
 React web apps in this stack share shadcn/ui primitives through `packages/ui`.
 
 - Change design tokens and global styles in `packages/ui/src/styles/globals.css`
@@ -114,6 +116,7 @@ kousa/
 │   ├── api/         # API layer / business logic
 │   ├── auth/        # Authentication configuration & logic
 │   ├── billing/     # Credit pack catalog, fulfillment, and webhook verification
+│   ├── generation/  # AI Gateway text generation, limits and credit reservations
 │   ├── email/       # Resend email transport and invitation/verification templates
 │   ├── projects/    # Project contracts, permissions, and invitation service
 │   └── db/          # Database schema & queries

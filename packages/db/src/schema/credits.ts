@@ -10,7 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
 
-// Purchase grants are append-only. Generation debits will be a separate ledger entry type.
+// Purchase grants are append-only. Server-owned generation runs track reservations and debits.
 export const creditGrant = pgTable(
 	"credit_grant",
 	{

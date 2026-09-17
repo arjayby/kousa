@@ -1,0 +1,290 @@
+import { createGenerationTestDatabase } from "@kousa/db/testing-generation";
+import { type CanvasDocument, createCanvasNode } from "@kousa/projects/canvas";
+import { createProjectService } from "@kousa/projects/service";
+import {
+	afterAll,
+	beforeAll,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	vi,
+} from "vitest";
+import { defaultTextModel } from "../src/contracts";
+import { buildPrompt, textInputHash, textInputSnapshot } from "../src/input";
+import { createGenerationService, type TextProvider } from "../src/service";
+
+let database: Awaited<ReturnType<typeof createGenerationTestDatabase>>;
+let projectId: string;
+let graph: CanvasDocument;
+const node = () => {
+	const n = createCanvasNode("text", { x: 0, y: 0 });
+	n.data.content = "Write a short greeting.";
+	return n;
+};
+let target = node();
+const generate = vi.fn<TextProvider["generate"]>();
+const response = { output: "Hello!", inputTokens: 10, outputTokens: 2 };
+const provider: TextProvider = { configured: true, generate };
+const projects = () =>
+	createProjectService(database.projects, {
+		appUrl: "https://example.test",
+		email: {
+			isConfigured: () => false,
+			send: async () => ({ messageId: null }),
+		},
+	});
+const service = () =>
+	createGenerationService(database.store, projects(), provider);
+const input = async (nodeId = target.id) => ({
+	id: crypto.randomUUID(),
+	projectId,
+	nodeId,
+	inputHash: await textInputHash(graph, nodeId),
+});
+const reservation = (
+	id = crypto.randomUUID(),
+	nodeId = target.id,
+	userId = "owner",
+) => ({
+	id,
+	nodeId,
+	userId,
+	projectId,
+	modelId: defaultTextModel,
+	prompt: "Hello",
+	inputHash: "a".repeat(64),
+	credits: 1,
+});
+beforeAll(async () => {
+	database = await createGenerationTestDatabase();
+}, 30_000);
+afterAll(async () => {
+	await database.close();
+});
+beforeEach(async () => {
+	projectId = await database.reset();
+	target = node();
+	graph = { version: 1, nodes: [target], edges: [] };
+	await database.setGraph(projectId, graph);
+	await database.grant("owner");
+	generate.mockReset().mockResolvedValue(response);
+	provider.configured = true;
+});
+
+describe("generation and credit ledger", () => {
+	it.each([
+		[undefined, "amazon/nova-micro"],
+		["openai/gpt-4.1-mini", "amazon/nova-micro"],
+		["google/gemini-2.5-flash-lite", "amazon/nova-micro"],
+		["amazon/nova-micro", "amazon/nova-micro"],
+		["amazon/nova-lite", "amazon/nova-lite"],
+	])(
+		"routes saved model %s to the eligible model %s",
+		async (saved, expected) => {
+			target.data.textModel = saved;
+			await database.setGraph(projectId, graph);
+			const run = await service().generate("owner", await input());
+			expect(run.modelId).toBe(expected);
+			expect(generate).toHaveBeenCalledWith(
+				expect.objectContaining({ modelId: expected }),
+			);
+		},
+	);
+	it("saves a result, spends one credit, and replays the same request without another call", async () => {
+		const request = await input();
+		const run = await service().generate("owner", request);
+		expect(run).toMatchObject({
+			status: "succeeded",
+			output: "Hello!",
+			credits: 1,
+		});
+		expect(await service().generate("owner", request)).toEqual(run);
+		expect(generate).toHaveBeenCalledTimes(1);
+		expect(await database.credits.summary("owner")).toEqual({ balance: 0 });
+		await expect(
+			service().generate("owner", await input()),
+		).rejects.toMatchObject({ code: "PAYMENT_REQUIRED" });
+	});
+	it("charges the editor who runs it, leaving the owner's credits intact", async () => {
+		await expect(
+			service().generate("editor", await input()),
+		).rejects.toMatchObject({ code: "PAYMENT_REQUIRED" });
+		await database.grant("editor");
+		await service().generate("editor", await input());
+		expect(await database.store.balance("editor")).toBe(0);
+		expect(await database.store.balance("owner")).toBe(1);
+	});
+	it("viewers can read results, but cannot run; outsiders cannot read or run", async () => {
+		await service().generate("owner", await input());
+		expect(
+			(await service().list("viewer", { projectId })).runs[0]?.output,
+		).toBe("Hello!");
+		await expect(
+			service().generate("viewer", await input()),
+		).rejects.toMatchObject({ code: "FORBIDDEN" });
+		await expect(
+			service().list("outsider", { projectId }),
+		).rejects.toMatchObject({ code: "NOT_FOUND" });
+		await expect(
+			service().generate("outsider", await input()),
+		).rejects.toMatchObject({ code: "NOT_FOUND" });
+	});
+	it("rechecks editor permissions in the atomic reservation", async () => {
+		await database.grant("editor");
+		await database.revoke("editor");
+		expect(
+			await database.store.claim(
+				reservation(crypto.randomUUID(), target.id, "editor"),
+			),
+		).toMatchObject({ error: "FORBIDDEN" });
+		expect(await database.store.balance("editor")).toBe(1);
+	});
+	it("reserves immediately, prevents competing runs and idempotent concurrent calls", async () => {
+		let resolve!: (v: typeof response) => void;
+		generate.mockImplementation(
+			() =>
+				new Promise((r) => {
+					resolve = r;
+				}),
+		);
+		const request = await input();
+		const pending = service().generate("owner", request);
+		await vi.waitFor(() => expect(generate).toHaveBeenCalledTimes(1));
+		expect(await database.store.balance("owner")).toBe(0);
+		expect((await service().generate("owner", request)).status).toBe("running");
+		await expect(
+			service().generate("owner", await input()),
+		).rejects.toMatchObject({ code: "CONFLICT" });
+		await database.grant("editor");
+		await expect(
+			service().generate("editor", await input()),
+		).rejects.toMatchObject({ code: "CONFLICT" });
+		resolve(response);
+		await pending;
+		expect(generate).toHaveBeenCalledTimes(1);
+	});
+	it("serializes concurrent reservations across nodes so a balance cannot be overspent", async () => {
+		const claims = await Promise.all(
+			Array.from({ length: 8 }, () =>
+				database.store.claim(
+					reservation(crypto.randomUUID(), crypto.randomUUID()),
+				),
+			),
+		);
+		expect(claims.filter((c) => c.claimed)).toHaveLength(1);
+		expect(await database.store.balance("owner")).toBe(0);
+	});
+	it("rejects another actor's reused request ID", async () => {
+		const request = await input();
+		await service().generate("owner", request);
+		await expect(service().generate("editor", request)).rejects.toMatchObject({
+			code: "CONFLICT",
+		});
+	});
+	it.each(["provider", "empty"])(
+		"releases credits exactly once after %s failure",
+		async (failure) => {
+			if (failure === "provider")
+				generate.mockRejectedValue(new Error("secret provider detail"));
+			else generate.mockResolvedValue({ ...response, output: " " });
+			const request = await input();
+			const run = await service().generate("owner", request);
+			expect(run.status).toBe("failed");
+			expect(run.error).not.toContain("secret");
+			expect(await database.store.balance("owner")).toBe(1);
+			await service().generate("owner", request);
+			expect(generate).toHaveBeenCalledTimes(1);
+			expect(await database.store.finish(request.id, response)).toBeNull();
+			expect(await database.store.balance("owner")).toBe(1);
+		},
+	);
+	it("releases abandoned runs and refuses a late success after lease expiry", async () => {
+		const r = reservation();
+		await database.store.claim(r);
+		await database.expire(r.id);
+		expect(await database.store.balance("owner")).toBe(1);
+		expect(await database.store.finish(r.id, response)).toBeNull();
+		const listed = await service().list("viewer", { projectId });
+		expect(listed.runs[0]?.status).toBe("failed");
+		await service().generate("owner", await input());
+		expect(await database.store.balance("owner")).toBe(0);
+	});
+	it("does not repeat the provider call if result persistence fails", async () => {
+		const request = await input();
+		const store = {
+			...database.store,
+			finish: vi.fn().mockRejectedValue(new Error("Database offline")),
+		};
+		await expect(
+			createGenerationService(store, projects(), provider).generate(
+				"owner",
+				request,
+			),
+		).rejects.toThrow("Database offline");
+		expect((await service().generate("owner", request)).status).toBe("running");
+		expect(generate).toHaveBeenCalledTimes(1);
+	});
+	it("rejects unavailable configuration, invalid models and stale graph before reserving", async () => {
+		provider.configured = false;
+		await expect(
+			service().generate("owner", await input()),
+		).rejects.toMatchObject({ code: "SERVICE_UNAVAILABLE" });
+		provider.configured = true;
+		const stale = await input();
+		target.data.content = "Changed";
+		await database.setGraph(projectId, graph);
+		await expect(service().generate("owner", stale)).rejects.toMatchObject({
+			code: "CONFLICT",
+		});
+		target.data.textModel = "unapproved/expensive";
+		await database.setGraph(projectId, graph);
+		await expect(
+			service().generate("owner", await input()),
+		).rejects.toMatchObject({ code: "BAD_REQUEST" });
+		expect(generate).not.toHaveBeenCalled();
+		expect(await database.store.balance("owner")).toBe(1);
+	});
+	it("uses server-owned upstream output, falling back to source text before its first result", async () => {
+		const source = node();
+		source.data.content = "Source text";
+		graph.nodes.push(source);
+		graph.edges.push({
+			id: crypto.randomUUID(),
+			source: source.id,
+			target: target.id,
+			sourceHandle: "output",
+			targetHandle: "context",
+		});
+		await database.setGraph(projectId, graph);
+		await database.grant("owner", 2);
+		await service().generate("owner", await input());
+		expect(generate.mock.calls[0]?.[0].prompt).toContain("Source text");
+		await service().generate("owner", await input(source.id));
+		await service().generate("owner", await input());
+		expect(generate.mock.calls[2]?.[0].prompt).toContain("Hello!");
+		expect(generate.mock.calls[2]?.[0].prompt).not.toContain("Source text");
+	});
+	it("bounds input bytes including upstream context, rejects empty prompts and media inputs", () => {
+		target.data.content = "😀".repeat(3_001);
+		expect(() => buildPrompt(textInputSnapshot(graph, target.id), [])).toThrow(
+			"12 KB",
+		);
+		target.data.content = " ";
+		expect(() => buildPrompt(textInputSnapshot(graph, target.id), [])).toThrow(
+			"Write a prompt",
+		);
+		const source = createCanvasNode("image", { x: 0, y: 0 });
+		graph.nodes.push(source);
+		graph.edges.push({
+			id: crypto.randomUUID(),
+			source: source.id,
+			target: target.id,
+			sourceHandle: "output",
+			targetHandle: "context",
+		});
+		expect(() => textInputSnapshot(graph, target.id)).toThrow(
+			"text nodes only",
+		);
+	});
+});

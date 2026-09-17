@@ -25,7 +25,8 @@
 		"@orpc/zod": "catalog:",
 		"dotenv": "catalog:",
 		"next": "catalog:",
-		"zod": "catalog:"
+		"zod": "catalog:",
+		"@kousa/generation": "workspace:*"
 	},
 	"devDependencies": {
 		"@kousa/config": "workspace:*",

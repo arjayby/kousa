@@ -1,0 +1,45 @@
+import { z } from "zod";
+
+export const textModels = [
+	// Verified against Vercel's Free Tier filter on 2026-09-17.
+	// https://vercel.com/ai-gateway/models?freeTier=true&q=nova
+	{ id: "amazon/nova-micro", name: "Amazon Nova Micro" },
+	{ id: "amazon/nova-lite", name: "Amazon Nova Lite" },
+] as const;
+export const defaultTextModel = textModels[0].id;
+
+// Existing canvases may still store a model from the initial paid-model picker.
+// Resolve those selections consistently on the client and server without rewriting
+// shared documents. Unknown IDs still reach the service's allowlist validation.
+export function resolveTextModel(modelId: string | undefined): string {
+	return !modelId ||
+		modelId === "openai/gpt-4.1-mini" ||
+		modelId === "google/gemini-2.5-flash-lite"
+		? defaultTextModel
+		: modelId;
+}
+export const textCreditCost = 1;
+export const maxInputBytes = 12_000;
+export const maxOutputTokens = 2_048;
+export const generationProjectInput = z.object({ projectId: z.uuid() });
+export const listGenerationsInput = generationProjectInput.extend({
+	nodeIds: z.array(z.uuid()).max(200).optional(),
+});
+export const generateInput = generationProjectInput.extend({
+	id: z.uuid(),
+	nodeId: z.uuid(),
+	inputHash: z.string().regex(/^[a-f0-9]{64}$/),
+});
+
+export type PublicRun = {
+	id: string;
+	nodeId: string;
+	userId: string;
+	modelId: string;
+	status: "running" | "succeeded" | "failed";
+	output: string | null;
+	error: string | null;
+	credits: number;
+	createdAt: string;
+	inputHash: string;
+};
