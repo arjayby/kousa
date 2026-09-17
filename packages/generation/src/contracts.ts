@@ -19,6 +19,18 @@ export function resolveTextModel(modelId: string | undefined): string {
 		: modelId;
 }
 export const textCreditCost = 1;
+// Verified in Vercel's Free Tier image catalog on 2026-09-17.
+export const imageModels = [
+	{ id: "bfl/flux-2-klein-4b", name: "FLUX.2 [klein] 4B" },
+] as const;
+export const defaultImageModel = imageModels[0].id;
+export const imageCreditCost = 3;
+export const imageSizes = {
+	"1:1": "1024x1024",
+	"16:9": "1024x576",
+	"9:16": "576x1024",
+	"4:3": "1024x768",
+} as const;
 export const maxInputBytes = 12_000;
 export const maxOutputTokens = 2_048;
 export const generationProjectInput = z.object({ projectId: z.uuid() });
@@ -36,6 +48,8 @@ export type PublicRun = {
 	nodeId: string;
 	userId: string;
 	modelId: string;
+	kind: "text" | "image";
+	assetId: string | null;
 	status: "running" | "succeeded" | "failed";
 	output: string | null;
 	error: string | null;

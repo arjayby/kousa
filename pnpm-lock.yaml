@@ -462,6 +462,9 @@ importers:
       '@kousa/env':
         specifier: workspace:*
         version: link:../env
+      '@kousa/media':
+        specifier: workspace:*
+        version: link:../media
       '@kousa/projects':
         specifier: workspace:*
         version: link:../projects

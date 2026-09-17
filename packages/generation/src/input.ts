@@ -1,5 +1,10 @@
 import type { CanvasDocument } from "@kousa/projects/canvas";
-import { maxInputBytes, resolveTextModel } from "./contracts";
+import {
+	defaultImageModel,
+	imageSizes,
+	maxInputBytes,
+	resolveTextModel,
+} from "./contracts";
 
 export class GenerationError extends Error {
 	constructor(
@@ -67,6 +72,76 @@ export function buildPrompt(
 	const prompt = context
 		? `Connected text context:\n${context}\n\nYour task:\n${snapshot.content}`
 		: snapshot.content;
+	if (new TextEncoder().encode(prompt).length > maxInputBytes)
+		throw new GenerationError(
+			"BAD_REQUEST",
+			"The prompt and connected text exceed 12 KB. Shorten them before generating.",
+		);
+	return prompt;
+}
+
+export function imageInputSnapshot(graph: CanvasDocument, nodeId: string) {
+	const node = graph.nodes.find((n) => n.id === nodeId);
+	if (node?.type !== "image")
+		throw new GenerationError(
+			"BAD_REQUEST",
+			"Select an image node to generate.",
+		);
+	const sources = graph.edges
+		.filter((edge) => edge.target === nodeId)
+		.sort((a, b) => a.id.localeCompare(b.id))
+		.map((edge) => {
+			const source = graph.nodes.find((n) => n.id === edge.source);
+			if (edge.targetHandle !== "prompt" || source?.type !== "text")
+				throw new GenerationError(
+					"BAD_REQUEST",
+					"Image generation accepts text prompts only. Disconnect reference images before generating.",
+				);
+			return { id: source.id, content: source.data.content };
+		});
+	return {
+		nodeId,
+		modelId: node.data.imageModel ?? defaultImageModel,
+		content: node.data.content,
+		sources,
+		size: imageSizes[node.data.aspectRatio],
+	};
+}
+
+export async function generationInputHash(
+	graph: CanvasDocument,
+	nodeId: string,
+) {
+	if (graph.nodes.find((node) => node.id === nodeId)?.type !== "image")
+		return textInputHash(graph, nodeId);
+	const digest = await crypto.subtle.digest(
+		"SHA-256",
+		new TextEncoder().encode(JSON.stringify(imageInputSnapshot(graph, nodeId))),
+	);
+	return Array.from(new Uint8Array(digest), (b) =>
+		b.toString(16).padStart(2, "0"),
+	).join("");
+}
+
+export function buildImagePrompt(
+	snapshot: ReturnType<typeof imageInputSnapshot>,
+	outputs: Array<{ nodeId: string; output: string | null }>,
+) {
+	const prompt = [
+		...snapshot.sources.map(
+			(source) =>
+				outputs.find((o) => o.nodeId === source.id)?.output ?? source.content,
+		),
+		snapshot.content,
+	]
+		.map((text) => text.trim())
+		.filter(Boolean)
+		.join("\n\n");
+	if (!prompt)
+		throw new GenerationError(
+			"BAD_REQUEST",
+			"Write a prompt or connect a text node before generating.",
+		);
 	if (new TextEncoder().encode(prompt).length > maxInputBytes)
 		throw new GenerationError(
 			"BAD_REQUEST",

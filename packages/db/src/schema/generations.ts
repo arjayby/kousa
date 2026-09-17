@@ -10,6 +10,7 @@ import {
 	uuid,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
+import { mediaAsset } from "./media";
 import { project } from "./projects";
 
 // Server-owned runs also form the debit ledger: running reserves, succeeded spends,
@@ -26,6 +27,12 @@ export const generationRun = pgTable(
 			.notNull()
 			.references(() => user.id, { onDelete: "restrict" }),
 		modelId: text("model_id").notNull(),
+		kind: text("kind", { enum: ["text", "image"] })
+			.notNull()
+			.default("text"),
+		assetId: uuid("asset_id").references(() => mediaAsset.id, {
+			onDelete: "restrict",
+		}),
 		prompt: text("prompt").notNull(),
 		inputHash: text("input_hash").notNull(),
 		status: text("status", {
@@ -56,9 +63,10 @@ export const generationRun = pgTable(
 			sql`${t.status} in ('running', 'succeeded', 'failed')`,
 		),
 		check("generation_credits_positive", sql`${t.credits} > 0`),
+		check("generation_kind_valid", sql`${t.kind} in ('text', 'image')`),
 		check(
 			"generation_result_valid",
-			sql`(${t.status} = 'succeeded' and length(${t.output}) > 0 and ${t.completedAt} is not null) or (${t.status} <> 'succeeded' and ${t.output} is null)`,
+			sql`(${t.status} = 'succeeded' and ${t.completedAt} is not null and ((${t.kind} = 'text' and ${t.output} is not null and length(${t.output}) > 0 and ${t.assetId} is null) or (${t.kind} = 'image' and ${t.output} is null and ${t.assetId} is not null))) or (${t.status} <> 'succeeded' and ${t.output} is null and ${t.assetId} is null)`,
 		),
 	],
 );

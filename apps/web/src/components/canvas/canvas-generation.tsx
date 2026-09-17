@@ -1,11 +1,20 @@
 "use client";
 
 import {
+	defaultImageModel,
+	imageCreditCost,
+	imageModels,
+	imageSizes,
 	type PublicRun,
 	resolveTextModel,
+	textCreditCost,
 	textModels,
 } from "@kousa/generation/contracts";
-import { textInputHash, textInputSnapshot } from "@kousa/generation/input";
+import {
+	generationInputHash,
+	imageInputSnapshot,
+	textInputSnapshot,
+} from "@kousa/generation/input";
 import type { CanvasNode } from "@kousa/projects/canvas";
 import { Button } from "@kousa/ui/components/button";
 import {
@@ -16,6 +25,7 @@ import {
 import {
 	Select,
 	SelectContent,
+	SelectGroup,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
@@ -26,6 +36,7 @@ import { CopyIcon, LoaderCircleIcon, PlayIcon } from "lucide-react";
 import { createContext, useContext, useRef, useState } from "react";
 import { toast } from "sonner";
 import { client, orpc } from "@/utils/orpc";
+import { AssetDownload, AssetPreview } from "./canvas-media";
 import {
 	documentFromGraph,
 	type StudioGraph,
@@ -48,7 +59,7 @@ export function useCanvasGeneration({
 }) {
 	const cache = useQueryClient();
 	const nodeIds = graph.nodes
-		.filter((n) => n.type === "text")
+		.filter((n) => n.type === "text" || n.type === "image")
 		.map((n) => n.id)
 		.sort();
 	const query = useQuery({
@@ -84,7 +95,7 @@ export function useCanvasGeneration({
 				id: crypto.randomUUID(),
 				projectId,
 				nodeId,
-				inputHash: await textInputHash(documentFromGraph(graph), nodeId),
+				inputHash: await generationInputHash(documentFromGraph(graph), nodeId),
 			};
 			const result = await mutation.mutateAsync(request);
 			setUncertain(null);
@@ -124,11 +135,16 @@ export function useCanvasGeneration({
 					queryKey: ["generation", userId, projectId],
 				}),
 				cache.invalidateQueries({ queryKey: ["credits", userId] }),
+				cache.invalidateQueries({ queryKey: ["media", userId, projectId] }),
 			]);
 		}
 	}
 	return {
 		runs,
+		imageResults: new Map(
+			(query.data?.imageResults ?? []).map((run) => [run.nodeId, run]),
+		),
+		imageConfigured: query.data?.imageConfigured,
 		run,
 		balance: query.data?.balance,
 		configured: query.data?.configured,
@@ -152,11 +168,10 @@ export function useNodeRun(id: string): PublicRun | undefined {
 	return useContext(GenerationContext)?.runs.get(id);
 }
 
-const modelItems = textModels.map((model) => ({
-	value: model.id,
-	label: model.name,
-}));
-export function TextGenerationPanel({
+export function useNodeImage(id: string): PublicRun | undefined {
+	return useContext(GenerationContext)?.imageResults.get(id);
+}
+export function GenerationPanel({
 	node,
 	canEdit,
 	update,
@@ -167,13 +182,24 @@ export function TextGenerationPanel({
 }) {
 	const generation = useContext(GenerationContext);
 	if (!generation) return null;
+	const kind = node.type === "image" ? "image" : "text";
+	const cost = kind === "image" ? imageCreditCost : textCreditCost;
+	const configured =
+		kind === "image" ? generation.imageConfigured : generation.configured;
+	const modelItems = (kind === "image" ? imageModels : textModels).map(
+		(model) => ({ value: model.id, label: model.name }),
+	);
+	const imageResult = generation.imageResults.get(node.id);
 	const run = generation.runs.get(node.id);
 	const pending =
 		generation.pendingNode === node.id || run?.status === "running";
 	const checking = generation.uncertain?.nodeId === node.id;
 	let inputError: string | null = null;
 	try {
-		textInputSnapshot(documentFromGraph(generation.graph), node.id);
+		(kind === "image" ? imageInputSnapshot : textInputSnapshot)(
+			documentFromGraph(generation.graph),
+			node.id,
+		);
 	} catch (error) {
 		inputError = error instanceof Error ? error.message : "Invalid input.";
 	}
@@ -186,43 +212,62 @@ export function TextGenerationPanel({
 		!generation.canRun ||
 		generation.loading ||
 		generation.queryError ||
-		!generation.configured ||
+		!configured ||
 		Boolean(generation.pendingNode) ||
 		(!checking &&
 			(pending ||
 				generation.myRunActive ||
 				Boolean(generation.uncertain) ||
-				(generation.balance ?? 0) < 1 ||
-				!node.data.content.trim() ||
+				(generation.balance ?? 0) < cost ||
+				(!node.data.content.trim() &&
+					(kind === "text" ||
+						!generation.graph.edges.some(
+							(edge) =>
+								edge.target === node.id && edge.targetHandle === "prompt",
+						))) ||
 				Boolean(inputError)));
 	return (
 		<section
 			className="flex flex-col gap-4 border-t pt-4"
-			aria-label="Text generation"
+			aria-label={`${kind === "image" ? "Image" : "Text"} generation`}
 		>
 			<Field>
-				<FieldLabel htmlFor="text-model">Model</FieldLabel>
+				<FieldLabel htmlFor={`${kind}-model`}>Model</FieldLabel>
 				<Select
 					items={modelItems}
-					value={resolveTextModel(node.data.textModel)}
+					value={
+						kind === "image"
+							? (node.data.imageModel ?? defaultImageModel)
+							: resolveTextModel(node.data.textModel)
+					}
 					disabled={!canEdit || pending}
 					onValueChange={(value) => {
-						if (value) update({ textModel: value }, "textModel");
+						if (value)
+							update(
+								kind === "image" ? { imageModel: value } : { textModel: value },
+								`${kind}Model`,
+							);
 					}}
 				>
-					<SelectTrigger id="text-model" className="w-full">
+					<SelectTrigger id={`${kind}-model`} className="w-full">
 						<SelectValue />
 					</SelectTrigger>
 					<SelectContent>
-						{modelItems.map((item) => (
-							<SelectItem key={item.value} value={item.value}>
-								{item.label}
-							</SelectItem>
-						))}
+						<SelectGroup>
+							{modelItems.map((item) => (
+								<SelectItem key={item.value} value={item.value}>
+									{item.label}
+								</SelectItem>
+							))}
+						</SelectGroup>
 					</SelectContent>
 				</Select>
 				<FieldDescription>
-					1 Kousa credit per successful run · Up to 2,048 output tokens.
+					{cost} Kousa {cost === 1 ? "credit" : "credits"} per successful run ·{" "}
+					{kind === "image"
+						? `${imageSizes[node.data.aspectRatio].replace("x", " × ")} pixels`
+						: "Up to 2,048 output tokens"}
+					.
 				</FieldDescription>
 				<FieldDescription>
 					Models eligible for Vercel free credits.
@@ -232,7 +277,11 @@ export function TextGenerationPanel({
 				<div className="flex flex-col gap-2">
 					<Button
 						disabled={disabled}
-						onClick={() => void generation.run(node.id)}
+						onClick={() => {
+							if (kind === "image" && !checking)
+								update({ imageSource: "generated" }, "imageSource");
+							void generation.run(node.id);
+						}}
 					>
 						{pending ? (
 							<LoaderCircleIcon
@@ -242,7 +291,11 @@ export function TextGenerationPanel({
 						) : (
 							<PlayIcon data-icon="inline-start" />
 						)}
-						{checking ? "Check run" : pending ? "Generating…" : "Generate text"}
+						{checking
+							? "Check run"
+							: pending
+								? "Generating…"
+								: `Generate ${kind}`}
 					</Button>
 					<p className="text-muted-foreground text-xs">
 						Your balance: {generation.balance ?? "…"} credits. Uses your
@@ -253,9 +306,9 @@ export function TextGenerationPanel({
 							Wait for the canvas to connect and finish saving.
 						</p>
 					) : null}
-					{generation.configured === false ? (
+					{configured === false ? (
 						<p className="text-muted-foreground text-xs">
-							Text generation is not available yet.
+							Generation is not available yet.
 						</p>
 					) : null}
 					{generation.queryError ? (
@@ -275,7 +328,7 @@ export function TextGenerationPanel({
 			)}
 			{pending ? (
 				<p role="status" className="text-muted-foreground text-xs">
-					Generating text… The result will appear here.
+					Generating {kind}… The result will appear here.
 				</p>
 			) : null}
 			{error ? (
@@ -283,6 +336,29 @@ export function TextGenerationPanel({
 					{error}
 				</p>
 			) : null}
+			{kind === "image" ? (
+				<div className="flex flex-col gap-3">
+					<p className="text-muted-foreground text-xs">
+						Uses the prompt and connected text. Connected text uses its last
+						successful output, or its written text. Uploaded images are not used
+						as references yet.
+					</p>
+					{imageResult?.assetId ? (
+						<>
+							<h3 className="font-medium text-xs">Last generated image</h3>
+							<AssetPreview
+								key={imageResult.assetId}
+								assetId={imageResult.assetId}
+							/>
+							<AssetDownload assetId={imageResult.assetId} />
+							<p className="text-muted-foreground text-xs">
+								Saved to this project. Generate again to apply prompt changes.
+							</p>
+						</>
+					) : null}
+				</div>
+			) : null}
+
 			{run?.output ? (
 				<div className="flex flex-col gap-2">
 					<div className="flex items-center justify-between gap-2">

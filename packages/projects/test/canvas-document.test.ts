@@ -4,6 +4,7 @@ import {
 	canvasDocumentSchema,
 	createCanvasNode,
 	emptyCanvas,
+	imageOutputAssetId,
 } from "../src/canvas";
 import {
 	createCanvasDocumentModel,
@@ -294,4 +295,63 @@ describe("portable shared canvas document", () => {
 		Y.applyUpdate(restored, Y.encodeStateAsUpdate(a));
 		expect(readCanvasDocument(restored)).toEqual(first.read());
 	});
+});
+
+it("syncs image generation settings and output selection independently of concurrent prompts", () => {
+	const { a, b, image, first, second } = fixture();
+	const assetId = crypto.randomUUID();
+	const generatedId = crypto.randomUUID();
+	const before = first.read().document;
+	first.apply(before, {
+		...before,
+		nodes: before.nodes.map((node) =>
+			node.id === image.id
+				? {
+						...node,
+						data: {
+							...node.data,
+							assetId,
+							imageModel: "bfl/flux-2-klein-4b",
+							imageSource: "generated" as const,
+						},
+					}
+				: node,
+		),
+	});
+	second.editText(image.id, "content", (value) => value.insert(0, "A lantern"));
+	merge(a, b);
+	const data = second
+		.read()
+		.document.nodes.find((node) => node.id === image.id)?.data;
+	if (!data) throw new Error("Missing image node");
+	expect(data).toMatchObject({
+		imageModel: "bfl/flux-2-klein-4b",
+		imageSource: "generated",
+		assetId,
+		content: "A lantern",
+	});
+	expect(imageOutputAssetId(data, generatedId)).toBe(generatedId);
+	expect(imageOutputAssetId(data)).toBe(assetId);
+	expect(
+		imageOutputAssetId({ ...data, imageSource: "project" }, generatedId),
+	).toBe(assetId);
+	expect(
+		imageOutputAssetId(
+			{ ...data, imageSource: "project", assetId: null },
+			generatedId,
+		),
+	).toBeNull();
+	const restored = new Y.Doc();
+	Y.applyUpdate(restored, seedCanvasDocument(first.read().document));
+	expect(readCanvasDocument(restored).document).toEqual(first.read().document);
+	first.history.undo();
+	merge(a, b);
+	expect(
+		second.read().document.nodes.find((node) => node.id === image.id)?.data,
+	).toMatchObject({ content: "A lantern" });
+	expect(
+		second.read().document.nodes.find((node) => node.id === image.id)?.data
+			.imageSource,
+	).toBeUndefined();
+	restored.destroy();
 });

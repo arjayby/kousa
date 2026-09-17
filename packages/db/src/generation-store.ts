@@ -40,7 +40,7 @@ export function createGenerationStore(db: Database) {
 				| "prompt"
 				| "inputHash"
 				| "credits"
-			>,
+			> & { kind?: GenerationRun["kind"] },
 		) {
 			// This Postgres function locks the payer and project before checking balance
 			// and reserving. It is one transaction even over Neon's HTTP driver.
@@ -48,7 +48,7 @@ export function createGenerationStore(db: Database) {
 				.select({
 					claim: sql<Claim>`kousa_claim_generation(
 				${input.id}::uuid, ${input.userId}, ${input.projectId}::uuid, ${input.nodeId}::uuid,
-				${input.modelId}, ${input.prompt}, ${input.inputHash}, ${input.credits}::integer
+				${input.modelId}, ${input.prompt}, ${input.inputHash}, ${input.credits}::integer, ${input.kind ?? "text"}
 			)`,
 				})
 				.from(sql`(select 1) as request`);
@@ -89,15 +89,20 @@ export function createGenerationStore(db: Database) {
 				)
 				.limit(200);
 		},
-		async outputs(projectId: string, nodeIds: string[]) {
-			if (!nodeIds.length) return [];
+		async outputs(
+			projectId: string,
+			nodeIds?: string[],
+			kind: GenerationRun["kind"] = "text",
+		) {
+			if (nodeIds?.length === 0) return [];
 			return db
 				.selectDistinctOn([generationRun.nodeId])
 				.from(generationRun)
 				.where(
 					and(
 						eq(generationRun.projectId, projectId),
-						inArray(generationRun.nodeId, nodeIds),
+						nodeIds ? inArray(generationRun.nodeId, nodeIds) : undefined,
+						eq(generationRun.kind, kind),
 						eq(generationRun.status, "succeeded"),
 					),
 				)
@@ -106,6 +111,19 @@ export function createGenerationStore(db: Database) {
 					desc(generationRun.createdAt),
 					desc(generationRun.id),
 				);
+		},
+		async finishImage(id: string, assetId: string) {
+			const [result] = await db
+				.select({
+					finished: sql<boolean>`kousa_finish_image_generation(${id}::uuid, ${assetId}::uuid)`,
+				})
+				.from(sql`(select 1) as request`);
+			if (!result?.finished) return null;
+			const [run] = await db
+				.select()
+				.from(generationRun)
+				.where(eq(generationRun.id, id));
+			return run ?? null;
 		},
 		async finish(
 			id: string,

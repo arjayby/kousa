@@ -20,13 +20,13 @@ A direct connected Text node contributes its latest successful output. Before it
 
 The server reads the saved graph and compares a hash of the relevant prompt, model and source-node text with the client's expected input. A mismatch asks the user to wait for sync or review another editor's changes. Downstream generated context is loaded directly from Neon, never accepted from client-supplied output.
 
-The `kousa_claim_generation` Postgres function in migration `0006_text_generation.sql` locks the payer and project, rechecks editor access and balance, and inserts a reservation in one transaction. This works with Neon's HTTP driver. **Use migrations, not `db:push` alone:** Drizzle's schema does not represent this function.
+The `kousa_claim_generation` Postgres function introduced in migration `0006_text_generation.sql` and extended in `0008_image_generation.sql` locks the payer and project, rechecks editor access and balance, and inserts a reservation in one transaction. This works with Neon's HTTP driver. **Use migrations, not `db:push` alone:** Drizzle's schema does not represent this function.
 
 Available balance is purchase grants minus successful runs and unexpired reservations. Output and the final charge are committed with the same conditional update. Failure releases the reservation. A two-minute lease releases abandoned reservations even without a cleanup job; the next project read or claim marks those records failed. Late completions cannot charge an expired run.
 
 Each click has a UUID request ID. Replaying that ID returns the existing run, and an ambiguous browser error offers **Check run** with the same ID. Database failure after the provider has responded leaves the run reserved until recovery/expiry; the server does not call the provider again. A provider may still bill the application for a timed-out call, although Kousa releases the user's credit when it cannot deliver a saved result.
 
-Canvas tabs poll server-owned results every three seconds while active. This keeps generation state independent of Liveblocks and the future Synixir migration. The request currently stays open until the bounded text call finishes. Browser disconnects or Worker termination can abandon a run; this is not a durable background workflow. Add a durable job runner before implementing long video/image jobs.
+Canvas tabs poll server-owned results every three seconds while active. This keeps generation state independent of Liveblocks and the future Synixir migration. The request currently stays open until the bounded text call finishes. Browser disconnects or Worker termination can abandon a run; this is not a durable background workflow. Add a durable job runner before implementing long video jobs. Bounded text-to-image generation is documented in [Image generation](image-generation.md).
 
 ## Verification
 

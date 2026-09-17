@@ -29,6 +29,8 @@ function sharedNode(node: CanvasNode) {
 	value.set("aspectRatio", node.data.aspectRatio);
 	value.set("duration", node.data.duration);
 	if (node.data.textModel) value.set("textModel", node.data.textModel);
+	if (node.data.imageModel) value.set("imageModel", node.data.imageModel);
+	if (node.data.imageSource) value.set("imageSource", node.data.imageSource);
 	if (node.data.assetId) value.set("assetId", node.data.assetId);
 	return value;
 }
@@ -59,6 +61,8 @@ export function readCanvasDocument(doc: Y.Doc) {
 		const data: Record<string, unknown> = {
 			aspectRatio: value.get("aspectRatio"),
 			textModel: value.get("textModel"),
+			imageModel: value.get("imageModel"),
+			imageSource: value.get("imageSource"),
 			assetId: value.get("assetId"),
 			duration: value.get("duration"),
 		};
@@ -196,6 +200,8 @@ export function createCanvasDocumentModel(doc: Y.Doc) {
 						"aspectRatio",
 						"duration",
 						"textModel",
+						"imageModel",
+						"imageSource",
 						"assetId",
 					] as const)
 						if (node.data[field] !== previous.data[field])

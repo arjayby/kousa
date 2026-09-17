@@ -32,6 +32,8 @@ export const inputPorts: Record<NodeKind, readonly InputPort[]> = {
 const nodeDataSchema = z.object({
 	label: z.string().max(80),
 	textModel: z.string().max(120).optional(),
+	imageModel: z.string().max(120).optional(),
+	imageSource: z.enum(["generated", "project"]).optional(),
 	assetId: z.uuid().nullable().optional(),
 	content: z.string().max(20_000),
 	aspectRatio: z.enum(aspectRatios),
@@ -181,4 +183,14 @@ export const canvasDocumentSchema = z
 
 export function canvasDraftKey(userId: string, projectId: string) {
 	return `kousa:canvas:v1:${encodeURIComponent(userId)}:${encodeURIComponent(projectId)}`;
+}
+
+export function imageOutputAssetId(
+	data: CanvasNode["data"],
+	generatedAssetId?: string | null,
+) {
+	const source = data.imageSource ?? (data.assetId ? "project" : "generated");
+	return source === "generated"
+		? (generatedAssetId ?? data.assetId)
+		: data.assetId;
 }

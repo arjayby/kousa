@@ -19,7 +19,7 @@ import {
 	ToggleGroupItem,
 } from "@kousa/ui/components/toggle-group";
 import { CopyIcon, Trash2Icon, UnplugIcon, XIcon } from "lucide-react";
-import { TextGenerationPanel } from "./canvas-generation";
+import { GenerationPanel, useNodeImage } from "./canvas-generation";
 import { ImageMediaPanel } from "./canvas-media";
 import { nodeIcons } from "./media-node";
 import { SharedTextField } from "./shared-text-field";
@@ -50,6 +50,7 @@ export function NodeInspector({
 	disconnect: (id: string) => void;
 	close: () => void;
 }) {
+	const imageResult = useNodeImage(node.id);
 	const kind = node.type ?? "text";
 	const Icon = nodeIcons[kind];
 	const attached = edges.filter(
@@ -118,7 +119,9 @@ export function NodeInspector({
 						<FieldDescription>
 							{kind === "text"
 								? "Connect this output to a prompt or script input."
-								: "Connected inputs will supply context when generation is added."}
+								: kind === "image"
+									? "Write a prompt here, connect a Text node, or use both."
+									: "Connected inputs will supply context when generation is added."}
 						</FieldDescription>
 					</Field>
 					{kind === "image" || kind === "video" ? (
@@ -186,11 +189,12 @@ export function NodeInspector({
 						</Field>
 					) : null}
 				</FieldGroup>
-				{kind === "text" ? (
-					<TextGenerationPanel node={node} canEdit={canEdit} update={update} />
+				{kind === "text" || kind === "image" ? (
+					<GenerationPanel node={node} canEdit={canEdit} update={update} />
 				) : null}
 				{kind === "image" ? (
 					<ImageMediaPanel
+						generatedAssetId={imageResult?.assetId}
 						key={node.id}
 						node={node}
 						canEdit={canEdit}

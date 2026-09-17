@@ -8,7 +8,7 @@ import {
 	mediaUrl,
 	type PublicAsset,
 } from "@kousa/media/contracts";
-import type { CanvasNode } from "@kousa/projects/canvas";
+import { type CanvasNode, imageOutputAssetId } from "@kousa/projects/canvas";
 import { Button } from "@kousa/ui/components/button";
 import {
 	Field,
@@ -19,6 +19,7 @@ import { Input } from "@kousa/ui/components/input";
 import {
 	Select,
 	SelectContent,
+	SelectGroup,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
@@ -152,12 +153,29 @@ export function AssetPreview({
 	);
 }
 
+export function AssetDownload({ assetId }: { assetId: string }) {
+	const media = useContext(MediaContext);
+	if (!media) return null;
+	const asset = media.assets.find((asset) => asset.id === assetId);
+	return (
+		<a
+			className="text-xs underline underline-offset-4"
+			href={mediaUrl(media.projectId, assetId)}
+			download={asset?.name ?? "generated-image"}
+		>
+			Download image
+		</a>
+	);
+}
+
 export function ImageMediaPanel({
 	node,
+	generatedAssetId,
 	canEdit,
 	update,
 }: {
 	node: StudioNode;
+	generatedAssetId?: string | null;
 	canEdit: boolean;
 	update: (data: Partial<CanvasNode["data"]>, field: string) => void;
 }) {
@@ -166,12 +184,22 @@ export function ImageMediaPanel({
 	const busy = useRef(false);
 	const [error, setError] = useState<string | null>(null);
 	if (!media) return null;
-	const asset = media.assets.find((asset) => asset.id === node.data.assetId);
+	const selectedId = imageOutputAssetId(node.data, generatedAssetId);
+	const selectedValue =
+		(node.data.imageSource ?? (node.data.assetId ? "project" : "generated")) ===
+		"generated"
+			? "generated"
+			: (node.data.assetId ?? "none");
+	const asset = media.assets.find((asset) => asset.id === selectedId);
 	const items = [
 		{ value: "none", label: "No image" },
+		{ value: "generated", label: "Latest generation" },
 		...media.assets.map((asset) => ({ value: asset.id, label: asset.name })),
 	];
-	if (node.data.assetId && !asset)
+	if (
+		node.data.assetId &&
+		!media.assets.some((asset) => asset.id === node.data.assetId)
+	)
 		items.push({ value: node.data.assetId, label: "Current image" });
 	async function upload(file: File) {
 		if (!media || busy.current || !canEdit) return;
@@ -197,7 +225,7 @@ export function ImageMediaPanel({
 			});
 			const { asset } = mediaUploadSchema.parse(await responseBody(response));
 			media.retryPreview(asset.id);
-			update({ assetId: asset.id }, "assetId");
+			update({ assetId: asset.id, imageSource: "project" }, "assetId");
 			await media.refresh();
 			toast.success("Image saved to project");
 		} catch (cause) {
@@ -216,10 +244,10 @@ export function ImageMediaPanel({
 			aria-label="Project images"
 			className="flex flex-col gap-4 border-t pt-4"
 		>
-			<h3 className="font-medium text-sm">Image</h3>
-			{node.data.assetId ? (
+			<h3 className="font-medium text-sm">Image output</h3>
+			{selectedId ? (
 				<>
-					<AssetPreview key={node.data.assetId} assetId={node.data.assetId} />
+					<AssetPreview key={selectedId} assetId={selectedId} />
 					{asset ? (
 						<p className="break-words text-muted-foreground text-xs">
 							{asset.name} · {asset.width} × {asset.height} ·{" "}
@@ -251,17 +279,20 @@ export function ImageMediaPanel({
 						</FieldDescription>
 					</Field>
 					<Field>
-						<FieldLabel htmlFor="node-project-image">
-							Use a project image
-						</FieldLabel>
+						<FieldLabel htmlFor="node-project-image">Show on node</FieldLabel>
 						<Select
 							items={items}
-							value={node.data.assetId ?? "none"}
+							value={selectedValue}
 							disabled={uploading || media.pending || media.error}
 							onValueChange={(value) => {
 								if (value)
 									update(
-										{ assetId: value === "none" ? null : value },
+										value === "generated"
+											? { imageSource: "generated" }
+											: {
+													assetId: value === "none" ? null : value,
+													imageSource: "project",
+												},
 										"assetId",
 									);
 							}}
@@ -270,11 +301,13 @@ export function ImageMediaPanel({
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
-								{items.map((item) => (
-									<SelectItem key={item.value} value={item.value}>
-										{item.label}
-									</SelectItem>
-								))}
+								<SelectGroup>
+									{items.map((item) => (
+										<SelectItem key={item.value} value={item.value}>
+											{item.label}
+										</SelectItem>
+									))}
+								</SelectGroup>
 							</SelectContent>
 						</Select>
 						<FieldDescription>

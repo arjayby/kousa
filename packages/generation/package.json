@@ -11,6 +11,7 @@
 	"dependencies": {
 		"@kousa/db": "workspace:*",
 		"@kousa/env": "workspace:*",
+		"@kousa/media": "workspace:*",
 		"@kousa/projects": "workspace:*",
 		"ai": "^7.0.105",
 		"zod": "catalog:"
