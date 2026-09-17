@@ -85,7 +85,9 @@ export function createMediaStore(db: Database) {
 			return db
 				.select({
 					...getTableColumns(mediaAsset),
-					transcript: speech.transcript,
+					transcript: sql<
+						string | null
+					>`coalesce(${speech.transcript}, (select c.plan->>'transcript' from clip_run c where c.asset_id = ${mediaAsset.id} and c.project_id = ${mediaAsset.projectId} and c.status = 'succeeded' order by c.completed_at desc limit 1))`,
 				})
 				.from(mediaAsset)
 				.leftJoin(speech, eq(speech.assetId, mediaAsset.id))

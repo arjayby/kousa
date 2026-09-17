@@ -37,6 +37,14 @@ const nodeDataSchema = z.object({
 	speechModel: z.string().max(120).optional(),
 	voiceId: z.string().max(120).optional(),
 	imageSource: z.enum(["generated", "project"]).optional(),
+	mediaSource: z.enum(["generated", "project"]).optional(),
+	clipSettings: z
+		.object({
+			narrationStartMs: z.number().int().min(0).max(11_999),
+			narrationVolume: z.number().min(0).max(2),
+			videoVolume: z.number().min(0).max(2),
+		})
+		.optional(),
 	assetId: z.uuid().nullable().optional(),
 	content: z.string().max(20_000),
 	aspectRatio: z.enum(aspectRatios),

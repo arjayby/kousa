@@ -16,7 +16,8 @@ This project was created with [Better-T-Stack](https://github.com/AmanVarshney01
 - **Projects and permissions** - Private projects with owner, editor, and viewer access through email invitations
 - **Background generation** - Durable Cloudflare Workflows for text/image/video/speech jobs, shared progress, recovery, and protected credit reservations
 - **Node canvas** - Text, image, video, and speech nodes with connections, undo/redo, and shared project saving with editor/viewer permissions
-- **Project media library** - Search and filter saved media, preview and download files, and reuse images on the canvas
+- **Project media library** - Search and filter saved media, preview and download files, and reuse images, videos, and speech on the canvas
+- **Narrated clips** - Combine video and speech with timing/volume controls and durable server exports
 - **Resend email** - Expiring invitations bound to a verified email, with roles and invitation status
 - **Biome** - Linting and formatting
 - **Turborepo** - Optimized monorepo build system
@@ -45,7 +46,7 @@ Then, run the development server:
 pnpm run dev
 ```
 
-Alchemy starts Next.js and the local generation Worker, applies migrations, and supplies the existing Gateway key to both. No new environment variables are needed. See [background generation](docs/background-generation.md) for local persistence, recovery, and deployment.
+Alchemy starts Next.js, the local generation Worker, and the clip renderer, applies migrations, and supplies the existing Gateway key to the web and Worker. Local clip rendering requires FFmpeg and ffprobe on PATH. No new environment variables are needed. See [background generation](docs/background-generation.md) for local persistence, recovery, and deployment.
 
 Open [http://localhost:3001](http://localhost:3001) in your browser to see the fullstack application.
 
@@ -54,6 +55,8 @@ Open [http://localhost:3001](http://localhost:3001) in your browser to see the f
 Run multiple output branches with shared inputs, combined credit review, progress and resume, or use **Run to this node** for one output. See [workflow execution](docs/graph-execution.md).
 
 Open **Media library** in the canvas toolbar to browse project files. See [project media](docs/project-media.md) for supported formats, access rules, and local storage.
+
+Connect Speech to a Video node’s Audio input and use **Narrated clip** to export a finished MP4. See [clip creation and renderer setup](docs/clip-composition.md). Local rendering needs no new environment variables; hosted rendering is opt-in and requires Workers Paid.
 
 Generation setup and billing behavior are documented in [Text generation](docs/text-generation.md), [Image generation](docs/image-generation.md), [Speech generation](docs/speech-generation.md), and [Video generation](docs/video-generation.md).
 
@@ -141,6 +144,7 @@ kousa/
 - `pnpm run dev:web`: Start only the web application
 - `pnpm run check-types`: Check TypeScript types across all apps
 - `pnpm test`: Run billing, project, generation, and media tests against isolated Postgres engines, plus email transport tests
+- `pnpm --filter @kousa/jobs test:renderer`: Verify actual FFmpeg timing, volumes, and MP4 output (requires FFmpeg)
 - `pnpm run db:push`: Push schema changes to database
 - `pnpm run db:generate`: Generate SQL migrations from the Drizzle schema
 - `pnpm run db:migrate`: Run database migrations

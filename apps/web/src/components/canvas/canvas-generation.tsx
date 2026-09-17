@@ -572,7 +572,8 @@ export function GenerationPanel({
 					<p className="text-muted-foreground text-xs">
 						Creates a silent clip from your prompt and, optionally, one
 						connected image. Connected text uses its last successful output, or
-						its written text. Video and audio inputs are not supported yet.
+						its written text. Add connected speech afterward with Narrated clip.
+						Video inputs are not supported by this generation model.
 					</p>
 					{videoResult?.assetId ? (
 						<>

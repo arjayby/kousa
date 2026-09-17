@@ -13,6 +13,13 @@ export function graphDependencies(graph: Graph) {
 	)) {
 		const target = nodes.get(edge.target);
 		const source = nodes.get(edge.source);
+		// Composition uses already saved speech; video generation does not depend on it.
+		if (
+			target?.type === "video" &&
+			edge.targetHandle === "audio" &&
+			source?.type === "speech"
+		)
+			continue;
 		// Video consumes the fixed asset, not a new generation of its source image.
 		if (
 			target?.type === "video" &&

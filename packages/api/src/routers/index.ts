@@ -2,11 +2,13 @@ import { createBilling } from "@kousa/billing/runtime";
 import type { RouterClient } from "@orpc/server";
 
 import { protectedProcedure, publicProcedure } from "../index";
+import { createClipRouter } from "./clips";
 import { createGenerationRouter } from "./generation";
 import { createGraphRouter } from "./graph";
 import { createProjectsRouter } from "./projects";
 
 export const appRouter = {
+	clips: createClipRouter(),
 	generation: createGenerationRouter(),
 	graph: createGraphRouter(),
 	projects: createProjectsRouter(),

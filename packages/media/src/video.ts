@@ -3,7 +3,10 @@ import { maxVideoBytes, maxVideoDurationMs } from "./contracts";
 
 // Metadata parsing is not decoding. Validate complete boxes and sample bounds
 // too, so a truncated mdat cannot be published as a playable result.
-export function inspectVideo(bytes: Uint8Array<ArrayBuffer>) {
+export function inspectVideo(
+	bytes: Uint8Array<ArrayBuffer>,
+	audio: "none" | "optional" | "required" = "none",
+) {
 	if (!bytes.length || bytes.length > maxVideoBytes)
 		throw new Error("Invalid video size");
 	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -42,11 +45,17 @@ export function inspectVideo(bytes: Uint8Array<ArrayBuffer>) {
 		!info.hasMoov ||
 		info.isFragmented ||
 		info.videoTracks.length !== 1 ||
-		info.audioTracks.length ||
+		info.tracks.length !== info.videoTracks.length + info.audioTracks.length ||
+		(audio === "none" && info.audioTracks.length > 0) ||
+		(audio === "required" && info.audioTracks.length !== 1) ||
+		info.audioTracks.length > 1 ||
+		info.audioTracks.some(
+			(t) => t.codec !== "mp4a.40.2" || !t.audio || t.audio.channel_count > 2,
+		) ||
 		!track?.video ||
 		!/^avc[13]\./.test(track.codec)
 	)
-		throw new Error("Expected silent H.264 MP4");
+		throw new Error("Expected H.264 MP4 with supported audio");
 	const { width, height } = track.video;
 	const durationMs = Math.ceil((track.duration / track.timescale) * 1000);
 	if (
@@ -59,20 +68,22 @@ export function inspectVideo(bytes: Uint8Array<ArrayBuffer>) {
 		durationMs > maxVideoDurationMs
 	)
 		throw new Error("Invalid video dimensions or duration");
-	const samples = file.getTrackSamplesInfo(track.id);
-	if (
-		!samples.length ||
-		samples.length !== track.nb_samples ||
-		samples.some(
-			(s) =>
-				!Number.isSafeInteger(s.offset) ||
-				!Number.isSafeInteger(s.size) ||
-				s.size <= 0 ||
-				!mediaRanges.some(
-					(r) => s.offset >= r.start && s.offset + s.size <= r.end,
-				),
+	for (const sampleTrack of info.tracks) {
+		const samples = file.getTrackSamplesInfo(sampleTrack.id);
+		if (
+			!samples.length ||
+			samples.length !== sampleTrack.nb_samples ||
+			samples.some(
+				(s) =>
+					!Number.isSafeInteger(s.offset) ||
+					!Number.isSafeInteger(s.size) ||
+					s.size <= 0 ||
+					!mediaRanges.some(
+						(r) => s.offset >= r.start && s.offset + s.size <= r.end,
+					),
+			)
 		)
-	)
-		throw new Error("Incomplete video samples");
+			throw new Error("Incomplete video samples");
+	}
 	return { width, height, durationMs };
 }

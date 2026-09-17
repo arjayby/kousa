@@ -113,3 +113,7 @@ These checks require paid Gateway access and a reachable [public HTTPS image ori
 - [ ] Play, seek and download the saved clip as an editor and viewer, including after reload.
 - [ ] Run with a selected project image. Confirm its generation ancestors are excluded and the five-second video-only plan charges 10 credits once.
 - [ ] Exercise a controlled failure after upstream steps finish. Review and resume, confirming completed steps cost zero, the video uses the original completed image, and only unfinished steps are charged. Recovery and failure accounting currently have automated coverage only.
+
+## Narrated video exports
+
+Speech → Video Audio is a composition connection. AI workflow planning keeps speech and video as separate outputs, and video generation ignores that audio connection. Generate both branches, then use **Narrated clip** on the Video node to combine their saved files. See [clip composition](clip-composition.md).

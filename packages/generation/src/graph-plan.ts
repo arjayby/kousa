@@ -69,7 +69,20 @@ export function graphRunTargetIds(run: { nodeId: string; plan: GraphStep[] }) {
 }
 
 export function graphOutputIds(graph: Pick<CanvasDocument, "nodes" | "edges">) {
-	const sources = new Set(graph.edges.map((edge) => edge.source));
+	// Audio connections are for clip composition, not AI generation dependencies.
+	const kinds = new Map(graph.nodes.map((n) => [n.id, n.type]));
+	const sources = new Set(
+		graph.edges
+			.filter(
+				(e) =>
+					!(
+						kinds.get(e.target) === "video" &&
+						e.targetHandle === "audio" &&
+						kinds.get(e.source) === "speech"
+					),
+			)
+			.map((edge) => edge.source),
+	);
 	return graph.nodes
 		.filter((node) => !sources.has(node.id))
 		.map((node) => node.id);

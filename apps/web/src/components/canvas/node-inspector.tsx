@@ -19,10 +19,12 @@ import {
 	ToggleGroupItem,
 } from "@kousa/ui/components/toggle-group";
 import { CopyIcon, Trash2Icon, UnplugIcon, XIcon } from "lucide-react";
+import { ClipPanel } from "./canvas-clips";
 import { GenerationPanel, useNodeImage } from "./canvas-generation";
 import { ImageMediaPanel } from "./canvas-media";
 import { nodeIcons } from "./media-node";
 import { SharedTextField } from "./shared-text-field";
+import { StoredMediaPanel } from "./stored-media-panel";
 import type { StudioEdge, StudioNode } from "./use-canvas";
 
 export function NodeInspector({
@@ -191,6 +193,17 @@ export function NodeInspector({
 						</Field>
 					) : null}
 				</FieldGroup>
+				{kind === "video" || kind === "speech" ? (
+					<StoredMediaPanel
+						key={node.id}
+						node={node}
+						canEdit={canEdit}
+						update={update}
+					/>
+				) : null}
+				{kind === "video" ? (
+					<ClipPanel node={node} canEdit={canEdit} update={update} />
+				) : null}
 				<GenerationPanel node={node} canEdit={canEdit} update={update} />
 				{kind === "image" ? (
 					<ImageMediaPanel

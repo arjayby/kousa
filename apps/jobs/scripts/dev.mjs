@@ -1,5 +1,10 @@
 import { spawn } from "node:child_process";
 
+const renderer = spawn("node", ["renderer/server.mjs"], { stdio: "inherit" });
+renderer.on("error", () =>
+	console.error("Start the clip renderer with node renderer/server.mjs."),
+);
+
 // Alchemy supplies the managed database URL and API key in the child environment.
 // Wrangler's required-secrets allowlist imports only those two into the Worker.
 const worker = spawn(
@@ -36,8 +41,12 @@ const sweep = setInterval(() => {
 	void recover();
 }, 15 * 60_000);
 for (const signal of ["SIGINT", "SIGTERM"])
-	process.on(signal, () => worker.kill(signal));
+	process.on(signal, () => {
+		worker.kill(signal);
+		renderer.kill(signal);
+	});
 worker.on("exit", (code) => {
+	renderer.kill();
 	clearInterval(sweep);
 	clearTimeout(startupTimer);
 	process.exit(code ?? 0);

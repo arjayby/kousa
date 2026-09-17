@@ -52,6 +52,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ClipContext, ClipMonitor, useCanvasClips } from "./canvas-clips";
 import { GenerationContext, useCanvasGeneration } from "./canvas-generation";
 import { CanvasMediaProvider } from "./canvas-media";
 import { CanvasCursors, CanvasPeople } from "./canvas-presence";
@@ -157,15 +158,15 @@ function Editor({
 	const persistence = useCanvas(userId, projectId, allowedToEdit);
 	const { graph, dispatch, canUndo, canRedo, sync, canEdit, session } =
 		persistence;
+	const canRun =
+		canEdit && sync.connection === "connected" && sync.sync === "synchronized";
+	const clips = useCanvasClips(userId, projectId, sync.loaded, canRun);
 	const generation = useCanvasGeneration({
 		userId,
 		projectId,
 		graph,
 		loaded: sync.loaded,
-		canRun:
-			canEdit &&
-			sync.connection === "connected" &&
-			sync.sync === "synchronized",
+		canRun,
 	});
 	const saveError = sync.error ?? sync.backupError;
 	const statusLabel = sync.error
@@ -486,12 +487,20 @@ function Editor({
 					<MediaLibrary
 						canEdit={canEdit}
 						atNodeLimit={graph.nodes.length >= 200}
-						onUseImage={(asset) =>
-							addNode("image", {
-								label: asset.name.slice(0, 80),
-								assetId: asset.id,
-								imageSource: "project",
-							})
+						onUseAsset={(asset) =>
+							addNode(
+								asset.mimeType === "video/mp4"
+									? "video"
+									: asset.mimeType === "audio/mpeg"
+										? "speech"
+										: "image",
+								{
+									label: asset.name.slice(0, 80),
+									assetId: asset.id,
+									imageSource: "project",
+									mediaSource: "project",
+								},
+							)
 						}
 					/>
 					<WorkflowLauncher
@@ -500,6 +509,7 @@ function Editor({
 						canEdit={canEdit}
 					/>
 					<WorkflowMonitor workflow={generation.workflow} />
+					<ClipMonitor />
 					{session ? <CanvasPeople session={session} /> : null}
 					<Button
 						variant="ghost"
@@ -811,7 +821,7 @@ function Editor({
 				projectId={projectId}
 				loaded={sync.loaded}
 			>
-				{content}
+				<ClipContext.Provider value={clips}>{content}</ClipContext.Provider>
 			</CanvasMediaProvider>
 		</GenerationContext.Provider>
 	);

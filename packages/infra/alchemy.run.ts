@@ -45,6 +45,15 @@ export const databaseProviders = Layer.mergeAll(Neon.providers());
 const mediaBucket = Cloudflare.R2.Bucket("media", {
 	publicAccess: false,
 	forceDestroy: false,
+	lifecycleRules: [
+		{
+			id: "expire-clip-receipts",
+			prefix: "clip-receipts/",
+			deleteObjectsTransition: {
+				condition: { type: "Age", maxAge: 3 * 24 * 60 * 60 },
+			},
+		},
+	],
 });
 const gatewayKey = Config.redacted("AI_GATEWAY_API_KEY").pipe(
 	Config.withDefault(Redacted.make("")),
@@ -55,6 +64,9 @@ export const generationJobs = Cloudflare.Worker(
 		const databaseBindings = yield* databaseEnv;
 		const media = yield* mediaBucket;
 		const key = yield* gatewayKey;
+		const clipsEnabled = yield* Config.boolean("CLIP_RENDERING_ENABLED").pipe(
+			Config.withDefault(false),
+		);
 		yield* Command.Dev("generation-dev", {
 			command: "pnpm run dev:worker",
 			cwd: "../../apps/jobs",
@@ -71,6 +83,16 @@ export const generationJobs = Cloudflare.Worker(
 				...databaseBindings,
 				AI_GATEWAY_API_KEY: key,
 				MEDIA: media,
+				...(clipsEnabled
+					? {
+							CLIP_RENDERER: Cloudflare.Container("ClipRendererContainer", {
+								context: "../../apps/jobs/renderer",
+								dockerfile: "Dockerfile",
+								instanceType: "basic",
+								maxInstances: 2,
+							}),
+						}
+					: {}),
 				GENERATION: Cloudflare.Workflow<{ runId: string }>(
 					"GenerationWorkflow",
 					{ className: "GenerationWorkflow" },

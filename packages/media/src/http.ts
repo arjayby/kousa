@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { maxImageBytes, mediaParams } from "./contracts";
+import { maxImageBytes, maxVideoBytes, mediaParams } from "./contracts";
 import { MediaRangeError } from "./range";
 import { MediaError, type MediaService } from "./service";
 
@@ -9,10 +9,15 @@ const privateHeaders = {
 	"Cross-Origin-Resource-Policy": "same-origin",
 };
 async function readBody(request: Request) {
+	const limit =
+		request.headers.get("content-type") === "video/mp4"
+			? maxVideoBytes
+			: maxImageBytes;
 	const length = Number(request.headers.get("content-length"));
-	if (length > maxImageBytes)
-		throw new MediaError(413, "Choose an image up to 10 MB.");
-	if (!request.body) throw new MediaError(400, "Choose an image to upload.");
+	if (length > limit)
+		throw new MediaError(413, "Media exceeds its upload size limit.");
+	if (!request.body)
+		throw new MediaError(400, "Choose a media file to upload.");
 	const reader = request.body.getReader();
 	const chunks: Uint8Array[] = [];
 	let size = 0;
@@ -21,9 +26,9 @@ async function readBody(request: Request) {
 			const { value, done } = await reader.read();
 			if (done) break;
 			size += value.byteLength;
-			if (size > maxImageBytes) {
+			if (size > limit) {
 				await reader.cancel();
-				throw new MediaError(413, "Choose an image up to 10 MB.");
+				throw new MediaError(413, "Media exceeds its upload size limit.");
 			}
 			chunks.push(value);
 		}
@@ -62,7 +67,7 @@ export function createMediaHandler(deps: {
 				let name: string;
 				try {
 					name = decodeURIComponent(
-						request.headers.get("x-file-name") ?? "Image",
+						request.headers.get("x-file-name") ?? "Media",
 					);
 				} catch {
 					throw new MediaError(400, "Invalid filename.");

@@ -2,12 +2,14 @@ import { fileURLToPath, URL } from "node:url";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
+import { createClipStore } from "./src/clip-store";
 import { createCreditStore } from "./src/credit-store";
 import { createGenerationStore } from "./src/generation-store";
 import { createGraphStore } from "./src/graph-store";
 import { createMediaStore } from "./src/media-store";
 import { createProjectStore } from "./src/project-store";
 import { user } from "./src/schema/auth";
+import { clipRun } from "./src/schema/clip-runs";
 import { creditGrant } from "./src/schema/credits";
 import { generationRun } from "./src/schema/generations";
 import { graphRun } from "./src/schema/graph-runs";
@@ -23,11 +25,13 @@ export async function createGenerationTestDatabase() {
 	});
 	return {
 		store: createGenerationStore(db),
+		clips: createClipStore(db),
 		graphs: createGraphStore(db),
 		media: createMediaStore(db),
 		credits: createCreditStore(db),
 		projects: createProjectStore(db),
 		async reset() {
+			await db.delete(clipRun);
 			await db.delete(generationRun);
 			await db.delete(graphRun);
 			await db.delete(mediaAsset);
@@ -72,6 +76,12 @@ export async function createGenerationTestDatabase() {
 		},
 		revoke(userId: string) {
 			return db.delete(projectMember).where(eq(projectMember.userId, userId));
+		},
+		expireClip(id: string) {
+			return db
+				.update(clipRun)
+				.set({ expiresAt: new Date(0) })
+				.where(eq(clipRun.id, id));
 		},
 		expire(id: string) {
 			return db

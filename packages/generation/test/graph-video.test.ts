@@ -401,7 +401,7 @@ it("rejects another project's selected image, including at the database boundary
 	expect(await db.store.balance("owner")).toBe(100);
 });
 
-it("blocks missing project images, extra images, unsupported video/audio edges, and invalid durations", async () => {
+it("blocks missing project images, extra images, unsupported video edges, and invalid durations", async () => {
 	imageNode.data.imageSource = "project";
 	await expect(planGraph(graph, videoNode.id)).rejects.toThrow(
 		"available image",
@@ -426,7 +426,7 @@ it("blocks missing project images, extra images, unsupported video/audio edges, 
 	graph.nodes.push(upstream);
 	graph.edges.push(connect(upstream.id, videoNode.id, "video"));
 	await expect(planGraph(graph, videoNode.id)).rejects.toThrow(
-		"Disconnect video and audio",
+		"Disconnect video",
 	);
 });
 

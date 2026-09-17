@@ -435,3 +435,55 @@ it("persists video model, duration and aspect ratio without losing concurrent pr
 	b.destroy();
 	restored.destroy();
 });
+
+it("syncs clip settings and project media selection while preserving a concurrent prompt", () => {
+	const node = createCanvasNode("video", { x: 0, y: 0 });
+	const seed = seedCanvasDocument({ ...emptyCanvas(), nodes: [node] });
+	const a = new Y.Doc();
+	const b = new Y.Doc();
+	Y.applyUpdate(a, seed);
+	Y.applyUpdate(b, seed);
+	const first = createCanvasDocumentModel(a);
+	const second = createCanvasDocumentModel(b);
+	const before = first.read().document;
+	const settings = {
+		narrationStartMs: 1500,
+		narrationVolume: 0.5,
+		videoVolume: 1,
+	};
+	const assetId = crypto.randomUUID();
+	first.apply(before, {
+		...before,
+		nodes: before.nodes.map((n) => ({
+			...n,
+			data: {
+				...n.data,
+				mediaSource: "project",
+				assetId,
+				clipSettings: settings,
+			},
+		})),
+	});
+	second.editText(node.id, "content", (text) =>
+		text.insert(0, "Concurrent edit"),
+	);
+	merge(a, b);
+	expect(second.read().document.nodes[0]?.data).toMatchObject({
+		mediaSource: "project",
+		assetId,
+		clipSettings: settings,
+		content: "Concurrent edit",
+	});
+	const restored = new Y.Doc();
+	Y.applyUpdate(restored, seedCanvasDocument(second.read().document));
+	expect(readCanvasDocument(restored).document).toEqual(first.read().document);
+	first.history.undo();
+	merge(a, b);
+	expect(second.read().document.nodes[0]?.data.content).toBe("Concurrent edit");
+	expect(second.read().document.nodes[0]?.data.clipSettings).toBeUndefined();
+	first.destroy();
+	second.destroy();
+	a.destroy();
+	b.destroy();
+	restored.destroy();
+});

@@ -26,7 +26,8 @@
 		"dotenv": "catalog:",
 		"next": "catalog:",
 		"zod": "catalog:",
-		"@kousa/generation": "workspace:*"
+		"@kousa/generation": "workspace:*",
+		"@kousa/media": "workspace:*"
 	},
 	"devDependencies": {
 		"@kousa/config": "workspace:*",

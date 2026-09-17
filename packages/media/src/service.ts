@@ -114,17 +114,18 @@ export function createMediaService(
 		actorId: string,
 		projectId: string,
 		file: { bytes: Uint8Array<ArrayBuffer>; name: string; mimeType: string },
+		audio: "none" | "optional" | "required" = "none",
 	) {
 		await authorize(actorId, projectId, true);
 		if (file.mimeType !== "video/mp4")
 			throw new MediaError(415, "Expected MP4 video.");
 		let metadata: ReturnType<typeof inspectVideo>;
 		try {
-			metadata = inspectVideo(file.bytes);
+			metadata = inspectVideo(file.bytes, audio);
 		} catch {
 			throw new MediaError(
 				415,
-				"Expected a complete silent H.264 MP4, up to 12 seconds and 20 MB.",
+				"Expected a complete H.264 MP4 with supported audio, up to 12 seconds and 20 MB.",
 			);
 		}
 		return save(actorId, projectId, file, metadata);
@@ -184,12 +185,22 @@ export function createMediaService(
 		stage,
 		stageSpeech,
 		stageVideo,
+		stageClip: (
+			actorId: string,
+			projectId: string,
+			file: { bytes: Uint8Array<ArrayBuffer>; name: string; mimeType: string },
+		) => stageVideo(actorId, projectId, file, "required"),
 		async upload(
 			actorId: string,
 			projectId: string,
 			file: { bytes: Uint8Array<ArrayBuffer>; name: string; mimeType: string },
 		) {
-			const asset = await stage(actorId, projectId, file);
+			const asset =
+				file.mimeType === "video/mp4"
+					? await stageVideo(actorId, projectId, file, "optional")
+					: file.mimeType === "audio/mpeg"
+						? await stageSpeech(actorId, projectId, file)
+						: await stage(actorId, projectId, file);
 			const completed = await store.complete(actorId, asset.id);
 			if (!completed)
 				throw new MediaError(403, "Your editing access has changed.");

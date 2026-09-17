@@ -114,9 +114,10 @@ export function WorkflowLauncher({
 						</Button>
 					</div>
 					<p className="text-muted-foreground text-xs">
-						All outputs selects nodes with no outgoing connections. You can also
-						choose any intermediate node. Inputs marked “Included automatically”
-						will run with your selected outputs.
+						All outputs selects endpoints of AI generation. Audio connections
+						used for clips do not hide speech outputs. You can also choose any
+						intermediate node. Inputs marked “Included automatically” will run
+						with your selected outputs.
 					</p>
 					<FieldSet disabled={workflow.pending}>
 						<FieldLegend variant="label">

@@ -1,6 +1,6 @@
 # Generation verification
 
-Last updated September 17, 2026, after refining the workflow output picker. Workflow-wide execution results were recorded for commit `2d49fda`; speech workflow results for `631fb41`; video workflow results for `7942495`.
+Last updated September 17, 2026, after adding server-rendered narrated clips. Workflow-wide execution results were recorded for commit `2d49fda`; speech workflow results for `631fb41`; video workflow results for `7942495`.
 
 Single-output and multi-output workflows across text, image, video and speech are implemented. Automated tests and browser checks passed, but successful speech and video generation through the real provider remain unverified. Local development can continue; complete the relevant provider checklist before releasing those features.
 
@@ -38,10 +38,24 @@ A real Text → Text → Image workflow was already verified, including completi
 - Coffee video and Voiceover remain independently selected. Their preview lists six steps for 18 credits, with Campaign brief counted once. All outputs selected the four terminal nodes in the current eleven-node canvas.
 - Next.js reported no runtime or compilation errors. No AI generation was started, the preview balance remained 458 credits, and the canvas content was not edited. No environment changes or migrations are needed.
 
+## Narrated clip composition
+
+- `pnpm test`: **324 application tests passed**. New coverage includes clip permissions and session-derived actors, source project isolation, stale reviews, idempotent retries, immutable inputs, dispatch recovery, concurrency and expiry, private publication without AI charges, shared settings, and keeping composition audio out of AI video dependencies.
+- `pnpm --filter @kousa/jobs test:renderer`: **3 actual FFmpeg tests passed**, covering copied H.264 frames, AAC output, narration offset and 50% amplitude, silence padding, trimming at the video end, original audio volume/muting, and invalid inputs.
+- All **10 workspace type-check tasks** passed. Biome and `git diff --check` passed for changed files.
+- Jobs Worker dry-run and OpenNext Cloudflare web bundles succeeded. The web build used a placeholder database URL and made no deployment. Existing OpenNext middleware and dependency bundle warnings remain.
+- Alchemy applied `0017_clip_composition` to development Neon. No paid cloud resources were deployed.
+- In the in-app browser, **Clip rendering verification** used uploaded MP4/MP3 fixtures, a Speech → Video Audio connection, a one-second offset, and 50% narration volume. The five-second exported MP4 survived reload.
+- A second export used 75% narration volume. The test tab was closed while its UI showed **Rendering**. Reopening showed **Complete** and both exports in the media library. The newest result played to its five-second end with no media error and was reused as a new Video node through **Add to canvas**.
+- Next.js runtime diagnostics reported no errors. No AI provider was called, and the browser balance remained **458 credits**.
+
+This verifies local server composition with real FFmpeg. The production Docker/Cloudflare Container deployment has not been exercised. Enabling it requires Workers Paid, Docker on the deployment machine, and `CLIP_RENDERING_ENABLED=true`. Local development needs FFmpeg/ffprobe and no new API keys. Setup and limits are in [clip composition](clip-composition.md).
+
 ## Deferred provider checks
 
 | Feature | What is needed | Remaining checks |
 | --- | --- | --- |
+| Hosted clip rendering | Workers Paid, Docker, and the opt-in renderer deployment. | Actual Cloudflare Container startup, server completion after closing the tab, private saved MP4 playback/download, access revocation, and recovery after a container restart. Local FFmpeg rendering is verified. |
 | Speech | Paid Gateway access for the configured account. No new provider key. | Real generation, persisted audio, editor/viewer playback and download, and a single 2-credit charge. [Checklist](speech-generation.md#verification). |
 | Text → Speech workflow | The same speech prerequisite. No public image-delivery origin. | New text is narrated with the saved voice; reload preserves progress; resume reuses completed text and charges only unfinished steps. [Checklist](speech-generation.md#verification). |
 | Text-to-video | Paid Gateway access. | Real submission and polling, MP4 compatibility, persistence, playback, and one-time charging. [Checklist](video-generation.md#verification). |

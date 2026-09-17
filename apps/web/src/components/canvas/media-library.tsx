@@ -79,11 +79,11 @@ function assetDetails(asset: PublicAsset) {
 export function MediaLibrary({
 	canEdit,
 	atNodeLimit,
-	onUseImage,
+	onUseAsset,
 }: {
 	canEdit: boolean;
 	atNodeLimit: boolean;
-	onUseImage: (asset: PublicAsset) => boolean;
+	onUseAsset: (asset: PublicAsset) => boolean;
 }) {
 	const media = useCanvasMedia();
 	const [open, setOpen] = useState(false);
@@ -98,20 +98,20 @@ export function MediaLibrary({
 			asset.name.toLocaleLowerCase().includes(query),
 	);
 	const preview = assets.find((asset) => asset.id === previewId);
-	function addImageToCanvas(asset: ProjectAsset) {
-		if (!canEdit || atNodeLimit || assetKind(asset) !== "image") return;
-		if (onUseImage(asset)) {
+	function addAssetToCanvas(asset: ProjectAsset) {
+		if (!canEdit || atNodeLimit) return;
+		if (onUseAsset(asset)) {
 			setPreviewId(null);
 			setOpen(false);
 		}
 	}
 	function reuseButton(asset: ProjectAsset) {
-		return canEdit && assetKind(asset) === "image" ? (
+		return canEdit ? (
 			<Button
 				size="sm"
 				variant="outline"
 				disabled={atNodeLimit}
-				onClick={() => addImageToCanvas(asset)}
+				onClick={() => addAssetToCanvas(asset)}
 			>
 				<PlusIcon data-icon="inline-start" /> Add to canvas
 			</Button>
@@ -133,8 +133,8 @@ export function MediaLibrary({
 				<DialogHeader className="pr-8">
 					<DialogTitle>Project media</DialogTitle>
 					<DialogDescription>
-						Uploaded images and generated images, videos, and speech. Files
-						remain here when a node is deleted.
+						Uploaded and generated media, including finished clips. Files remain
+						here when a node is deleted.
 					</DialogDescription>
 				</DialogHeader>
 				<div className="flex flex-wrap items-center gap-3">
@@ -190,7 +190,7 @@ export function MediaLibrary({
 							? "View-only access · Preview and download"
 							: atNodeLimit
 								? "Canvas limit reached (200 nodes)"
-								: "Images can be added as new canvas nodes."}
+								: "Add saved media as new canvas nodes."}
 					</p>
 				</div>
 				<div

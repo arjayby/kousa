@@ -270,7 +270,7 @@ it.each(["failed", "pending"] as const)(
 		expect(await media.list("owner", projectId)).toEqual([]);
 	},
 );
-it("requires editor access and rejects unsupported media inputs before reserving credits", async () => {
+it("requires editor access and leaves connected narration for clip composition", async () => {
 	await expect(
 		service().generate("viewer", await request()),
 	).rejects.toMatchObject({ code: "FORBIDDEN" });
@@ -284,9 +284,7 @@ it("requires editor access and rejects unsupported media inputs before reserving
 		targetHandle: "audio",
 	});
 	await db.setGraph(projectId, graph);
-	expect(() => videoInputSnapshot(graph, node.id)).toThrow(
-		"Disconnect video and audio inputs",
-	);
+	expect(videoInputSnapshot(graph, node.id).sources).toEqual([]);
 	expect(start).not.toHaveBeenCalled();
 	expect(await db.store.balance("owner")).toBe(50);
 });

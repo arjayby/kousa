@@ -111,6 +111,9 @@ importers:
 
   apps/jobs:
     dependencies:
+      '@cloudflare/containers':
+        specifier: ^0.3.7
+        version: 0.3.7
       '@kousa/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -296,6 +299,9 @@ importers:
       '@kousa/generation':
         specifier: workspace:*
         version: link:../generation
+      '@kousa/media':
+        specifier: workspace:*
+        version: link:../media
       '@kousa/projects':
         specifier: workspace:*
         version: link:../projects
@@ -549,6 +555,9 @@ importers:
       '@kousa/env':
         specifier: workspace:*
         version: link:../env
+      '@kousa/projects':
+        specifier: workspace:*
+        version: link:../projects
       image-size:
         specifier: ^2.0.2
         version: 2.0.4
@@ -1288,6 +1297,9 @@ packages:
   '@clack/prompts@1.8.0':
     resolution: {integrity: sha512-PXzLZ8N34rxmuo4dJg3xtOXhcBse94qGjDqsteoEYrFrrZ5FSjIGwMAuOcv64ln8rHVBBD06XeVGr+/JX+plcA==}
     engines: {node: '>= 20.12.0'}
+
+  '@cloudflare/containers@0.3.7':
+    resolution: {integrity: sha512-DM9dm3FnIBSyiSJ1FLavKwl/lk3oAmTaynCzZQ9pZR0ncRPquSxkxd8Nu2MFILxmDDsPkxKsSNEh9mHHMty4Fw==}
 
   '@cloudflare/kv-asset-handler@0.5.0':
     resolution: {integrity: sha512-jxQYkj8dSIzc0cD6cMMNdOc1UVjqSqu8BZdor5s8cGjW2I8BjODt/kWPVdY+u9zj3ms75Q5qaZgnxUad83+eAg==}
@@ -7699,6 +7711,8 @@ snapshots:
       fast-string-width: 3.0.2
       fast-wrap-ansi: 0.2.2
       sisteransi: 1.0.5
+
+  '@cloudflare/containers@0.3.7': {}
 
   '@cloudflare/kv-asset-handler@0.5.0': {}
 

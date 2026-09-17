@@ -404,7 +404,7 @@ export function AudioPreview({
 					controls
 					preload={compact ? "none" : "metadata"}
 					src={source}
-					aria-label="Generated speech"
+					aria-label="Project speech"
 					className="h-10 w-full min-w-0"
 					onError={() => setFailedSource(source)}
 				/>
@@ -447,23 +447,30 @@ export function VideoPreview({
 					</Button>
 				</div>
 			) : (
-				// biome-ignore lint/a11y/useMediaCaption: This version only generates silent video with no audio track to caption.
+				// biome-ignore lint/a11y/useMediaCaption: Narration transcript is shown below when available; uploaded videos may not include captions.
 				<video
 					key={source}
 					controls
 					playsInline
 					preload={compact ? "none" : "metadata"}
 					src={source}
-					aria-label="Generated silent video"
+					aria-label="Project video"
 					className="max-h-72 w-full rounded-md bg-black"
 					onError={() => setFailedSource(source)}
 				/>
 			)}
+			{asset?.transcript ? (
+				<details className="text-muted-foreground text-xs">
+					<summary>Source narration transcript</summary>
+					<p className="mt-2 whitespace-pre-wrap">{asset.transcript}</p>
+					<p>Timing and trimming may omit part of this source script.</p>
+				</details>
+			) : null}
 			{!compact && asset ? (
 				<p className="break-words text-muted-foreground text-xs">
 					{asset.width} × {asset.height} ·{" "}
 					{((asset.durationMs ?? 0) / 1000).toFixed(1)} seconds ·{" "}
-					{(asset.bytes / 1024 / 1024).toFixed(2)} MB · Silent
+					{(asset.bytes / 1024 / 1024).toFixed(2)} MB
 				</p>
 			) : null}
 		</div>

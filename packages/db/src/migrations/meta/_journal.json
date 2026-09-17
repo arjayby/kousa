@@ -120,6 +120,13 @@
 			"when": 1789653898906,
 			"tag": "0016_multi_output_workflows",
 			"breakpoints": true
+		},
+		{
+			"idx": 17,
+			"version": "7",
+			"when": 1789659898906,
+			"tag": "0017_clip_composition",
+			"breakpoints": true
 		}
 	]
 }

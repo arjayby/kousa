@@ -15,7 +15,8 @@
 		"image-size": "^2.0.2",
 		"mp4box": "^2.4.1",
 		"music-metadata": "^11.15.0",
-		"zod": "catalog:"
+		"zod": "catalog:",
+		"@kousa/projects": "workspace:*"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "catalog:",

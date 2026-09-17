@@ -3,6 +3,19 @@ import {
 	type WorkflowEvent,
 	type WorkflowStep,
 } from "cloudflare:workers";
+import { createClipStore } from "@kousa/db/clip-store";
+import {
+	createClipRunner,
+	executeClipWorkflow,
+} from "@kousa/media/clip-runner";
+import {
+	clipRenderer,
+	type RendererEnv,
+	rendererConfigured,
+} from "./clip-renderer";
+
+export { ClipRendererContainer } from "./clip-renderer";
+
 import { databaseClient } from "@kousa/db/client";
 import { createGenerationStore } from "@kousa/db/generation-store";
 import { createGraphStore } from "@kousa/db/graph-store";
@@ -23,7 +36,7 @@ import { r2Storage } from "@kousa/media/storage";
 import { z } from "zod";
 import { r2Artifacts } from "./artifacts";
 
-interface JobsEnv {
+interface JobsEnv extends RendererEnv {
 	DATABASE_URL: string;
 	AI_GATEWAY_API_KEY: string;
 	MEDIA: R2Bucket;
@@ -47,7 +60,19 @@ function runtime(env: JobsEnv) {
 		createGatewayVideoProvider(env.AI_GATEWAY_API_KEY),
 		createGenerationImageAccess(store, media).issue,
 	);
-	return { store, runner, graphs: createGraphStore(db) };
+	const clips = createClipStore(db);
+	const clipRunner = createClipRunner(
+		clips,
+		media,
+		{
+			...r2Storage(env.MEDIA),
+			delete: async (key) => {
+				await env.MEDIA.delete(key);
+			},
+		},
+		clipRenderer(env),
+	);
+	return { store, runner, graphs: createGraphStore(db), clips, clipRunner };
 }
 export class GenerationWorkflow extends WorkflowEntrypoint<
 	JobsEnv,
@@ -59,7 +84,8 @@ export class GenerationWorkflow extends WorkflowEntrypoint<
 	) {
 		const id = z.uuid().parse(event.payload.runId);
 		if (event.instanceId !== id) throw new Error("Workflow identity mismatch");
-		const { store, runner, graphs } = runtime(this.env);
+		const { store, runner, graphs, clips, clipRunner } = runtime(this.env);
+		if (await clips.get(id)) return executeClipWorkflow(id, clipRunner, step);
 		if (await graphs.get(id))
 			return executeGraphWorkflow(id, graphs, store, runner, step);
 		return executeGenerationWorkflow(id, runner, step);
@@ -73,7 +99,20 @@ async function enqueue(env: JobsEnv, ids: string[]) {
 	);
 }
 async function recover(env: JobsEnv) {
-	const { store, runner, graphs } = runtime(env);
+	const { store, runner, graphs, clips, clipRunner } = runtime(env);
+	await clips.expire();
+	const pendingClips = await clips.pending();
+	await enqueue(
+		env,
+		pendingClips.map((run) => run.id),
+	);
+	for (const run of pendingClips) {
+		const status = await (await env.GENERATION.get(run.id)).status();
+		if (status.status === "errored" || status.status === "terminated") {
+			await clips.fail(run.id);
+			await clipRunner.cleanup(run.id);
+		}
+	}
 	await store.expire();
 	await graphs.expire();
 	const pending = await store.pending();
@@ -102,7 +141,22 @@ export default {
 	// Production has no public route or workers.dev URL. Only the web service
 	// binding can dispatch runs. The body cannot supply a payer, model or prompt.
 	async fetch(request: Request, env: JobsEnv) {
-		const match = new URL(request.url).pathname.match(/^\/runs\/([^/]+)$/);
+		const pathname = new URL(request.url).pathname;
+		if (request.method === "GET" && pathname === "/clip-capabilities")
+			return Response.json({ configured: await rendererConfigured(env) });
+		const clipMatch = pathname.match(/^\/clips\/([^/]+)$/);
+		const clipId = z.uuid().safeParse(clipMatch?.[1]);
+		if (request.method === "POST" && clipId.success) {
+			const run = await runtime(env).clips.get(clipId.data);
+			if (
+				run &&
+				["queued", "rendering", "saving"].includes(run.status) &&
+				run.expiresAt.getTime() > Date.now()
+			)
+				await enqueue(env, [run.id]);
+			return new Response(null, { status: 202 });
+		}
+		const match = pathname.match(/^\/runs\/([^/]+)$/);
 		const parsed = z.uuid().safeParse(match?.[1]);
 		if (request.method !== "POST" || !parsed.success)
 			return new Response("Not found", { status: 404 });

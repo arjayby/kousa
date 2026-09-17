@@ -10,6 +10,7 @@ import { cn } from "@kousa/ui/lib/utils";
 import { Handle, type NodeProps, Position } from "@xyflow/react";
 import { FileTextIcon, ImageIcon, MicIcon, VideoIcon } from "lucide-react";
 import { memo } from "react";
+import { clipStatusLabels, useNodeClip } from "./canvas-clips";
 import {
 	useNodeImage,
 	useNodeRun,
@@ -17,7 +18,12 @@ import {
 	useNodeVideo,
 	useWorkflowStep,
 } from "./canvas-generation";
-import { AssetPreview, AudioPreview, VideoPreview } from "./canvas-media";
+import {
+	AssetPreview,
+	AudioPreview,
+	useCanvasMedia,
+	VideoPreview,
+} from "./canvas-media";
 import type { StudioNode } from "./use-canvas";
 
 export const nodeIcons = {
@@ -52,6 +58,16 @@ export const MediaNode = memo(function MediaNode({
 	const imageResult = useNodeImage(id);
 	const speechResult = useNodeSpeech(id);
 	const videoResult = useNodeVideo(id);
+	const clip = useNodeClip(id);
+	const media = useCanvasMedia();
+	const sourceVideoAssetId =
+		data.mediaSource === "project" ? data.assetId : videoResult?.assetId;
+	const videoAssetId =
+		clip.result?.plan.videoAssetId === sourceVideoAssetId
+			? (clip.result?.assetId ?? sourceVideoAssetId)
+			: sourceVideoAssetId;
+	const speechAssetId =
+		data.mediaSource === "project" ? data.assetId : speechResult?.assetId;
 	const assetId = imageOutputAssetId(data, imageResult?.assetId);
 	const Icon = nodeIcons[kind];
 	return (
@@ -73,6 +89,11 @@ export const MediaNode = memo(function MediaNode({
 				</div>
 			</div>
 			<div className="studio-node-body">
+				{kind === "video" && clip.run ? (
+					<p className="mb-2 text-muted-foreground text-xs">
+						Clip · {clipStatusLabels[clip.run.status]}
+					</p>
+				) : null}
 				{workflowStep ? (
 					<p className="mb-2 text-[10px] text-muted-foreground">
 						Workflow ·{" "}
@@ -92,18 +113,19 @@ export const MediaNode = memo(function MediaNode({
 				{kind === "image" && assetId ? (
 					<AssetPreview key={assetId} assetId={assetId} compact />
 				) : null}
-				{kind === "video" && videoResult?.assetId ? (
-					<VideoPreview
-						key={videoResult.assetId}
-						assetId={videoResult.assetId}
-						compact
-					/>
+				{kind === "video" && videoAssetId ? (
+					<VideoPreview key={videoAssetId} assetId={videoAssetId} compact />
 				) : null}
-				{kind === "speech" && speechResult?.assetId ? (
+				{kind === "speech" && speechAssetId ? (
 					<AudioPreview
-						key={speechResult.assetId}
-						assetId={speechResult.assetId}
-						transcript={speechResult.transcript}
+						key={speechAssetId}
+						assetId={speechAssetId}
+						transcript={
+							data.mediaSource === "project"
+								? (media.assets.find((asset) => asset.id === speechAssetId)
+										?.transcript ?? null)
+								: (speechResult?.transcript ?? null)
+						}
 						compact
 					/>
 				) : null}
@@ -122,8 +144,8 @@ export const MediaNode = memo(function MediaNode({
 						{run?.output ?? data.content}
 					</p>
 				) : (kind === "image" && assetId) ||
-					(kind === "video" && videoResult?.assetId) ||
-					(kind === "speech" && speechResult?.assetId) ? null : (
+					(kind === "video" && videoAssetId) ||
+					(kind === "speech" && speechAssetId) ? null : (
 					<div className="flex flex-col items-center gap-2 py-3 text-center text-muted-foreground">
 						<Icon className="size-6 opacity-50" aria-hidden="true" />
 						<p className="max-w-44 text-xs leading-relaxed">

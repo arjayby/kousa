@@ -148,3 +148,17 @@ it("does not hide all choices or loop when a live graph contains a cycle", async
 		code: "BAD_REQUEST",
 	});
 });
+
+it("keeps speech as a separate AI output when connected to video for composition", async () => {
+	const { graph, video, voice } = fixture();
+	graph.edges.push(connect(voice.id, video.id, "audio"));
+	expect(graphOutputIds(graph)).toEqual([video.id, voice.id]);
+	expect(selectGraphOutputs(graph, [video.id, voice.id]).targets).toEqual([
+		video.id,
+		voice.id,
+	]);
+	const videoPlan = await planGraph(graph, [video.id]);
+	expect(videoPlan.plan.some((step) => step.nodeId === voice.id)).toBe(false);
+	const all = await planGraph(graph, graphOutputIds(graph));
+	expect(all.plan.filter((step) => step.nodeId === voice.id)).toHaveLength(1);
+});

@@ -238,6 +238,8 @@ export function videoInputSnapshot(graph: CanvasDocument, nodeId: string) {
 		.sort((a, b) => a.id.localeCompare(b.id))
 		.flatMap((edge) => {
 			const source = graph.nodes.find((n) => n.id === edge.source);
+			// Narration is combined by Create clip, not sent to the AI video model.
+			if (edge.targetHandle === "audio" && source?.type === "speech") return [];
 			if (edge.targetHandle === "image" && source?.type === "image") {
 				if (images.length)
 					throw new GenerationError(
@@ -256,7 +258,7 @@ export function videoInputSnapshot(graph: CanvasDocument, nodeId: string) {
 			if (edge.targetHandle !== "prompt" || source?.type !== "text")
 				throw new GenerationError(
 					"BAD_REQUEST",
-					"Video generation accepts text prompts and one image. Disconnect video and audio inputs before generating.",
+					"Video generation accepts text prompts and one image. Disconnect video inputs before generating. Audio is used by Create clip.",
 				);
 			return [{ id: source.id, content: source.data.content }];
 		});
