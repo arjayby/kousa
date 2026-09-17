@@ -10,6 +10,12 @@ import {
 	nodeLabels,
 	removeCanvasElements,
 } from "@kousa/projects/canvas";
+import type { SavedCanvas } from "@kousa/projects/canvas-sync";
+import {
+	Alert,
+	AlertDescription,
+	AlertTitle,
+} from "@kousa/ui/components/alert";
 import { Button } from "@kousa/ui/components/button";
 import {
 	Empty,
@@ -39,6 +45,7 @@ import {
 	LockKeyholeIcon,
 	MousePointer2Icon,
 	Redo2Icon,
+	SaveIcon,
 	Trash2Icon,
 	Undo2Icon,
 	WorkflowIcon,
@@ -137,17 +144,26 @@ function ViewportControls() {
 function Editor({
 	userId,
 	projectId,
-	canEdit,
+	canEdit: allowedToEdit,
+	remote,
 }: {
 	userId: string;
 	projectId: string;
 	canEdit: boolean;
+	remote: SavedCanvas;
 }) {
-	const { graph, dispatch, past, future, saveError } = useCanvas(
-		userId,
-		projectId,
-		canEdit,
-	);
+	const persistence = useCanvas(userId, projectId, allowedToEdit, remote);
+	const { graph, dispatch, past, future, sync, canEdit } = persistence;
+	const saveError =
+		sync.error ?? persistence.reloadError ?? persistence.backupError;
+	const statusLabel =
+		sync.status === "saving"
+			? "Saving…"
+			: sync.status === "unsaved"
+				? "Unsaved changes"
+				: sync.status === "saved"
+					? "Saved to project"
+					: "Changes not saved";
 	const flow = useReactFlow<StudioNode, StudioEdge>();
 	const root = useRef<HTMLDivElement>(null);
 	const viewport = useRef<HTMLDivElement>(null);
@@ -448,6 +464,21 @@ function Editor({
 				</section>
 				<div className="ml-auto flex items-center gap-1">
 					<Button
+						variant="outline"
+						size="sm"
+						disabled={
+							!canEdit ||
+							!sync.dirty ||
+							sync.status === "saving" ||
+							sync.status === "error"
+						}
+						onClick={() => {
+							void persistence.save();
+						}}
+					>
+						<SaveIcon data-icon="inline-start" /> Save
+					</Button>
+					<Button
 						variant="ghost"
 						size="icon"
 						disabled={!canEdit || !past.length}
@@ -479,6 +510,80 @@ function Editor({
 					</Button>
 				</div>
 			</div>
+			{persistence.recovery && allowedToEdit ? (
+				<Alert>
+					<AlertTitle>Browser draft available</AlertTitle>
+					<AlertDescription>
+						<p>
+							{persistence.recovery.revision === sync.revision
+								? "You have a draft from this browser. Restore it to save it to the project."
+								: "The project has changed since this draft. Download it to keep a copy."}
+						</p>
+						<div className="flex flex-wrap gap-2">
+							{persistence.recovery.revision === sync.revision ? (
+								<Button
+									variant="outline"
+									size="sm"
+									disabled={!canEdit || sync.dirty}
+									onClick={persistence.restoreRecovery}
+								>
+									Restore browser draft
+								</Button>
+							) : null}
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => {
+									if (persistence.recovery)
+										persistence.download(persistence.recovery.document);
+								}}
+							>
+								Download draft
+							</Button>
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={persistence.discardRecovery}
+							>
+								Discard draft
+							</Button>
+						</div>
+					</AlertDescription>
+				</Alert>
+			) : null}
+			{saveError ? (
+				<Alert variant="destructive">
+					<AlertTitle>Canvas needs attention</AlertTitle>
+					<AlertDescription>
+						<p>{saveError}</p>
+						<div className="flex flex-wrap gap-2">
+							{sync.status === "error" && allowedToEdit ? (
+								<Button variant="outline" size="sm" onClick={persistence.retry}>
+									Retry save
+								</Button>
+							) : null}
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => persistence.download()}
+							>
+								Download my changes
+							</Button>
+							<Button
+								variant="outline"
+								size="sm"
+								disabled={persistence.reloading || sync.status === "saving"}
+								onClick={() => {
+									void persistence.reload();
+								}}
+							>
+								Load saved version
+							</Button>
+						</div>
+						<p>Loading the saved version replaces the changes in this tab.</p>
+					</AlertDescription>
+				</Alert>
+			) : null}
 			<div className="studio-workspace">
 				<div className="studio-viewport" ref={viewport}>
 					<ReactFlow<StudioNode, StudioEdge>
@@ -563,14 +668,12 @@ function Editor({
 										<WorkflowIcon className="size-7" aria-hidden="true" />
 									</div>
 									<EmptyTitle>
-										{canEdit
-											? "Start with an idea"
-											: "No canvas draft here yet"}
+										{canEdit ? "Start with an idea" : "No nodes yet"}
 									</EmptyTitle>
 									<EmptyDescription>
 										{canEdit
 											? "Turn a thought into a connected workflow. Add your first node to begin."
-											: "Canvas drafts are currently saved per account in this browser. Shared project saving is coming next."}
+											: "An owner or editor can add nodes to this project. You can view their saved changes here."}
 									</EmptyDescription>
 								</EmptyHeader>
 								{canEdit ? (
@@ -644,7 +747,7 @@ function Editor({
 					role="status"
 					title={
 						saveError ??
-						"This draft is private to your account in this browser. It is not synced to other people or devices."
+						"Project members can view saved changes. Updates refresh every 15 seconds while this tab is active."
 					}
 				>
 					{saveError ? (
@@ -652,7 +755,8 @@ function Editor({
 					) : (
 						<CheckIcon className="size-3" />
 					)}
-					<span>{saveError ? "Draft not saved" : "Local draft"}</span>
+					<span>{statusLabel}</span>
+					{!allowedToEdit ? <span>· View only</span> : null}
 					<span className="hidden sm:inline">
 						· {graph.nodes.length} nodes · {graph.edges.length} connections
 					</span>
@@ -665,11 +769,6 @@ function Editor({
 					Drag to select · Scroll to pan · Pinch to zoom
 				</span>
 			</footer>
-			{saveError ? (
-				<p className="border-t px-4 py-2 text-destructive text-xs" role="alert">
-					{saveError}
-				</p>
-			) : null}
 		</div>
 	);
 }
@@ -677,6 +776,7 @@ export default function CanvasEditor(props: {
 	userId: string;
 	projectId: string;
 	canEdit: boolean;
+	remote: SavedCanvas;
 }) {
 	return (
 		<ReactFlowProvider>

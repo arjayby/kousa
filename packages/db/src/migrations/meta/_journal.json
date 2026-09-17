@@ -29,6 +29,13 @@
 			"when": 1789480177413,
 			"tag": "0003_wet_bromley",
 			"breakpoints": true
+		},
+		{
+			"idx": 4,
+			"version": "7",
+			"when": 1789614215513,
+			"tag": "0004_project_canvas",
+			"breakpoints": true
 		}
 	]
 }

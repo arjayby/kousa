@@ -68,11 +68,13 @@ export async function testLegacyInvitationMigration() {
 			{ id: "owner", name: "Owner", email: "owner@example.test" },
 			{ id: "member", name: "Member", email: "member@example.test" },
 		]);
-		const [created] = await db
-			.insert(project)
-			.values({ name: "Legacy project", ownerId: "owner" })
-			.returning();
-		if (!created) throw new Error("Test project missing");
+		// This fixture predates newer project columns in the current Drizzle schema.
+		const result = await db.execute(
+			sql`insert into project (name, owner_id) values ('Legacy project', 'owner') returning id`,
+		);
+		const created = result.rows[0];
+		if (!created || typeof created.id !== "string")
+			throw new Error("Test project missing");
 		await db.execute(
 			sql`insert into project_invite (project_id, token_hash, role, expires_at) values (${created.id}, 'legacy-pending', 'editor', now() + interval '7 days')`,
 		);
@@ -83,7 +85,9 @@ export async function testLegacyInvitationMigration() {
 			.insert(projectMember)
 			.values({ projectId: created.id, userId: "member", role: "viewer" });
 		await runMigration("0003_wet_bromley.sql");
+		await runMigration("0004_project_canvas.sql");
 		return {
+			projects: await db.select().from(project),
 			invites: await db.select().from(projectInvite),
 			members: await db.select().from(projectMember),
 		};

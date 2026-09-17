@@ -10,6 +10,7 @@ import {
 	renameProjectInput,
 	resendInviteInput,
 	revokeInviteInput,
+	saveCanvasInput,
 } from "@kousa/projects/contracts";
 import { createProjects } from "@kousa/projects/runtime";
 import { ProjectError, type ProjectService } from "@kousa/projects/service";
@@ -37,6 +38,16 @@ export function createProjectsRouter(
 		}
 	});
 	return {
+		getCanvas: procedure
+			.input(projectIdInput)
+			.handler(({ context, input }) =>
+				service().getCanvas(context.session.user.id, input),
+			),
+		saveCanvas: procedure
+			.input(saveCanvasInput)
+			.handler(({ context, input }) =>
+				service().saveCanvas(context.session.user.id, input),
+			),
 		list: procedure
 			.input(listProjectsInput)
 			.handler(({ context, input }) =>

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { canvasDocumentSchema } from "./canvas";
 
 export const projectName = z
 	.string()
@@ -6,6 +7,10 @@ export const projectName = z
 	.min(1, "Enter a project name.")
 	.max(120, "Use 120 characters or fewer.");
 export const projectIdInput = z.object({ projectId: z.uuid() });
+export const saveCanvasInput = projectIdInput.extend({
+	expectedRevision: z.number().int().min(0).max(2_147_483_646),
+	document: canvasDocumentSchema,
+});
 export const createProjectInput = z.object({ name: projectName });
 export const renameProjectInput = projectIdInput.extend({ name: projectName });
 export const listProjectsInput = z

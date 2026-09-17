@@ -137,7 +137,7 @@ export function ProjectDetailsPanel({
 					<EmptyTitle>Your creative workspace</EmptyTitle>
 					<EmptyDescription>
 						Build a workflow with text, image, video, and speech nodes. Canvas
-						drafts are saved in this browser.
+						changes are saved to this project and shared with its members.
 					</EmptyDescription>
 				</EmptyHeader>
 				<Link

@@ -3,6 +3,7 @@ import {
 	check,
 	index,
 	integer,
+	jsonb,
 	pgEnum,
 	pgTable,
 	primaryKey,
@@ -24,6 +25,11 @@ export const project = pgTable(
 	{
 		id: uuid("id").defaultRandom().primaryKey(),
 		name: text("name").notNull(),
+		canvas: jsonb("canvas")
+			.notNull()
+			.default({ version: 1, nodes: [], edges: [] }),
+		canvasRevision: integer("canvas_revision").notNull().default(0),
+		canvasUpdatedAt: timestamp("canvas_updated_at", { withTimezone: true }),
 		ownerId: text("owner_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "restrict" }),
@@ -36,6 +42,10 @@ export const project = pgTable(
 	},
 	(table) => [
 		index("project_owner_id_idx").on(table.ownerId),
+		check(
+			"project_canvas_revision_nonnegative",
+			sql`${table.canvasRevision} >= 0`,
+		),
 		check(
 			"project_name_length",
 			sql`char_length(btrim(${table.name})) between 1 and 120`,

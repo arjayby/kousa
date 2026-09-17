@@ -88,6 +88,53 @@ export function createProjectStore(db: ProjectDatabase) {
 		or(eq(project.ownerId, actorId), isNotNull(projectMember.userId));
 
 	return {
+		async getCanvas(actorId: string, projectId: string) {
+			const [found] = await db
+				.select({
+					document: project.canvas,
+					revision: project.canvasRevision,
+					updatedAt: project.canvasUpdatedAt,
+				})
+				.from(project)
+				.leftJoin(
+					projectMember,
+					and(
+						eq(projectMember.projectId, project.id),
+						eq(projectMember.userId, actorId),
+					),
+				)
+				.where(and(eq(project.id, projectId), visibleTo(actorId)))
+				.limit(1);
+			return found ?? null;
+		},
+		async saveCanvas(
+			actorId: string,
+			projectId: string,
+			expectedRevision: number,
+			document: unknown,
+		) {
+			// Permission and revision checks are part of the same atomic write.
+			const [saved] = await db
+				.update(project)
+				.set({
+					canvas: document,
+					canvasRevision: sql`${project.canvasRevision} + 1`,
+					canvasUpdatedAt: sql`now()`,
+					updatedAt: sql`now()`,
+				})
+				.where(
+					and(
+						eq(project.id, projectId),
+						editable(actorId),
+						eq(project.canvasRevision, expectedRevision),
+					),
+				)
+				.returning({
+					revision: project.canvasRevision,
+					updatedAt: project.canvasUpdatedAt,
+				});
+			return saved ?? null;
+		},
 		async create(actorId: string, name: string) {
 			const [created] = await db
 				.insert(project)

@@ -1,6 +1,7 @@
 import type { ProjectStore } from "@kousa/db/project-store";
 import { EmailDeliveryError, type EmailSender } from "@kousa/email/sender";
 import { projectInvitationEmail } from "@kousa/email/templates";
+import { canvasDocumentSchema } from "./canvas";
 import {
 	changeMemberInput,
 	createInviteInput,
@@ -14,6 +15,7 @@ import {
 	renameProjectInput,
 	resendInviteInput,
 	revokeInviteInput,
+	saveCanvasInput,
 } from "./contracts";
 
 export class ProjectError extends Error {
@@ -24,17 +26,19 @@ export class ProjectError extends Error {
 			| "INVALID_INVITE"
 			| "CONFLICT"
 			| "EMAIL_NOT_VERIFIED",
+		message?: string,
 	) {
 		super(
-			code === "CONFLICT"
-				? "This email already has access or a pending invitation, or was invited too recently. Manage the existing entry below."
-				: code === "EMAIL_NOT_VERIFIED"
-					? "Verify your email address before accepting this invitation."
-					: code === "INVALID_INVITE"
-						? "This invitation is unavailable for this account. Sign in with the invited email address, or ask the owner for a new invitation."
-						: code === "FORBIDDEN"
-							? "You do not have permission to do this."
-							: "Project not found.",
+			message ??
+				(code === "CONFLICT"
+					? "This email already has access or a pending invitation, or was invited too recently. Manage the existing entry below."
+					: code === "EMAIL_NOT_VERIFIED"
+						? "Verify your email address before accepting this invitation."
+						: code === "INVALID_INVITE"
+							? "This invitation is unavailable for this account. Sign in with the invited email address, or ask the owner for a new invitation."
+							: code === "FORBIDDEN"
+								? "You do not have permission to do this."
+								: "Project not found."),
 		);
 	}
 }
@@ -107,6 +111,29 @@ export function createProjectService(
 	}
 	return {
 		get,
+		async getCanvas(actorId: string, input: unknown) {
+			const { projectId } = projectIdInput.parse(input);
+			const found = await store.getCanvas(actorId, projectId);
+			if (!found) throw new ProjectError("NOT_FOUND");
+			return { ...found, document: canvasDocumentSchema.parse(found.document) };
+		},
+		async saveCanvas(actorId: string, input: unknown) {
+			const { projectId, expectedRevision, document } =
+				saveCanvasInput.parse(input);
+			const saved = await store.saveCanvas(
+				actorId,
+				projectId,
+				expectedRevision,
+				document,
+			);
+			if (saved) return { ...saved, document };
+			const access = await get(actorId, { projectId });
+			if (!access.permissions.canEdit) throw new ProjectError("FORBIDDEN");
+			throw new ProjectError(
+				"CONFLICT",
+				"The canvas changed since you opened it. Load the saved version before editing again.",
+			);
+		},
 		async create(actorId: string, input: unknown) {
 			const { name } = createProjectInput.parse(input);
 			return store.create(actorId, name);

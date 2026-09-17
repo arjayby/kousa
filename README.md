@@ -14,7 +14,7 @@ This project was created with [Better-T-Stack](https://github.com/AmanVarshney01
 - **Authentication** - Better-Auth
 - **Polar sandbox billing** - Verified payments grant credits once per order
 - **Projects and permissions** - Private projects with owner, editor, and viewer access through email invitations
-- **Node canvas** - Text, image, video, and speech nodes with connections, undo/redo, and browser draft saving
+- **Node canvas** - Text, image, video, and speech nodes with connections, undo/redo, and shared project saving with editor/viewer permissions
 - **Resend email** - Expiring invitations bound to a verified email, with roles and invitation status
 - **Biome** - Linting and formatting
 - **Turborepo** - Optimized monorepo build system

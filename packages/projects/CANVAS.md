@@ -12,15 +12,23 @@ Open a project, then choose **Open canvas**. The editor lives at `/projects/[pro
 - Delete/Backspace removes a selection. Cmd/Ctrl+Z undoes changes, Cmd/Ctrl+Shift+Z redoes them, and Cmd/Ctrl+D duplicates a selected node. Text inputs keep their normal editing shortcuts.
 - Undo keeps up to 50 checkpoints during the current visit. Deleting a node removes attached edges in the same undo operation.
 
-## Draft storage and access
+## Project storage and access
 
-Drafts are saved to localStorage, separately for each account and project. The footer identifies this as a local draft. Reload restores nodes, positions, settings, and connections. Selection, viewport position, and undo history are temporary.
+Neon stores one versioned graph per project in the `project.canvas` JSONB column. `canvas_revision` starts at zero and increases on every successful save. `canvas_updated_at` records the last save. The additive Drizzle migration `0004_project_canvas.sql` gives existing projects an empty graph without changing their names or memberships. Alchemy runs the migration before starting the app. No additional service or environment variable is needed.
 
-This milestone has no shared canvas storage, media uploads, AI generation, or live collaboration. A collaborator on another account or device cannot see this draft yet. Avoid editing the same local draft in multiple tabs. Clearing browser storage removes local drafts.
+The server loads the graph after checking project membership. Authenticated owners and editors can save; viewers can read, navigate, select, and inspect nodes. Nonmembers receive `NOT_FOUND`, and anonymous requests receive `UNAUTHORIZED`. `projects.getCanvas` and `projects.saveCanvas` enforce these rules independently of the UI. A save checks the actor's current access and expected revision in the same SQL update. Client-supplied roles or user IDs cannot grant permission.
 
-The page checks project membership on the server. The client rechecks access every 30 seconds and on window focus. Owners and editors can edit; viewers can navigate and inspect their local draft with changes disabled. A failed access check hides the canvas. Future server persistence must enforce graph write permissions again on the server.
+Changes autosave after 700 milliseconds without an edit. **Save** flushes pending changes immediately. Requests are serialized: edits made while a save is in flight wait for its returned revision. The footer distinguishes saved, pending, saving, and failed changes. Selection and viewport changes do not trigger writes. Undo history lasts for the current visit.
 
-Malformed or unsupported stored drafts are not overwritten. Storage failures show an alert instead of claiming that the draft is saved.
+The open canvas checks for saved changes every 15 seconds while the tab is active and when the window regains focus. Clean editors and viewers load newer versions. This is periodic refresh, not live collaborative editing. If both editors change the same starting revision, only one save succeeds. The other keeps its unsaved graph and shows **Download my changes** and **Load saved version**. Loading the saved version replaces the current tab's changes. There is no force-overwrite action.
+
+Network failures pause autosave until **Retry save**. If a save succeeded but its response was lost, a later read of the identical saved graph clears the error. Access revocation hides the canvas after the next access check; a rejected save disables editing immediately.
+
+## Browser recovery
+
+Unsaved changes are backed up in localStorage per account and project when storage is available. They are never treated as the shared graph. On reopening, the editor offers **Restore browser draft** only when the backup's base revision still matches the project. Older backups can be downloaded. These recovery copies are best effort and may be replaced by another tab on the same account and project.
+
+A nonempty draft from the previous browser-only milestone can be restored into a project that has never been saved. Existing local drafts are retained until explicitly discarded, and malformed drafts are not overwritten. If a project already has a saved graph, the server version takes precedence and the older draft can be downloaded. **Discard draft** removes only the matching browser copy. Storage failure shows a warning while server saving remains available. A browser unload warning protects pending changes; the recovery copy also survives navigation when storage is available.
 
 ## Graph contract
 
@@ -35,6 +43,6 @@ Malformed or unsupported stored drafts are not overwritten. Storage failures sho
 
 Each input accepts one connection. Outputs can feed several nodes. Validation rejects unknown endpoints, incompatible inputs, self-links, duplicate input connections, and cycles. Limits are 200 nodes and 600 connections per draft.
 
-`pnpm --filter @kousa/projects test` covers the connection matrix, cycle prevention, deletion cleanup, stored document validation, and account/project isolation of draft keys.
+`pnpm --filter @kousa/projects test` covers graph validation and autosave coordination, including queued edits, failures, conflicts, permission changes, and out-of-order reads. `pnpm --filter @kousa/api test` exercises the real oRPC middleware and Drizzle queries against PGlite, covering permission enforcement, persistence, concurrent writes, invalid graphs, and migration of existing projects.
 
-The next milestone is shared project persistence and collaboration. Keep the versioned document and permission checks, and replace the local draft adapter with the agreed collaboration/storage model.
+The next milestone is live collaboration. Reuse the versioned graph and server permission rules when adding concurrent editing and presence. AI generation and media uploads are separate milestones.

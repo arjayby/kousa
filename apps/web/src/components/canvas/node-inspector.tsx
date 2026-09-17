@@ -243,7 +243,7 @@ export function NodeInspector({
 				</footer>
 			) : (
 				<p className="border-t p-4 text-muted-foreground text-xs">
-					Viewer access. Changes are disabled.
+					Changes are disabled.
 				</p>
 			)}
 		</aside>

@@ -3,6 +3,7 @@ import {
 	testLegacyInvitationMigration,
 } from "@kousa/db/testing-projects";
 import { type EmailContent, EmailDeliveryError } from "@kousa/email/sender";
+import { createCanvasNode, emptyCanvas } from "@kousa/projects/canvas";
 import { createProjectService, hashInviteToken } from "@kousa/projects/service";
 import { createRouterClient } from "@orpc/server";
 import {
@@ -114,6 +115,203 @@ beforeEach(async () => {
 });
 afterAll(async () => {
 	await database.close();
+});
+
+describe("saved project canvases through the oRPC router", () => {
+	function graph() {
+		const text = createCanvasNode("text", { x: 25, y: -50 });
+		const image = createCanvasNode("image", { x: 500, y: 100 });
+		text.data.content = "An island at sunrise";
+		return {
+			...emptyCanvas(),
+			nodes: [text, image],
+			edges: [
+				{
+					id: crypto.randomUUID(),
+					source: text.id,
+					target: image.id,
+					sourceHandle: "output" as const,
+					targetHandle: "prompt",
+				},
+			],
+		};
+	}
+	it("starts empty and shares an owner's saved graph with all members", async () => {
+		expect(await viewer.getCanvas({ projectId })).toMatchObject({
+			document: emptyCanvas(),
+			revision: 0,
+			updatedAt: null,
+		});
+		const document = graph();
+		const saved = await owner.saveCanvas({
+			projectId,
+			expectedRevision: 0,
+			document,
+		});
+		expect(saved).toMatchObject({ document, revision: 1 });
+		expect(saved.updatedAt).toBeInstanceOf(Date);
+		expect(await viewer.getCanvas({ projectId })).toEqual(saved);
+		expect(await editor.getCanvas({ projectId })).toEqual(saved);
+	});
+	it("lets editors update settings, positions, connections, and delete the whole graph", async () => {
+		const first = await editor.saveCanvas({
+			projectId,
+			expectedRevision: 0,
+			document: graph(),
+		});
+		const document = {
+			...first.document,
+			nodes: first.document.nodes.map((node) => ({
+				...node,
+				position: { x: 10, y: 20 },
+				data: { ...node.data, content: "Edited" },
+			})),
+			edges: [],
+		};
+		await editor.saveCanvas({ projectId, expectedRevision: 1, document });
+		expect(await owner.getCanvas({ projectId })).toMatchObject({
+			revision: 2,
+			document,
+		});
+		await editor.saveCanvas({
+			projectId,
+			expectedRevision: 2,
+			document: emptyCanvas(),
+		});
+		expect(await viewer.getCanvas({ projectId })).toMatchObject({
+			revision: 3,
+			document: emptyCanvas(),
+		});
+	});
+	it("rejects viewer writes, including spoofed role and user fields", async () => {
+		const input = {
+			projectId,
+			expectedRevision: 0,
+			document: graph(),
+			role: "owner",
+			userId: "owner",
+		};
+		await expect(viewer.saveCanvas(input)).rejects.toMatchObject({
+			code: "FORBIDDEN",
+		});
+		expect(await owner.getCanvas({ projectId })).toMatchObject({
+			revision: 0,
+			document: emptyCanvas(),
+		});
+	});
+	it("requires authentication and hides private graphs from nonmembers", async () => {
+		await owner.saveCanvas({
+			projectId,
+			expectedRevision: 0,
+			document: graph(),
+		});
+		for (const [actor, code] of [
+			[client(null), "UNAUTHORIZED"],
+			[outsider, "NOT_FOUND"],
+		] as const) {
+			await expect(actor.getCanvas({ projectId })).rejects.toMatchObject({
+				code,
+			});
+			await expect(
+				actor.saveCanvas({
+					projectId,
+					expectedRevision: 1,
+					document: emptyCanvas(),
+				}),
+			).rejects.toMatchObject({ code });
+		}
+		const other = await outsider.create({ name: "Separate canvas" });
+		expect(await outsider.getCanvas({ projectId: other.id })).toMatchObject({
+			document: emptyCanvas(),
+			revision: 0,
+		});
+	});
+	it("checks current access when a previously authorized editor saves", async () => {
+		await editor.getCanvas({ projectId });
+		await owner.changeMember({ projectId, userId: "editor", role: "viewer" });
+		await expect(
+			editor.saveCanvas({ projectId, expectedRevision: 0, document: graph() }),
+		).rejects.toMatchObject({ code: "FORBIDDEN" });
+		await owner.removeMember({ projectId, userId: "editor" });
+		await expect(editor.getCanvas({ projectId })).rejects.toMatchObject({
+			code: "NOT_FOUND",
+		});
+		await expect(
+			editor.saveCanvas({ projectId, expectedRevision: 0, document: graph() }),
+		).rejects.toMatchObject({ code: "NOT_FOUND" });
+	});
+	it("atomically accepts only one concurrent save from the same revision", async () => {
+		const results = await Promise.allSettled([
+			owner.saveCanvas({ projectId, expectedRevision: 0, document: graph() }),
+			editor.saveCanvas({ projectId, expectedRevision: 0, document: graph() }),
+		]);
+		expect(
+			results.filter((result) => result.status === "fulfilled"),
+		).toHaveLength(1);
+		const failed = results.find((result) => result.status === "rejected");
+		expect(failed).toMatchObject({ reason: { code: "CONFLICT" } });
+		expect(await viewer.getCanvas({ projectId })).toMatchObject({
+			revision: 1,
+		});
+	});
+	it("never overwrites a newer saved version with a stale request", async () => {
+		const document = graph();
+		await owner.saveCanvas({ projectId, expectedRevision: 0, document });
+		await expect(
+			editor.saveCanvas({
+				projectId,
+				expectedRevision: 0,
+				document: emptyCanvas(),
+			}),
+		).rejects.toMatchObject({ code: "CONFLICT" });
+		expect(await viewer.getCanvas({ projectId })).toMatchObject({
+			revision: 1,
+			document,
+		});
+	});
+	it("validates graph contents on the server and strips transient UI state", async () => {
+		const valid = graph();
+		const invalid = [
+			{ ...valid, nodes: [] },
+			{ ...valid, nodes: [...valid.nodes, valid.nodes[0]] },
+			{
+				...valid,
+				edges: valid.edges.map((edge) => ({ ...edge, targetHandle: "audio" })),
+			},
+			{
+				...valid,
+				edges: [...valid.edges, { ...valid.edges[0], id: crypto.randomUUID() }],
+			},
+			{
+				...valid,
+				nodes: valid.nodes.map((node) => ({
+					...node,
+					data: { ...node.data, content: "x".repeat(20_001) },
+				})),
+			},
+			{ ...valid, version: 99 },
+		];
+		for (const document of invalid) {
+			await expect(
+				// @ts-expect-error Intentionally invalid payload from an untrusted client.
+				owner.saveCanvas({ projectId, expectedRevision: 0, document }),
+			).rejects.toMatchObject({ code: "BAD_REQUEST" });
+		}
+		expect(await owner.getCanvas({ projectId })).toMatchObject({ revision: 0 });
+		await owner.saveCanvas({
+			projectId,
+			expectedRevision: 0,
+			document: {
+				...valid,
+				nodes: valid.nodes.map((node) => ({
+					...node,
+					selected: true,
+					dragging: true,
+				})),
+			},
+		});
+		expect((await viewer.getCanvas({ projectId })).document).toEqual(valid);
+	});
 });
 
 describe("project permissions through the oRPC router", () => {
@@ -596,4 +794,11 @@ it("migrates legacy links by disabling unclaimed invitations while retaining acc
 	expect(accepted?.revokedAt).toBeNull();
 	expect(result.members).toHaveLength(1);
 	expect(result.members[0]?.role).toBe("viewer");
+	expect(result.projects[0]).toMatchObject({
+		name: "Legacy project",
+		ownerId: "owner",
+		canvas: emptyCanvas(),
+		canvasRevision: 0,
+		canvasUpdatedAt: null,
+	});
 }, 30_000);
