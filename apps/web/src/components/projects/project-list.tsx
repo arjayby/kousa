@@ -22,6 +22,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { TemplateLibrary } from "@/components/templates/template-library";
 import { client, orpc } from "@/utils/orpc";
 import { ProjectNameForm } from "./project-name-form";
 
@@ -67,6 +68,9 @@ export function ProjectListPanel({
 						}}
 					/>
 				</CardContent>
+				<CardFooter>
+					<TemplateLibrary userId={userId} />
+				</CardFooter>
 			</Card>
 			{projects.isError ? (
 				<p role="alert">

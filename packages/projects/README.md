@@ -6,6 +6,7 @@ Projects are private by default. `/dashboard` lists the current account's owned 
 | --- | --- | --- | --- |
 | Open project | Yes | Yes | Yes |
 | Rename project | Yes | Yes | No |
+| Save a private workflow template | Yes | Yes | No |
 | Send, resend, or revoke invitations | Yes | No | No |
 | List and manage collaborators | Yes | No | No |
 
@@ -41,3 +42,5 @@ Canvas reads and writes check project access on the server. Future live collabor
 ## Canvas editor
 
 The project's **Open canvas** action opens the text, image, video, and speech editor. See [CANVAS.md](CANVAS.md) for interactions, graph rules, shared storage, conflict handling, and browser recovery copies.
+
+Owners and editors can save private workflow templates and reuse them as new projects. See [workflow templates](../../docs/workflow-templates.md) for snapshot contents, ownership, limits, and retry behavior.

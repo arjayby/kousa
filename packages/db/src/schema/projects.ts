@@ -14,6 +14,7 @@ import {
 	uuid,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
+import { workflowTemplate } from "./workflow-templates";
 
 export const projectMemberRole = pgEnum("project_member_role", [
 	"editor",
@@ -26,6 +27,11 @@ export const project = pgTable(
 	{
 		id: uuid("id").defaultRandom().primaryKey(),
 		name: text("name").notNull(),
+		sourceTemplateId: uuid("source_template_id").references(
+			() => workflowTemplate.id,
+			{ onDelete: "set null" },
+		),
+		templateRequestHash: text("template_request_hash"),
 		canvas: jsonb("canvas")
 			.notNull()
 			.default({ version: 1, nodes: [], edges: [] }),

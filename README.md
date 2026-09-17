@@ -18,6 +18,7 @@ This project was created with [Better-T-Stack](https://github.com/AmanVarshney01
 - **Node canvas** - Text, image, video, and speech nodes with connections, undo/redo, and shared project saving with editor/viewer permissions
 - **Project media library** - Search and filter saved media, preview and download files, and reuse images, videos, and speech on the canvas
 - **Narrated clips** - Combine video and speech with timing/volume controls and durable server exports
+- **Workflow templates** - Save private workflow snapshots and create fresh projects with the same prompts, models, settings, and connections
 - **Resend email** - Expiring invitations bound to a verified email, with roles and invitation status
 - **Biome** - Linting and formatting
 - **Turborepo** - Optimized monorepo build system
@@ -57,6 +58,8 @@ Run multiple output branches with shared inputs, combined credit review, progres
 Open **Media library** in the canvas toolbar to browse project files. See [project media](docs/project-media.md) for supported formats, access rules, and local storage.
 
 Connect Speech to a Video node’s Audio input and use **Narrated clip** to export a finished MP4. See [clip creation and renderer setup](docs/clip-composition.md). Local rendering needs no new environment variables; hosted rendering is opt-in and requires Workers Paid.
+
+Choose **Save template** on a canvas, then open **My templates** on the dashboard to reuse, rename, or delete it. New projects keep the workflow setup and start without media files, run history, or collaborators. See [workflow templates](docs/workflow-templates.md).
 
 Generation setup and billing behavior are documented in [Text generation](docs/text-generation.md), [Image generation](docs/image-generation.md), [Speech generation](docs/speech-generation.md), and [Video generation](docs/video-generation.md).
 

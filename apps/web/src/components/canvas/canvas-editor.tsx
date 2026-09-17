@@ -52,6 +52,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { SaveTemplate } from "@/components/templates/save-template";
 import { ClipContext, ClipMonitor, useCanvasClips } from "./canvas-clips";
 import { GenerationContext, useCanvasGeneration } from "./canvas-generation";
 import { CanvasMediaProvider } from "./canvas-media";
@@ -484,6 +485,14 @@ function Editor({
 					})}
 				</section>
 				<div className="ml-auto flex items-center gap-1">
+					{allowedToEdit ? (
+						<SaveTemplate
+							userId={userId}
+							projectId={projectId}
+							ready={canRun}
+							hasNodes={graph.nodes.length > 0}
+						/>
+					) : null}
 					<MediaLibrary
 						canEdit={canEdit}
 						atNodeLimit={graph.nodes.length >= 200}

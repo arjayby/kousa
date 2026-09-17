@@ -127,6 +127,13 @@
 			"when": 1789659898906,
 			"tag": "0017_clip_composition",
 			"breakpoints": true
+		},
+		{
+			"idx": 18,
+			"version": "7",
+			"when": 1789661192891,
+			"tag": "0018_workflow_templates",
+			"breakpoints": true
 		}
 	]
 }

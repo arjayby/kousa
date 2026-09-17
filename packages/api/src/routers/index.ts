@@ -7,7 +7,10 @@ import { createGenerationRouter } from "./generation";
 import { createGraphRouter } from "./graph";
 import { createProjectsRouter } from "./projects";
 
+import { createTemplatesRouter } from "./templates";
+
 export const appRouter = {
+	templates: createTemplatesRouter(),
 	clips: createClipRouter(),
 	generation: createGenerationRouter(),
 	graph: createGraphRouter(),

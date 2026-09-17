@@ -6,6 +6,8 @@ import { migrate } from "drizzle-orm/pglite/migrator";
 import { createProjectStore } from "./src/project-store";
 import { user } from "./src/schema/auth";
 import { project, projectInvite, projectMember } from "./src/schema/projects";
+import { workflowTemplate } from "./src/schema/workflow-templates";
+import { createTemplateStore } from "./src/template-store";
 
 export async function createProjectTestDatabase() {
 	const db = drizzle();
@@ -16,6 +18,9 @@ export async function createProjectTestDatabase() {
 	});
 	return {
 		store: createProjectStore(db),
+		templates: createTemplateStore(db),
+		clearTemplates: () => db.delete(workflowTemplate),
+		templateProjects: () => db.select().from(project),
 		addUsers: (
 			users: Array<{
 				id: string;
@@ -88,7 +93,16 @@ export async function testLegacyInvitationMigration() {
 		await runMigration("0004_project_canvas.sql");
 		await runMigration("0005_canvas_collaboration.sql");
 		return {
-			projects: await db.select().from(project),
+			projects: await db
+				.select({
+					id: project.id,
+					name: project.name,
+					ownerId: project.ownerId,
+					canvas: project.canvas,
+					canvasRevision: project.canvasRevision,
+					canvasUpdatedAt: project.canvasUpdatedAt,
+				})
+				.from(project),
 			invites: await db.select().from(projectInvite),
 			members: await db.select().from(projectMember),
 		};

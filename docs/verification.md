@@ -1,6 +1,6 @@
-# Generation verification
+# Implementation verification
 
-Last updated September 17, 2026, after adding server-rendered narrated clips. Workflow-wide execution results were recorded for commit `2d49fda`; speech workflow results for `631fb41`; video workflow results for `7942495`.
+Last updated September 18, 2026, after adding reusable workflow templates. Workflow-wide execution results were recorded for commit `2d49fda`; speech workflow results for `631fb41`; video workflow results for `7942495`; narrated clips for `68cd9ba`.
 
 Single-output and multi-output workflows across text, image, video and speech are implemented. Automated tests and browser checks passed, but successful speech and video generation through the real provider remain unverified. Local development can continue; complete the relevant provider checklist before releasing those features.
 
@@ -50,6 +50,19 @@ A real Text → Text → Image workflow was already verified, including completi
 - Next.js runtime diagnostics reported no errors. No AI provider was called, and the browser balance remained **458 credits**.
 
 This verifies local server composition with real FFmpeg. The production Docker/Cloudflare Container deployment has not been exercised. Enabling it requires Workers Paid, Docker on the deployment machine, and `CLIP_RENDERING_ENABLED=true`. Local development needs FFmpeg/ffprobe and no new API keys. Setup and limits are in [clip composition](clip-composition.md).
+
+## Reusable workflow templates
+
+- `pnpm test`: **336 application tests passed**, including 12 new template tests. Coverage includes authentication, private ownership, owner/editor/viewer rules, validation, fresh graph IDs, stripping media and runtime fields, independent projects, live collaboration snapshots, access revocation during saving, concurrent request retries, rename/delete behavior, and the 100-template limit.
+- All **10 workspace type-check tasks** passed. Biome and `git diff --check` passed for changed files. The OpenNext Cloudflare web bundle succeeded with the existing middleware and dependency warnings; no deployment was made.
+- Alchemy applied `0018_workflow_templates` to development Neon. An initial browser save before restarting development returned a server error because the new migration had not been applied; saving succeeded after the migration.
+- In the in-app browser, saved the eleven-node, nine-connection **Workflow example** graph as **Coffee and city workflows**, then renamed the template. Creating **Template copy verification** opened a separate private project with the authored prompts and connections, fresh node IDs, no generated results or workflow history, and an empty media library. The canvas persisted after reload.
+- The first join to the new project's Liveblocks room hit an authentication timeout. After reload, the copied graph connected and showed **All changes saved**. This was an observed provider connection issue, not a lost project or snapshot.
+- Deleting the verification template emptied the library and preserved the project created from it. Template deletion and safe retries also passed against the real checked-in SQL in isolated Postgres tests.
+- Saved a final **Coffee and city starter** template for review and left **Template copy verification** available. Final Next.js diagnostics reported no runtime or compilation errors.
+- No AI generation or rendering was started. The browser credit balance stayed at **458 credits**. No new environment variables or services are needed.
+
+See [workflow templates](workflow-templates.md) for usage, copied fields, permissions, and storage behavior. The deferred provider and hosted-renderer checks below remain unchanged.
 
 ## Deferred provider checks
 
