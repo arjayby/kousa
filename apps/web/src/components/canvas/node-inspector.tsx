@@ -123,7 +123,7 @@ export function NodeInspector({
 									? "Write a prompt here, connect a Text node, or use both."
 									: kind === "speech"
 										? "Write the words to speak, connect a Text node, or use both."
-										: "Describe a scene and its motion, connect a Text node, or use both."}
+										: "Describe a scene and its motion, or connect an Image node and add optional motion instructions. You can also connect Text."}
 						</FieldDescription>
 					</Field>
 					{kind === "image" || kind === "video" ? (

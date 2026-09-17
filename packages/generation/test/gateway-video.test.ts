@@ -58,6 +58,26 @@ it("submits one 480p video with a stable idempotency key and no SDK retry", asyn
 	);
 	expect(createGatewayVideoProvider(undefined).configured).toBe(false);
 });
+it("sends a hosted starting image with an optional motion prompt", async () => {
+	const imageUrl =
+		"https://kousa.app/api/generation-inputs/run?token=scoped-token";
+	await provider().start({
+		id: "run-id",
+		modelId: defaultVideoModel,
+		prompt: "",
+		imageUrl,
+		aspectRatio: "1:1",
+		duration: 5,
+	});
+	expect(mocks.start).toHaveBeenCalledWith(
+		expect.objectContaining({
+			prompt: { text: "", image: imageUrl },
+			maxRetries: 0,
+			headers: { "idempotency-key": "run-id" },
+		}),
+	);
+	expect(fetchMock).not.toHaveBeenCalled();
+});
 it("polls the persisted operation and hides provider errors", async () => {
 	expect(await poll()).toEqual({ status: "pending" });
 	expect(mocks.status).toHaveBeenCalledWith(

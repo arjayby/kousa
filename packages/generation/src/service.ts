@@ -2,6 +2,8 @@ import type {
 	GenerationRun,
 	GenerationStore,
 } from "@kousa/db/generation-store";
+import type { MediaStore } from "@kousa/db/media-store";
+import { imageMimeTypes } from "@kousa/media/contracts";
 import type { ProjectService } from "@kousa/projects/service";
 import {
 	generateInput,
@@ -19,15 +21,18 @@ import {
 	videoDurations,
 	videoModels,
 } from "./contracts";
+import { generationImageOrigin } from "./image-origin";
 import {
 	buildImagePrompt,
 	buildPrompt,
 	buildSpeechScript,
+	buildVideoPrompt,
 	GenerationError,
 	generationInputHash,
 	imageInputSnapshot,
 	speechInputSnapshot,
 	textInputSnapshot,
+	videoInputImageAssetId,
 	videoInputSnapshot,
 } from "./input";
 
@@ -43,6 +48,7 @@ function publicRun(run: GenerationRun): PublicRun {
 		transcript: run.kind === "speech" ? run.prompt : null,
 		voiceId: run.voiceId,
 		assetId: run.assetId,
+		inputImageAssetId: run.inputImageAssetId,
 		status: run.status,
 		stage: run.stage,
 		output: run.output,
@@ -61,9 +67,12 @@ export function createGenerationService(
 		imageConfigured: boolean;
 		speechConfigured?: boolean;
 		videoConfigured?: boolean;
+		imageInputOrigin?: string;
 		dispatch: (id: string) => Promise<void>;
 	},
+	media?: Pick<MediaStore, "get">,
 ) {
+	const imageOrigin = generationImageOrigin(jobs.imageInputOrigin);
 	async function dispatch(id: string) {
 		try {
 			await jobs.dispatch(id);
@@ -109,6 +118,9 @@ export function createGenerationService(
 				speechResults: speechResults.map(publicRun),
 				videoResults: videoResults.map(publicRun),
 				videoConfigured: jobs.videoConfigured ?? false,
+				imageToVideoConfigured: Boolean(
+					jobs.videoConfigured && imageOrigin && media,
+				),
 				speechConfigured: jobs.speechConfigured ?? false,
 				imageConfigured: jobs.imageConfigured,
 				configured: jobs.textConfigured,
@@ -205,6 +217,44 @@ export function createGenerationService(
 					"BAD_REQUEST",
 					"Choose an available video duration and aspect ratio.",
 				);
+			let inputImageAssetId: string | null = null;
+			if (snapshot.kind === "video" && snapshot.image) {
+				const [generated] = await store.outputs(
+					input.projectId,
+					[snapshot.image.nodeId],
+					"image",
+				);
+				inputImageAssetId = videoInputImageAssetId(
+					snapshot,
+					generated?.assetId,
+				);
+				if (!inputImageAssetId)
+					throw new GenerationError(
+						"BAD_REQUEST",
+						"Upload or generate an image on the connected image node first.",
+					);
+				if (input.inputImageAssetId !== inputImageAssetId)
+					throw new GenerationError(
+						"CONFLICT",
+						"The connected image changed. Review it, then try again.",
+					);
+				if (!imageOrigin || !media)
+					throw new GenerationError(
+						"SERVICE_UNAVAILABLE",
+						"Image-to-video needs a public HTTPS app URL so the provider can fetch this image.",
+					);
+				const asset = await media.get(input.projectId, inputImageAssetId);
+				if (!asset || !imageMimeTypes.some((type) => type === asset.mimeType))
+					throw new GenerationError(
+						"BAD_REQUEST",
+						"Choose an available image from this project.",
+					);
+			} else if (input.inputImageAssetId) {
+				throw new GenerationError(
+					"CONFLICT",
+					"The connected image changed. Review it, then try again.",
+				);
+			}
 			const outputs = await store.outputs(
 				input.projectId,
 				snapshot.sources.map((s) => s.id),
@@ -212,9 +262,11 @@ export function createGenerationService(
 			const prompt =
 				snapshot.kind === "speech"
 					? buildSpeechScript(snapshot, outputs)
-					: snapshot.kind === "image" || snapshot.kind === "video"
-						? buildImagePrompt(snapshot, outputs)
-						: buildPrompt(snapshot, outputs);
+					: snapshot.kind === "video"
+						? buildVideoPrompt(snapshot, outputs)
+						: snapshot.kind === "image"
+							? buildImagePrompt(snapshot, outputs)
+							: buildPrompt(snapshot, outputs);
 			const credits = {
 				text: textCreditCost,
 				image: imageCreditCost,
@@ -229,6 +281,8 @@ export function createGenerationService(
 				prompt,
 				credits,
 				kind,
+				inputImageAssetId,
+				inputImageOrigin: inputImageAssetId ? imageOrigin : null,
 				duration: snapshot.kind === "video" ? snapshot.duration : null,
 				aspectRatio: snapshot.kind === "video" ? snapshot.aspectRatio : null,
 				size: snapshot.kind === "image" ? snapshot.size : null,

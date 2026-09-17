@@ -38,6 +38,12 @@ export const generationRun = pgTable(
 		assetId: uuid("asset_id").references(() => mediaAsset.id, {
 			onDelete: "restrict",
 		}),
+		inputImageAssetId: uuid("input_image_asset_id").references(
+			() => mediaAsset.id,
+			{ onDelete: "restrict" },
+		),
+		inputImageOrigin: text("input_image_origin"),
+		inputImageTokenHash: text("input_image_token_hash"),
 		prompt: text("prompt").notNull(),
 		size: text("size"),
 		duration: integer("duration"),
@@ -89,6 +95,10 @@ export const generationRun = pgTable(
 			sql`${t.kind} <> 'video' or (${t.duration} is not null and ${t.duration} in (5,10) and ${t.aspectRatio} is not null and ${t.aspectRatio} in ('1:1','16:9','9:16','4:3'))`,
 		),
 		check("generation_credits_positive", sql`${t.credits} > 0`),
+		check(
+			"generation_input_image_valid",
+			sql`(${t.inputImageAssetId} is null and ${t.inputImageOrigin} is null and ${t.inputImageTokenHash} is null) or (${t.kind} = 'video' and ${t.inputImageAssetId} is not null and ${t.inputImageOrigin} is not null and (${t.inputImageTokenHash} is null or ${t.inputImageTokenHash} ~ '^[a-f0-9]{64}$'))`,
+		),
 		check(
 			"generation_kind_valid",
 			sql`${t.kind} in ('text', 'image', 'speech', 'video')`,

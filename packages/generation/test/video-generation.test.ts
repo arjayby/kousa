@@ -103,13 +103,11 @@ beforeEach(async () => {
 	objects.clear();
 	artifacts = memoryArtifacts();
 	start.mockReset().mockResolvedValue({ job: "operation-1" });
-	poll
-		.mockReset()
-		.mockResolvedValue({
-			status: "succeeded",
-			bytes: video,
-			mimeType: "video/mp4",
-		});
+	poll.mockReset().mockResolvedValue({
+		status: "succeeded",
+		bytes: video,
+		mimeType: "video/mp4",
+	});
 	media = createMediaService(db.media, db.projects, {
 		put: async (key, bytes) => {
 			objects.set(key, bytes);
@@ -190,17 +188,15 @@ it("charges the editor 20 credits for 10 seconds and sleeps durably between poll
 	node.data.duration = 10;
 	await db.setGraph(projectId, graph);
 	await db.grant("editor", 20);
-	poll
-		.mockResolvedValueOnce({ status: "pending" })
-		.mockResolvedValue({
-			status: "succeeded",
-			bytes: new Uint8Array(
-				readFileSync(
-					new URL("../../media/test/fixtures/clip-10s.mp4", import.meta.url),
-				),
+	poll.mockResolvedValueOnce({ status: "pending" }).mockResolvedValue({
+		status: "succeeded",
+		bytes: new Uint8Array(
+			readFileSync(
+				new URL("../../media/test/fixtures/clip-10s.mp4", import.meta.url),
 			),
-			mimeType: "video/mp4",
-		});
+		),
+		mimeType: "video/mp4",
+	});
 	const input = await request();
 	await service().generate("editor", input);
 	const sleep = vi.fn(async () => {});
@@ -278,17 +274,19 @@ it("requires editor access and rejects unsupported media inputs before reserving
 	await expect(
 		service().generate("viewer", await request()),
 	).rejects.toMatchObject({ code: "FORBIDDEN" });
-	const source = createCanvasNode("image", { x: 0, y: 0 });
+	const source = createCanvasNode("speech", { x: 0, y: 0 });
 	graph.nodes.push(source);
 	graph.edges.push({
 		id: crypto.randomUUID(),
 		source: source.id,
 		target: node.id,
 		sourceHandle: "output",
-		targetHandle: "image",
+		targetHandle: "audio",
 	});
 	await db.setGraph(projectId, graph);
-	expect(() => videoInputSnapshot(graph, node.id)).toThrow("text prompts only");
+	expect(() => videoInputSnapshot(graph, node.id)).toThrow(
+		"Disconnect video and audio inputs",
+	);
 	expect(start).not.toHaveBeenCalled();
 	expect(await db.store.balance("owner")).toBe(50);
 });

@@ -45,6 +45,7 @@ export function createGenerationRunner(
 		Partial<Pick<MediaService, "stageSpeech" | "stageVideo">>,
 	speech?: SpeechProvider,
 	video?: VideoProvider,
+	inputImageUrl?: (run: GenerationRun) => Promise<string>,
 ) {
 	async function active(id: string): Promise<GenerationRun | null> {
 		const run = await store.get(id);
@@ -91,10 +92,16 @@ export function createGenerationRunner(
 			}
 			let operation: unknown;
 			try {
+				let imageUrl: string | undefined;
+				if (run.inputImageAssetId) {
+					if (!inputImageUrl) throw new Error("Image delivery unavailable");
+					imageUrl = await inputImageUrl(run);
+				}
 				operation = await video.start({
 					id: run.id,
 					modelId: run.modelId,
 					prompt: run.prompt,
+					...(imageUrl ? { imageUrl } : {}),
 					aspectRatio,
 					duration: run.duration,
 				});

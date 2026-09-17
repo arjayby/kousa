@@ -15,6 +15,7 @@ import {
 } from "@kousa/generation/gateway";
 import { createGatewayVideoProvider } from "@kousa/generation/gateway-video";
 import { executeGraphWorkflow } from "@kousa/generation/graph-workflow";
+import { createGenerationImageAccess } from "@kousa/generation/image-access";
 import { createGenerationRunner } from "@kousa/generation/runner";
 import { executeGenerationWorkflow } from "@kousa/generation/workflow";
 import { createMediaService } from "@kousa/media/service";
@@ -31,18 +32,20 @@ interface JobsEnv {
 function runtime(env: JobsEnv) {
 	const db = databaseClient(env.DATABASE_URL);
 	const store = createGenerationStore(db);
+	const media = createMediaService(
+		createMediaStore(db),
+		createProjectStore(db),
+		r2Storage(env.MEDIA),
+	);
 	const runner = createGenerationRunner(
 		store,
 		r2Artifacts(env.MEDIA),
 		createGatewayProvider(env.AI_GATEWAY_API_KEY),
 		createGatewayImageProvider(env.AI_GATEWAY_API_KEY),
-		createMediaService(
-			createMediaStore(db),
-			createProjectStore(db),
-			r2Storage(env.MEDIA),
-		),
+		media,
 		createGatewaySpeechProvider(env.AI_GATEWAY_API_KEY),
 		createGatewayVideoProvider(env.AI_GATEWAY_API_KEY),
+		createGenerationImageAccess(store, media).issue,
 	);
 	return { store, runner, graphs: createGraphStore(db) };
 }

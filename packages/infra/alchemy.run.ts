@@ -120,6 +120,9 @@ export const web = Cloudflare.Website.StaticSite(
 				...databaseBindings,
 				BETTER_AUTH_SECRET: Config.redacted("BETTER_AUTH_SECRET"),
 				BETTER_AUTH_URL: Cloudflare.Worker.URL,
+				GENERATION_MEDIA_ORIGIN: Config.string("GENERATION_MEDIA_ORIGIN").pipe(
+					Config.withDefault(""),
+				),
 				POLAR_ACCESS_TOKEN: Config.redacted("POLAR_ACCESS_TOKEN"),
 				POLAR_WEBHOOK_SECRET: Config.redacted("POLAR_WEBHOOK_SECRET").pipe(
 					Config.withDefault(Redacted.make("")),

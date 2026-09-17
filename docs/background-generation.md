@@ -28,7 +28,7 @@ The local Worker is a loopback-only development endpoint. Production has no publ
 - Active reservations expire after thirty minutes. Expired runs cannot execute or finalize. The fallback sweep also releases errored or terminated workflows. Successful and failed rows remain as the billing history.
 - Temporary receipts are removed when the workflow finishes. A crash after terminal state can leave private orphan receipts, and interrupted media staging can leave pending assets counted toward project quotas. A storage cleanup policy is a separate follow-up; do not delete active job receipts.
 
-Prompt edits after queuing apply to the next run. Upstream nodes are not executed automatically. Deleting a canvas node does not cancel its existing job. Explicit cancellation and image-to-video inputs are not implemented yet.
+Prompt edits after queuing apply to the next run. Upstream nodes are not executed automatically. Deleting a canvas node does not cancel its existing job. Explicit cancellation is not implemented yet. Individual video jobs accept a frozen image input through an expiring provider URL; see [video generation](video-generation.md).
 
 ## Deployment and limits
 

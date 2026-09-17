@@ -189,7 +189,7 @@ export function canvasDraftKey(userId: string, projectId: string) {
 }
 
 export function imageOutputAssetId(
-	data: CanvasNode["data"],
+	data: Pick<CanvasNode["data"], "imageSource" | "assetId">,
 	generatedAssetId?: string | null,
 ) {
 	const source = data.imageSource ?? (data.assetId ? "project" : "generated");

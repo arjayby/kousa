@@ -74,10 +74,10 @@ export function createGatewayVideoProvider(
 ): VideoProvider {
 	return {
 		configured: Boolean(apiKey?.trim()),
-		async start({ id, modelId, prompt, aspectRatio, duration }) {
+		async start({ id, modelId, prompt, imageUrl, aspectRatio, duration }) {
 			const result = await startVideo({
 				model: createGateway({ apiKey }).videoModel(modelId),
-				prompt,
+				prompt: imageUrl ? { text: prompt, image: imageUrl } : prompt,
 				aspectRatio,
 				resolution: "854x480",
 				duration,

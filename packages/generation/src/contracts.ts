@@ -67,6 +67,7 @@ export const generateInput = generationProjectInput.extend({
 	id: z.uuid(),
 	nodeId: z.uuid(),
 	inputHash: z.string().regex(/^[a-f0-9]{64}$/),
+	inputImageAssetId: z.uuid().optional(),
 });
 
 export type PublicRun = {
@@ -78,6 +79,7 @@ export type PublicRun = {
 	transcript: string | null;
 	voiceId: string | null;
 	assetId: string | null;
+	inputImageAssetId?: string | null;
 	status: "queued" | "running" | "succeeded" | "failed";
 	stage: "queued" | "generating" | "saving";
 	output: string | null;

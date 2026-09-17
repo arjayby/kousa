@@ -35,6 +35,7 @@ export interface VideoProvider {
 		id: string;
 		modelId: string;
 		prompt: string;
+		imageUrl?: string;
 		aspectRatio: `${number}:${number}`;
 		duration: number;
 	}): Promise<unknown>;

@@ -25,6 +25,7 @@ import {
 	imageInputSnapshot,
 	speechInputSnapshot,
 	textInputSnapshot,
+	videoInputImageAssetId,
 	videoInputSnapshot,
 } from "@kousa/generation/input";
 import type { CanvasNode } from "@kousa/projects/canvas";
@@ -116,12 +117,28 @@ export function useCanvasGeneration({
 		let request: Request | null =
 			uncertain?.nodeId === nodeId ? uncertain : null;
 		try {
-			request ??= {
-				id: crypto.randomUUID(),
-				projectId,
-				nodeId,
-				inputHash: await generationInputHash(documentFromGraph(graph), nodeId),
-			};
+			if (!request) {
+				const document = documentFromGraph(graph);
+				const videoInput =
+					document.nodes.find((node) => node.id === nodeId)?.type === "video"
+						? videoInputSnapshot(document, nodeId)
+						: null;
+				const inputImageAssetId = videoInput
+					? videoInputImageAssetId(
+							videoInput,
+							query.data?.imageResults.find(
+								(run) => run.nodeId === videoInput.image?.nodeId,
+							)?.assetId,
+						)
+					: null;
+				request = {
+					id: crypto.randomUUID(),
+					projectId,
+					nodeId,
+					inputHash: await generationInputHash(document, nodeId),
+					...(inputImageAssetId ? { inputImageAssetId } : {}),
+				};
+			}
 			const result = await mutation.mutateAsync(request);
 			setUncertain(null);
 			if (result.status === "failed")
@@ -176,6 +193,7 @@ export function useCanvasGeneration({
 		),
 		speechConfigured: query.data?.speechConfigured,
 		videoConfigured: query.data?.videoConfigured,
+		imageToVideoConfigured: query.data?.imageToVideoConfigured,
 		videoResults: new Map(
 			(query.data?.videoResults ?? []).map((run) => [run.nodeId, run]),
 		),
@@ -285,8 +303,31 @@ export function GenerationPanel({
 	const pending = generation.pendingNode === node.id || isRunActive(run);
 	const checking = generation.uncertain?.nodeId === node.id;
 	let inputError: string | null = null;
+	let inputImageAssetId: string | null = null;
+	let imageNode: StudioNode | undefined;
 	try {
 		settings.snapshot(documentFromGraph(generation.graph), node.id);
+		if (kind === "video") {
+			const snapshot = videoInputSnapshot(
+				documentFromGraph(generation.graph),
+				node.id,
+			);
+			if (snapshot.image) {
+				imageNode = generation.graph.nodes.find(
+					(node) => node.id === snapshot.image?.nodeId,
+				);
+				inputImageAssetId = videoInputImageAssetId(
+					snapshot,
+					generation.imageResults.get(snapshot.image.nodeId)?.assetId,
+				);
+				if (!inputImageAssetId)
+					inputError =
+						"Upload or generate an image on the connected image node first.";
+				else if (!generation.imageToVideoConfigured)
+					inputError =
+						"Image-to-video needs a public HTTPS app URL so the provider can fetch this image.";
+			}
+		}
 	} catch (error) {
 		inputError = error instanceof Error ? error.message : "Invalid input.";
 	}
@@ -307,6 +348,7 @@ export function GenerationPanel({
 				Boolean(generation.uncertain) ||
 				(generation.balance ?? 0) < cost ||
 				(!node.data.content.trim() &&
+					!inputImageAssetId &&
 					(kind === "text" ||
 						!generation.graph.edges.some(
 							(edge) =>
@@ -359,6 +401,20 @@ export function GenerationPanel({
 						: "Models eligible for Vercel free credits."}
 				</FieldDescription>
 			</Field>
+			{kind === "video" && imageNode ? (
+				<div className="flex flex-col gap-2">
+					<h3 className="font-medium text-xs">
+						Starting image · {imageNode.data.label}
+					</h3>
+					{inputImageAssetId ? (
+						<AssetPreview key={inputImageAssetId} assetId={inputImageAssetId} />
+					) : null}
+					<p className="text-muted-foreground text-xs">
+						Uses this image node’s selected output. Add a motion prompt, or
+						leave it empty to let the model animate the image.
+					</p>
+				</div>
+			) : null}
 			{kind === "speech" ? (
 				<Field>
 					<FieldLabel htmlFor="speech-voice">Voice</FieldLabel>
@@ -516,9 +572,9 @@ export function GenerationPanel({
 			{kind === "video" ? (
 				<div className="flex flex-col gap-3">
 					<p className="text-muted-foreground text-xs">
-						Uses the prompt and connected text. Connected text uses its last
-						successful output, or its written text. Creates a silent clip;
-						image, video, and audio inputs are not supported yet.
+						Creates a silent clip from your prompt and, optionally, one
+						connected image. Connected text uses its last successful output, or
+						its written text. Video and audio inputs are not supported yet.
 					</p>
 					{videoResult?.assetId ? (
 						<>

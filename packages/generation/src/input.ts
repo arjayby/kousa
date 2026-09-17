@@ -1,4 +1,7 @@
-import type { CanvasDocument } from "@kousa/projects/canvas";
+import {
+	type CanvasDocument,
+	imageOutputAssetId,
+} from "@kousa/projects/canvas";
 import {
 	defaultImageModel,
 	defaultSpeechModel,
@@ -225,17 +228,37 @@ export function videoInputSnapshot(graph: CanvasDocument, nodeId: string) {
 			"BAD_REQUEST",
 			"Select a video node to generate.",
 		);
+	const images: Array<{
+		nodeId: string;
+		imageSource: "generated" | "project";
+		assetId?: string | null;
+	}> = [];
 	const sources = graph.edges
 		.filter((e) => e.target === nodeId)
 		.sort((a, b) => a.id.localeCompare(b.id))
-		.map((edge) => {
+		.flatMap((edge) => {
 			const source = graph.nodes.find((n) => n.id === edge.source);
+			if (edge.targetHandle === "image" && source?.type === "image") {
+				if (images.length)
+					throw new GenerationError(
+						"BAD_REQUEST",
+						"Connect only one image to the video node.",
+					);
+				images.push({
+					nodeId: source.id,
+					imageSource:
+						source.data.imageSource ??
+						(source.data.assetId ? "project" : "generated"),
+					assetId: source.data.assetId,
+				});
+				return [];
+			}
 			if (edge.targetHandle !== "prompt" || source?.type !== "text")
 				throw new GenerationError(
 					"BAD_REQUEST",
-					"Video generation accepts text prompts only. Disconnect image, video, and audio inputs before generating.",
+					"Video generation accepts text prompts and one image. Disconnect video and audio inputs before generating.",
 				);
-			return { id: source.id, content: source.data.content };
+			return [{ id: source.id, content: source.data.content }];
 		});
 	return {
 		nodeId,
@@ -244,5 +267,34 @@ export function videoInputSnapshot(graph: CanvasDocument, nodeId: string) {
 		sources,
 		aspectRatio: node.data.aspectRatio,
 		duration: Number(node.data.duration),
+		image: images[0] ?? null,
 	};
+}
+
+export function videoInputImageAssetId(
+	snapshot: ReturnType<typeof videoInputSnapshot>,
+	generatedAssetId?: string | null,
+) {
+	return snapshot.image
+		? (imageOutputAssetId(snapshot.image, generatedAssetId) ?? null)
+		: null;
+}
+
+export function buildVideoPrompt(
+	snapshot: ReturnType<typeof videoInputSnapshot>,
+	outputs: Array<{ nodeId: string; output: string | null }>,
+) {
+	if (
+		snapshot.image &&
+		!snapshot.content.trim() &&
+		snapshot.sources.every(
+			(source) =>
+				!(
+					outputs.find((output) => output.nodeId === source.id)?.output ??
+					source.content
+				).trim(),
+		)
+	)
+		return "";
+	return buildImagePrompt(snapshot, outputs);
 }
