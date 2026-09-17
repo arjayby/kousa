@@ -38,7 +38,7 @@ export function useGraphRuns({
 	const cache = useQueryClient();
 	const query = useQuery({
 		...orpc.graph.list.queryOptions({ input: { projectId } }),
-		queryKey: ["graph-runs", userId, projectId],
+		queryKey: ["graph-runs", userId, projectId, "multiple-outputs"],
 		enabled: loaded,
 		refetchInterval: 3_000,
 		retry: false,
@@ -54,21 +54,23 @@ export function useGraphRuns({
 	const onStarted = useRef<(() => void) | undefined>(undefined);
 	const active = query.data?.runs.find((run) => run.status === "running");
 	async function review(
-		nodeId: string,
+		target: string | string[],
 		resumeOf?: string,
 		onStart?: () => void,
 	) {
-		if (!canRun || busy.current) return;
+		if (!canRun || busy.current || uncertain || active) return false;
 		busy.current = true;
 		setPending(true);
 		setError(null);
 		try {
+			const targets =
+				typeof target === "string" ? { nodeId: target } : { nodeIds: target };
 			const inputHash = resumeOf
 				? undefined
-				: (await planGraph(documentFromGraph(graph), nodeId)).inputHash;
+				: (await planGraph(documentFromGraph(graph), target)).inputHash;
 			const estimate = await client.graph.preview({
 				projectId,
-				nodeId,
+				...targets,
 				resumeOf,
 				inputHash,
 			});
@@ -78,18 +80,20 @@ export function useGraphRuns({
 				request: {
 					id: crypto.randomUUID(),
 					projectId,
-					nodeId,
+					...targets,
 					resumeOf,
 					inputHash: estimate.inputHash,
 				},
 			});
 			setUncertain(false);
+			return true;
 		} catch (cause) {
 			setError(
 				cause instanceof Error
 					? cause.message
 					: "Could not preview this workflow.",
 			);
+			return false;
 		} finally {
 			busy.current = false;
 			setPending(false);
@@ -162,7 +166,7 @@ export function useGraphRuns({
 		},
 	};
 }
-type Workflow = ReturnType<typeof useGraphRuns>;
+export type Workflow = ReturnType<typeof useGraphRuns>;
 
 export function WorkflowControls({
 	workflow,
@@ -212,6 +216,9 @@ function Steps({ run }: { run: Run }) {
 				>
 					<span className="min-w-0 break-words">
 						{index + 1}. {step.label || step.kind}
+						{step.isOutput ? (
+							<span className="ml-2 text-muted-foreground text-xs">Output</span>
+						) : null}
 					</span>
 					<Badge
 						variant={step.status === "failed" ? "destructive" : "secondary"}
@@ -275,20 +282,32 @@ export function WorkflowMonitor({ workflow }: { workflow: Workflow }) {
 				}}
 			>
 				<DialogContent
+					className="max-h-[90dvh] overflow-y-auto sm:max-w-lg"
 					showCloseButton={!workflow.pending && !workflow.uncertain}
 				>
 					<DialogHeader>
 						<DialogTitle>
 							{workflow.preview?.request.resumeOf
 								? "Resume workflow"
-								: "Run to this node"}
+								: workflow.preview?.request.nodeIds
+									? "Run workflow"
+									: "Run to this node"}
 						</DialogTitle>
 						<DialogDescription>
 							{workflow.preview?.request.resumeOf
 								? "Continue the original saved prompts and settings. Completed steps are reused at no extra charge."
-								: "Generate every node below in order using the saved prompts and settings. Previous results will be regenerated."}
+								: "Generate the selected outputs and their inputs using saved prompts and settings. Shared inputs run once. Previous results will be regenerated."}
 						</DialogDescription>
 					</DialogHeader>
+					<p className="text-muted-foreground text-xs">
+						{workflow.preview?.estimate.targetNodeIds.length} selected{" "}
+						{workflow.preview?.estimate.targetNodeIds.length === 1
+							? "output"
+							: "outputs"}{" "}
+						· {workflow.preview?.estimate.steps.length} steps. Steps run one at
+						a time in dependency order. A failure stops the workflow; resume to
+						continue its unfinished branches.
+					</p>
 					<ol className="flex max-h-64 flex-col gap-2 overflow-y-auto">
 						{workflow.preview?.estimate.steps.map((step, index) => (
 							<li
@@ -297,6 +316,11 @@ export function WorkflowMonitor({ workflow }: { workflow: Workflow }) {
 							>
 								<span className="min-w-0 break-words">
 									{index + 1}. {step.label || step.kind}
+									{step.isOutput ? (
+										<Badge variant="outline" className="ml-2">
+											Output
+										</Badge>
+									) : null}
 									{step.speech ? (
 										<span className="mt-1 block text-muted-foreground text-xs">
 											Voice:{" "}
@@ -397,7 +421,7 @@ export function WorkflowMonitor({ workflow }: { workflow: Workflow }) {
 				</DialogContent>
 			</Dialog>
 			<Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-				<DialogContent>
+				<DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
 					<DialogHeader>
 						<DialogTitle>Workflow progress</DialogTitle>
 						<DialogDescription>
@@ -409,6 +433,17 @@ export function WorkflowMonitor({ workflow }: { workflow: Workflow }) {
 									: "Completed outputs are saved. Unfinished credits were released."}
 						</DialogDescription>
 					</DialogHeader>
+					{run ? (
+						<p className="text-muted-foreground text-sm">
+							{
+								run.steps.filter(
+									(step) => step.isOutput && step.status === "succeeded",
+								).length
+							}{" "}
+							of {run.targetNodeIds.length} selected outputs completed. Shared
+							steps appear once below.
+						</p>
+					) : null}
 					{run ? <Steps run={run} /> : null}
 					{run?.error ? (
 						<p role="alert" className="text-destructive text-sm">
@@ -421,11 +456,14 @@ export function WorkflowMonitor({ workflow }: { workflow: Workflow }) {
 						<DialogFooter>
 							<Button
 								disabled={
-									!workflow.canRun || workflow.pending || workflow.uncertain
+									!workflow.canRun ||
+									workflow.pending ||
+									workflow.uncertain ||
+									!!workflow.active
 								}
 								onClick={() => {
 									setDetailsOpen(false);
-									void workflow.review(run.nodeId, run.id);
+									void workflow.review(run.targetNodeIds, run.id);
 								}}
 							>
 								Review and resume

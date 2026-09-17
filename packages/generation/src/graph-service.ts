@@ -7,7 +7,9 @@ import type { ProjectService } from "@kousa/projects/service";
 import {
 	graphPreviewInput,
 	graphProjectInput,
+	graphRunTargetIds,
 	graphStartInput,
+	graphTargetIds,
 	planGraph,
 } from "./graph-plan";
 import { generationImageOrigin } from "./image-origin";
@@ -69,6 +71,7 @@ export function createGraphService(
 		resumed = false,
 		knownResults?: Awaited<ReturnType<GraphStore["results"]>>,
 	) {
+		const targets = graphRunTargetIds(run);
 		const results = new Map(
 			(
 				knownResults ??
@@ -78,6 +81,7 @@ export function createGraphService(
 		return {
 			id: run.id,
 			nodeId: run.nodeId,
+			targetNodeIds: targets,
 			userId: run.userId,
 			status: run.status,
 			error: run.error,
@@ -86,6 +90,7 @@ export function createGraphService(
 			resumed,
 			steps: run.plan.map((step) => ({
 				nodeId: step.nodeId,
+				isOutput: targets.includes(step.nodeId),
 				label: step.label,
 				kind: step.kind,
 				credits: step.credits,
@@ -101,19 +106,25 @@ export function createGraphService(
 	}
 	async function makePlan(
 		actorId: string,
-		input: { projectId: string; nodeId: string; resumeOf?: string },
+		input: {
+			projectId: string;
+			nodeId?: string;
+			nodeIds?: string[];
+			resumeOf?: string;
+		},
 	) {
+		const targets = graphTargetIds(input);
 		if (!input.resumeOf)
 			return planGraph(
 				(await projects.getCanvas(actorId, input)).document,
-				input.nodeId,
+				targets,
 			);
 		const previous = await store.get(input.resumeOf);
 		if (
 			!previous ||
 			previous.projectId !== input.projectId ||
 			previous.userId !== actorId ||
-			previous.nodeId !== input.nodeId
+			JSON.stringify(graphRunTargetIds(previous)) !== JSON.stringify(targets)
 		)
 			throw new GenerationError(
 				"FORBIDDEN",
@@ -156,6 +167,7 @@ export function createGraphService(
 		},
 		async preview(actorId: string, raw: unknown) {
 			const input = graphPreviewInput.parse(raw);
+			const targets = graphTargetIds(input);
 			await access(actorId, input.projectId, true);
 			const { plan, inputHash } = await makePlan(actorId, input);
 			if (input.inputHash && input.inputHash !== inputHash)
@@ -166,6 +178,7 @@ export function createGraphService(
 			const blockers = await prepareInputs(input.projectId, plan);
 			return {
 				blockers,
+				targetNodeIds: targets,
 				inputHash,
 				credits: plan.reduce(
 					(sum, step) => sum + (step.reused ? 0 : step.credits),
@@ -174,6 +187,7 @@ export function createGraphService(
 				balance: await generations.balance(actorId),
 				steps: plan.map((step) => ({
 					nodeId: step.nodeId,
+					isOutput: targets.includes(step.nodeId),
 					label: step.label,
 					kind: step.kind,
 					credits: step.credits,
@@ -189,13 +203,19 @@ export function createGraphService(
 		},
 		async start(actorId: string, raw: unknown) {
 			const input = graphStartInput.parse(raw);
+			const targets = graphTargetIds(input);
+			const nodeId = targets[0];
+			if (!nodeId)
+				throw new GenerationError("BAD_REQUEST", "Choose a workflow output.");
 			await access(actorId, input.projectId, true);
 			const previous = await store.get(input.id);
 			if (previous) {
 				if (
 					previous.userId !== actorId ||
 					previous.projectId !== input.projectId ||
-					previous.nodeId !== input.nodeId ||
+					previous.inputHash !== input.inputHash ||
+					JSON.stringify(graphRunTargetIds(previous)) !==
+						JSON.stringify(targets) ||
 					previous.resumeOf !== (input.resumeOf ?? null)
 				)
 					throw new GenerationError(
@@ -222,6 +242,7 @@ export function createGraphService(
 				throw new GenerationError("SERVICE_UNAVAILABLE", blockers[0]);
 			const result = await store.claim({
 				...input,
+				nodeId,
 				userId: actorId,
 				resumeOf: input.resumeOf ?? null,
 				plan: plan.map((step) => ({

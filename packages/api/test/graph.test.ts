@@ -90,3 +90,24 @@ it("validates hashes and IDs before reaching the workflow service", async () => 
 	).rejects.toMatchObject({ code: "BAD_REQUEST" });
 	expect(start).toHaveBeenCalledTimes(count);
 });
+it("accepts multiple outputs with a session-derived payer and rejects ambiguous selections", async () => {
+	const { nodeId, ...base } = request;
+	const input = { ...base, nodeIds: [nodeId, crypto.randomUUID()] };
+	start.mockResolvedValueOnce({});
+	await client("editor").start(input);
+	expect(start).toHaveBeenLastCalledWith("editor", input);
+	const count = start.mock.calls.length;
+	for (const invalid of [
+		{ ...base },
+		{ ...input, nodeId },
+		{ ...base, nodeIds: [] },
+		{ ...base, nodeIds: [nodeId, nodeId] },
+		{ ...base, nodeIds: ["invalid"] },
+		{ ...base, nodeIds: Array.from({ length: 21 }, () => crypto.randomUUID()) },
+	]) {
+		await expect(client("owner").start(invalid)).rejects.toMatchObject({
+			code: "BAD_REQUEST",
+		});
+	}
+	expect(start).toHaveBeenCalledTimes(count);
+});

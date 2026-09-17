@@ -1,16 +1,26 @@
-# Run to this node
+# Workflow execution
 
-Select a text, image, video, or speech node and choose **Run to this node**. The preview lists its ancestors in execution order and the total Kousa credits. Starting reserves the full cost from the person who starts it. A new workflow regenerates every listed node. It does not reuse outputs from earlier, unrelated runs.
+Choose **Run workflow** in the canvas toolbar to select multiple output nodes, or select one node and choose **Run to this node**. The preview lists its ancestors in execution order and the total Kousa credits. Starting reserves the full cost from the person who starts it. A new workflow regenerates every listed node. It does not reuse outputs from earlier, unrelated runs.
 
-Supported paths include Text → Text → Image, Text → Video, Text → Image → Video, and Text → Speech. A shared ancestor runs once. Only the selected node and its ancestors participate, with a maximum of 20 nodes. Video-to-video, audio inputs, and image-reference generation remain unsupported. Speech accepts one connected Text script; audio output cannot yet feed another generation step.
+Supported paths include Text → Text → Image, Text → Video, Text → Image → Video, and Text → Speech. A shared ancestor runs once. Only the selected outputs and their ancestors participate, with a maximum of 20 steps across the entire workflow. Video-to-video, audio inputs, and image-reference generation remain unsupported. Speech accepts one connected Text script; audio output cannot yet feed another generation step.
 
 The canvas shows a workflow progress button and a status on each participating node. Owners, editors and viewers can see progress. Only owners and editors can start workflows. One workflow may run per project and per payer; individual generation requests wait until it finishes.
+
+## Multiple outputs
+
+The toolbar's **Run workflow** chooser defaults to **All outputs**: nodes without outgoing connections, including disconnected nodes. **Use canvas selection** replaces that set with the nodes selected on the canvas. Any intermediate node can also be selected explicitly. The next dialog identifies each selected output, lists shared inputs once, and shows the combined credit reservation before starting.
+
+For example, Text → Image → Video and the same Text → Speech cost 16 credits together (1 + 3 + 10 + 2). The common text runs once and feeds both branches by its exact generation ID. Selecting that text as an additional output does not add another generation or charge. Changing the output set invalidates the reviewed hash, even when it would execute the same steps; merely reordering the selection does not.
+
+Branches execute one step at a time in dependency order. There are no parallel provider submissions. A failure stops the whole workflow, releases unfinished reservations, and leaves successful branches saved. **Review and resume** keeps the original output selection, prompts, settings and successful child IDs. Only the unfinished steps reserve credits again. Changes to the canvas after the run started do not alter its resume plan.
+
+The progress dialog marks selected outputs and shows both their completion count and each step's status. Viewers can inspect progress; only owners and editors can choose outputs or start a run. The initiating user pays for every branch.
 
 ## Starting images and preview
 
 When an Image node shows **Latest generation**, a video workflow runs that image and its text dependencies first, even if older outputs already exist. Video receives the new image from this workflow. On resume, a completed image child is reused by its original generation ID for zero additional credits. The video does not switch to a later image generated elsewhere.
 
-When the source Image node has a project image selected, video uses that fixed asset. Its image-generation branch is excluded from the plan and has no generation charge. An independently connected Text → Video prompt branch still runs. The review dialog explains whether the video uses a new workflow image or a selected project image. Missing or inaccessible project images fail validation before any credits are reserved.
+When the source Image node has a project image selected, video uses that fixed asset. Its image-generation branch is excluded from the plan and has no generation charge unless that image is also explicitly selected as an output or needed by another branch. Selecting it separately regenerates the image, but the video still uses its original fixed asset. An independently connected Text → Video prompt branch still runs. The review dialog explains whether the video uses a new workflow image or a selected project image. Missing or inaccessible project images fail validation before any credits are reserved.
 
 Five-second video costs 10 Kousa credits; ten-second video costs 20. A Text → Image → Video run costs 14 or 24 credits. Each additional text node costs one credit. A selected project image → Video run costs 10 or 20 credits. All prices come from the same generation contract as individual jobs.
 
@@ -18,7 +28,7 @@ Image-to-video requires the [public HTTPS media origin](video-generation.md#priv
 
 ## Persistence and credits
 
-`graph_run` stores a server-built plan with prompts, models, input hashes, dependency IDs, per-step prices and generation IDs. Video steps also freeze duration, aspect ratio, image selection, and the configured delivery origin. Speech steps freeze voice and delivery direction. Starting checks the preview hash against the saved canvas. Later canvas edits do not change the plan.
+`graph_run` stores a server-built plan with prompts, models, input hashes, dependency IDs, per-step prices, selected-output markers and generation IDs. Older single-output plans without markers continue to use their original target. Video steps also freeze duration, aspect ratio, image selection, and the configured delivery origin. Speech steps freeze voice and delivery direction. Starting checks the preview hash against the saved canvas. Later canvas edits do not change the plan.
 
 Cloudflare Workflows executes the plan in dependency order. Each node uses the existing generation runner, receipt storage and atomic result publication. Downstream prompts read successful outputs by the exact generation IDs in this plan. Video uses the image asset published by the exact image child in its plan. These inputs never look up the latest output from another run.
 
@@ -46,9 +56,9 @@ Failed speech can be resumed for 2 credits after its text dependencies succeed. 
 
 ## Setup and verification
 
-No additional services or keys are required. Alchemy applies migrations through `0015_speech_workflows` when development starts, using the existing Neon database, Gateway key, private R2 bucket and Workflow binding.
+No additional services or keys are required. Alchemy applies migrations through `0016_multi_output_workflows` when development starts, using the existing Neon database, Gateway key, private R2 bucket and Workflow binding.
 
-Automated checks cover graph order, shared ancestors, exclusions, cycles, unsupported inputs, the step limit, stale previews, immutable snapshots, exact output propagation, atomic reservations, insufficient balance, request replay, access changes, expiry, interrupted execution and resuming completed work. Route tests verify authenticated actors and input validation.
+Automated checks cover graph order, shared ancestors, exclusions, cycles, unsupported inputs, the step limit, stale previews, immutable snapshots, exact output propagation, atomic reservations, insufficient balance, request replay, access changes, expiry, interrupted execution and resuming completed work. Route tests verify authenticated actors and input validation, including empty, duplicate, excessive, or ambiguous output selections. Multi-output tests run all four node kinds with fake providers, verify shared inputs and selected-image behavior, stop after partial success, resume the remaining branch, preserve historical single-output plans, and reject request-ID reuse for a different output set in both the service and atomic SQL claim.
 
 Run the tests with `pnpm test`, and types with `pnpm check-types`. `pnpm --filter @kousa/jobs build` creates a Worker dry-run bundle. Stop dev before `pnpm --filter web build:cloudflare`; outside Alchemy, that compile check needs a syntactically valid `DATABASE_URL` even though it does not query the database during the build.
 
@@ -76,6 +86,14 @@ Speech workflow extension verification on September 17, 2026:
 - Automated checks exercised Text → Speech, Text → Text → Speech, frozen voice settings, exact text reuse after failure, audio receipts, one-time charging, permissions, expiry, private MP3 retrieval and the 1,000-character Unicode limit.
 - In the in-app browser, Scene idea → Street narration quoted 3 credits and showed Selene with the saved delivery direction. The connection and settings persisted after reload. No HTTPS tunnel was needed, no generation was started, and the balance remained at 481 credits.
 - Live speech generation remains deferred. Its [provider checklist](speech-generation.md#verification) now includes full workflows and resume.
+
+Multi-output workflow verification on September 17, 2026:
+
+- All 303 tests, all 10 workspace type-check tasks, and both Cloudflare bundles passed. Alchemy applied `0016_multi_output_workflows` to development Neon.
+- In the in-app browser, **All outputs** selected Street narration and Kyoto motion. The review listed five steps for 17 credits, with Scene idea appearing once. Missing public HTTPS image delivery disabled starting.
+- Selecting Scene idea and Kyoto scene showed two outputs across three steps for 5 credits. **Clear** disabled review; **Use canvas selection** selected the highlighted node. An initial custom-preview request returned HTTP 500; retrying succeeded.
+- The historical failed speech run remained readable and offered resume for 2 credits, reusing its completed text for zero credits. No new generation or resume was started. The balance stayed at 480 credits and the five-node graph was unchanged.
+- Execution and partial-failure resume across all four node types passed with fake providers and local media fixtures. A real multi-output speech/video run remains deferred under the existing provider prerequisites.
 
 ## Pending live video workflow verification
 

@@ -66,6 +66,7 @@ import {
 	type StudioNode,
 	useCanvas,
 } from "./use-canvas";
+import { WorkflowLauncher } from "./workflow-launcher";
 import "@xyflow/react/dist/style.css";
 
 const nodeTypes: NodeTypes = {
@@ -492,6 +493,11 @@ function Editor({
 								imageSource: "project",
 							})
 						}
+					/>
+					<WorkflowLauncher
+						workflow={generation.workflow}
+						graph={graph}
+						canEdit={canEdit}
 					/>
 					<WorkflowMonitor workflow={generation.workflow} />
 					{session ? <CanvasPeople session={session} /> : null}

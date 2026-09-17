@@ -51,7 +51,7 @@ Open [http://localhost:3001](http://localhost:3001) in your browser to see the f
 
 ## UI Customization
 
-Connected text, image, video, and speech workflows are documented in [Run to this node](docs/graph-execution.md).
+Run multiple output branches with shared inputs, combined credit review, progress and resume, or use **Run to this node** for one output. See [workflow execution](docs/graph-execution.md).
 
 Open **Media library** in the canvas toolbar to browse project files. See [project media](docs/project-media.md) for supported formats, access rules, and local storage.
 

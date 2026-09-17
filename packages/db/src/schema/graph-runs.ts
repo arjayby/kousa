@@ -18,6 +18,8 @@ import { project } from "./projects";
 type GraphStepBase = {
 	runId: string;
 	nodeId: string;
+	// Optional for saved single-output workflows created before multi-output support.
+	target?: boolean;
 	label: string;
 	modelId: string;
 	content: string;
