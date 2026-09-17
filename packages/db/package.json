@@ -2,6 +2,7 @@
 	"name": "@kousa/db",
 	"type": "module",
 	"exports": {
+		"./testing-media": "./testing-media.ts",
 		"./testing-projects": "./testing-projects.ts",
 		"./testing": "./testing.ts",
 		".": {

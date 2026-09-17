@@ -53,6 +53,7 @@ import {
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GenerationContext, useCanvasGeneration } from "./canvas-generation";
+import { CanvasMediaProvider } from "./canvas-media";
 import { CanvasCursors, CanvasPeople } from "./canvas-presence";
 import { MediaNode, nodeDescriptions, nodeIcons } from "./media-node";
 import { NodeInspector } from "./node-inspector";
@@ -781,7 +782,13 @@ function Editor({
 	);
 	return (
 		<GenerationContext.Provider value={generation}>
-			{content}
+			<CanvasMediaProvider
+				userId={userId}
+				projectId={projectId}
+				loaded={sync.loaded}
+			>
+				{content}
+			</CanvasMediaProvider>
 		</GenerationContext.Provider>
 	);
 }

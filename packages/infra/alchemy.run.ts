@@ -47,6 +47,10 @@ export const web = Cloudflare.Website.StaticSite(
 	Effect.gen(function* () {
 		// Resolve the resource declaration before StaticSite serializes subprocess env.
 		const databaseBindings = yield* databaseEnv;
+		const media = yield* Cloudflare.R2.Bucket("media", {
+			publicAccess: false,
+			forceDestroy: false,
+		});
 		const emailFrom = yield* Config.string("EMAIL_FROM").pipe(
 			Config.withDefault("invites@mail.kousa.app"),
 			Effect.orDie,
@@ -64,6 +68,7 @@ export const web = Cloudflare.Website.StaticSite(
 				flags: ["nodejs_compat", "global_fetch_strictly_public"],
 			},
 			env: {
+				MEDIA: media,
 				AI_GATEWAY_API_KEY: Config.redacted("AI_GATEWAY_API_KEY").pipe(
 					Config.withDefault(Redacted.make("")),
 				),

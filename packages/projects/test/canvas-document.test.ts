@@ -40,6 +40,53 @@ function merge(a: Y.Doc, b: Y.Doc) {
 }
 
 describe("portable shared canvas document", () => {
+	it("shares, restores, and removes image attachments without losing concurrent edits", () => {
+		const { a, b, image, first, second } = fixture();
+		const assetId = crypto.randomUUID();
+		const before = first.read().document;
+		first.apply(before, {
+			...before,
+			nodes: before.nodes.map((node) =>
+				node.id === image.id
+					? { ...node, data: { ...node.data, assetId } }
+					: node,
+			),
+		});
+		second.editText(image.id, "content", (value) =>
+			value.insert(0, "Reference"),
+		);
+		merge(a, b);
+		expect(
+			second.read().document.nodes.find((node) => node.id === image.id)?.data,
+		).toMatchObject({ assetId, content: "Reference" });
+		const restored = new Y.Doc();
+		Y.applyUpdate(restored, seedCanvasDocument(first.read().document));
+		expect(
+			readCanvasDocument(restored).document.nodes.find(
+				(node) => node.id === image.id,
+			)?.data.assetId,
+		).toBe(assetId);
+		const attached = first.read().document;
+		first.apply(attached, {
+			...attached,
+			nodes: attached.nodes.map((node) =>
+				node.id === image.id
+					? { ...node, data: { ...node.data, assetId: null } }
+					: node,
+			),
+		});
+		merge(a, b);
+		expect(
+			second.read().document.nodes.find((node) => node.id === image.id)?.data,
+		).toMatchObject({ assetId: null, content: "Reference" });
+		first.history.undo();
+		merge(a, b);
+		expect(
+			second.read().document.nodes.find((node) => node.id === image.id)?.data
+				.assetId,
+		).toBe(assetId);
+		restored.destroy();
+	});
 	it("syncs the text model without losing concurrent prompt edits and can undo it", () => {
 		const { a, b, text, first, second } = fixture();
 		const before = first.read().document;

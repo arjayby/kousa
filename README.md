@@ -117,6 +117,7 @@ kousa/
 │   ├── auth/        # Authentication configuration & logic
 │   ├── billing/     # Credit pack catalog, fulfillment, and webhook verification
 │   ├── generation/  # AI Gateway text generation, limits and credit reservations
+│   ├── media/       # Private project image storage, validation, and upload routes
 │   ├── email/       # Resend email transport and invitation/verification templates
 │   ├── projects/    # Project contracts, permissions, and invitation service
 │   └── db/          # Database schema & queries
@@ -128,9 +129,11 @@ kousa/
 - `pnpm run build`: Build all applications
 - `pnpm run dev:web`: Start only the web application
 - `pnpm run check-types`: Check TypeScript types across all apps
-- `pnpm test`: Run billing and project integration tests against isolated Postgres engines, plus email transport tests
+- `pnpm test`: Run billing, project, generation, and media tests against isolated Postgres engines, plus email transport tests
 - `pnpm run db:push`: Push schema changes to database
 - `pnpm run db:generate`: Generate SQL migrations from the Drizzle schema
 - `pnpm run db:migrate`: Run database migrations
 - `pnpm run db:studio`: Open database studio UI
 - `pnpm run check`: Run Biome formatting and linting
+
+Image nodes support private project uploads through Cloudflare R2. Local development uses persistent local storage and requires no additional API keys. See [project media setup](docs/project-media.md) for permissions, limits, and production R2 activation.

@@ -11,4 +11,8 @@
   "images": {
     "binding": "IMAGES",
   },
+  // Local OpenNext platform proxy only. Alchemy binds the deployed bucket.
+  "r2_buckets": [
+    { "binding": "MEDIA", "bucket_name": "kousa-media-local" },
+  ],
 }

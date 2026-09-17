@@ -20,6 +20,7 @@ import {
 } from "@kousa/ui/components/toggle-group";
 import { CopyIcon, Trash2Icon, UnplugIcon, XIcon } from "lucide-react";
 import { TextGenerationPanel } from "./canvas-generation";
+import { ImageMediaPanel } from "./canvas-media";
 import { nodeIcons } from "./media-node";
 import { SharedTextField } from "./shared-text-field";
 import type { StudioEdge, StudioNode } from "./use-canvas";
@@ -187,6 +188,14 @@ export function NodeInspector({
 				</FieldGroup>
 				{kind === "text" ? (
 					<TextGenerationPanel node={node} canEdit={canEdit} update={update} />
+				) : null}
+				{kind === "image" ? (
+					<ImageMediaPanel
+						key={node.id}
+						node={node}
+						canEdit={canEdit}
+						update={update}
+					/>
 				) : null}
 				<section className="flex flex-col gap-3" aria-label="Node connections">
 					<h3 className="font-medium text-xs">

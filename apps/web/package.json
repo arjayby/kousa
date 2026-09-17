@@ -15,6 +15,7 @@
 		"@kousa/billing": "workspace:*",
 		"@kousa/db": "workspace:*",
 		"@kousa/env": "workspace:*",
+		"@kousa/media": "workspace:*",
 		"@kousa/projects": "workspace:*",
 		"@kousa/ui": "workspace:*",
 		"@liveblocks/client": "^3.24.1",

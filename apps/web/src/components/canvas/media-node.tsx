@@ -6,6 +6,7 @@ import { Handle, type NodeProps, Position } from "@xyflow/react";
 import { FileTextIcon, ImageIcon, MicIcon, VideoIcon } from "lucide-react";
 import { memo } from "react";
 import { useNodeRun } from "./canvas-generation";
+import { AssetPreview } from "./canvas-media";
 import type { StudioNode } from "./use-canvas";
 
 export const nodeIcons = {
@@ -56,6 +57,9 @@ export const MediaNode = memo(function MediaNode({
 				</div>
 			</div>
 			<div className="studio-node-body">
+				{kind === "image" && data.assetId ? (
+					<AssetPreview key={data.assetId} assetId={data.assetId} compact />
+				) : null}
 				{run ? (
 					<p className="mb-2 text-[10px] text-muted-foreground">
 						{run.status === "running"
@@ -69,7 +73,7 @@ export const MediaNode = memo(function MediaNode({
 					<p className="line-clamp-4 whitespace-pre-wrap text-xs leading-relaxed">
 						{run?.output ?? data.content}
 					</p>
-				) : (
+				) : kind === "image" && data.assetId ? null : (
 					<div className="flex flex-col items-center gap-2 py-3 text-center text-muted-foreground">
 						<Icon className="size-6 opacity-50" aria-hidden="true" />
 						<p className="max-w-44 text-xs leading-relaxed">
