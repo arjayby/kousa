@@ -10,25 +10,23 @@ Open a project, then choose **Open canvas**. The editor lives at `/projects/[pro
 - Select a node to edit it. Duplicate or delete it from the settings panel. Select an edge and choose **Disconnect**, or remove it from a node's connection list.
 - Drag the background to select several nodes. Scroll or hold Space and drag to pan. Pinch to zoom, or use the zoom and fit controls.
 - Delete/Backspace removes a selection. Cmd/Ctrl+Z undoes changes, Cmd/Ctrl+Shift+Z redoes them, and Cmd/Ctrl+D duplicates a selected node. Text inputs keep their normal editing shortcuts.
-- Undo keeps up to 50 checkpoints during the current visit. Deleting a node removes attached edges in the same undo operation.
+- Undo affects this tab's edits during the current visit and preserves other collaborators' edits. Deleting a node removes attached edges in the same undo operation.
 
 ## Project storage and access
 
-Neon stores one versioned graph per project in the `project.canvas` JSONB column. `canvas_revision` starts at zero and increases on every successful save. `canvas_updated_at` records the last save. The additive Drizzle migration `0004_project_canvas.sql` gives existing projects an empty graph without changing their names or memberships. Alchemy runs the migration before starting the app. No additional service or environment variable is needed.
+Liveblocks persists a Yjs document per project and shares updates as they happen. Neon remains authoritative for projects, memberships, invitations, and billing. On the first authorized connection, the existing Neon graph is imported once; subsequent whole-graph saves are blocked. The original JSON and its revision remain as the pre-collaboration snapshot. `0005_canvas_collaboration.sql` adds the import and coordination fields. Alchemy applies it before starting the app.
 
-The server loads the graph after checking project membership. Authenticated owners and editors can save; viewers can read, navigate, select, and inspect nodes. Nonmembers receive `NOT_FOUND`, and anonymous requests receive `UNAUTHORIZED`. `projects.getCanvas` and `projects.saveCanvas` enforce these rules independently of the UI. A save checks the actor's current access and expected revision in the same SQL update. Client-supplied roles or user IDs cannot grant permission.
+The server authenticates each connection using Better Auth and derives room access from current database membership. Owners and editors can edit; viewers can navigate, select, inspect, and share presence. Private room permissions also enforce viewer restrictions at the transport level. Role changes revoke existing sockets before reporting success. `projects.getCanvas` reads the current Yjs graph for migrated projects after checking membership.
 
-Changes autosave after 700 milliseconds without an edit. **Save** flushes pending changes immediately. Requests are serialized: edits made while a save is in flight wait for its returned revision. The footer distinguishes saved, pending, saving, and failed changes. Selection and viewport changes do not trigger writes. Undo history lasts for the current visit.
+Shared changes include node creation, positions, prompt text, generation settings, deletion, and connections. Text fields use character-level Yjs operations. Presence shows active sessions, names, selection counts, and cursors in canvas coordinates. Selection and viewport position stay local. The footer distinguishes connecting, reconnecting, saving, and acknowledged changes.
 
-The open canvas checks for saved changes every 15 seconds while the tab is active and when the window regains focus. Clean editors and viewers load newer versions. This is periodic refresh, not live collaborative editing. If both editors change the same starting revision, only one save succeeds. The other keeps its unsaved graph and shows **Download my changes** and **Load saved version**. Loading the saved version replaces the current tab's changes. There is no force-overwrite action.
-
-Network failures pause autosave until **Retry save**. If a save succeeded but its response was lost, a later read of the identical saved graph clears the error. Access revocation hides the canvas after the next access check; a rejected save disables editing immediately.
+Set the server-only `LIVEBLOCKS_SECRET_KEY` in `apps/web/.env` and restart development after changing it. Alchemy supplies the value to the Worker. See [COLLABORATION.md](./COLLABORATION.md) for configuration, failure behavior, and the Synixir migration plan.
 
 ## Browser recovery
 
-Unsaved changes are backed up in localStorage per account and project when storage is available. They are never treated as the shared graph. On reopening, the editor offers **Restore browser draft** only when the backup's base revision still matches the project. Older backups can be downloaded. These recovery copies are best effort and may be replaced by another tab on the same account and project.
+IndexedDB keeps a best-effort Yjs recovery copy per account and project. It is opened only after the server has authorized an editor and synchronized the room. Viewers do not merge former editor drafts. Reconnecting merges pending Yjs operations; browser storage does not bypass room permissions. Liveblocks warns before closing a page with pending writes.
 
-A nonempty draft from the previous browser-only milestone can be restored into a project that has never been saved. Existing local drafts are retained until explicitly discarded, and malformed drafts are not overwritten. If a project already has a saved graph, the server version takes precedence and the older draft can be downloaded. **Discard draft** removes only the matching browser copy. Storage failure shows a warning while server saving remains available. A browser unload warning protects pending changes; the recovery copy also survives navigation when storage is available.
+Older localStorage JSON drafts remain available for download or explicit discard. They are never automatically written over the shared graph. Connection failures offer **Retry connection** and a JSON download of the current graph.
 
 ## Graph contract
 
@@ -43,6 +41,6 @@ A nonempty draft from the previous browser-only milestone can be restored into a
 
 Each input accepts one connection. Outputs can feed several nodes. Validation rejects unknown endpoints, incompatible inputs, self-links, duplicate input connections, and cycles. Limits are 200 nodes and 600 connections per draft.
 
-`pnpm --filter @kousa/projects test` covers graph validation and autosave coordination, including queued edits, failures, conflicts, permission changes, and out-of-order reads. `pnpm --filter @kousa/api test` exercises the real oRPC middleware and Drizzle queries against PGlite, covering permission enforcement, persistence, concurrent writes, invalid graphs, and migration of existing projects.
+`pnpm --filter @kousa/projects test` covers graph validation, Yjs convergence, local undo, deletion conflicts, deterministic connection rules, portable export, and the legacy autosave helpers. `pnpm --filter @kousa/api test` uses PGlite to verify real membership queries, import retries, concurrent initialization, old-save rejection, and permission changes during provider failures.
 
-The next milestone is live collaboration. Reuse the versioned graph and server permission rules when adding concurrent editing and presence. AI generation and media uploads are separate milestones.
+AI generation and media uploads are separate milestones.

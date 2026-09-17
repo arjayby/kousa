@@ -41,3 +41,35 @@
   .studio-editor .studio-minimap { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .studio-node .react-flow__handle { transition: none; } }
+
+.studio-cursors {
+	position: absolute;
+	inset: 0;
+	z-index: 5;
+	overflow: hidden;
+	pointer-events: none;
+}
+.studio-cursor {
+	position: absolute;
+	top: 0;
+	left: 0;
+	display: flex;
+	align-items: flex-start;
+	will-change: transform;
+	transition: transform 50ms linear;
+}
+.studio-cursor-label {
+	margin-top: 18px;
+	margin-left: -3px;
+	border: 1px solid currentColor;
+	border-radius: var(--radius);
+	background: var(--background);
+	padding: 2px 6px;
+	font-size: 11px;
+	white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+	.studio-cursor {
+		transition: none;
+	}
+}

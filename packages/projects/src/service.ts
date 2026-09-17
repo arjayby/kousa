@@ -2,6 +2,7 @@ import type { ProjectStore } from "@kousa/db/project-store";
 import { EmailDeliveryError, type EmailSender } from "@kousa/email/sender";
 import { projectInvitationEmail } from "@kousa/email/templates";
 import { canvasDocumentSchema } from "./canvas";
+import type { CollaborationService } from "./collaboration";
 import {
 	changeMemberInput,
 	createInviteInput,
@@ -25,7 +26,8 @@ export class ProjectError extends Error {
 			| "FORBIDDEN"
 			| "INVALID_INVITE"
 			| "CONFLICT"
-			| "EMAIL_NOT_VERIFIED",
+			| "EMAIL_NOT_VERIFIED"
+			| "SERVICE_UNAVAILABLE",
 		message?: string,
 	) {
 		super(
@@ -55,7 +57,11 @@ export async function hashInviteToken(token: string) {
 
 export function createProjectService(
 	store: ProjectStore,
-	options: { email: EmailSender; appUrl: string },
+	options: {
+		email: EmailSender;
+		appUrl: string;
+		collaboration?: CollaborationService;
+	},
 ) {
 	function newToken() {
 		return Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) =>
@@ -115,7 +121,16 @@ export function createProjectService(
 			const { projectId } = projectIdInput.parse(input);
 			const found = await store.getCanvas(actorId, projectId);
 			if (!found) throw new ProjectError("NOT_FOUND");
-			return { ...found, document: canvasDocumentSchema.parse(found.document) };
+			const { roomId, ...saved } = found;
+			if (roomId) {
+				if (!options.collaboration)
+					throw new ProjectError(
+						"SERVICE_UNAVAILABLE",
+						"Live collaboration is unavailable.",
+					);
+				return { ...saved, document: await options.collaboration.read(roomId) };
+			}
+			return { ...saved, document: canvasDocumentSchema.parse(found.document) };
 		},
 		async saveCanvas(actorId: string, input: unknown) {
 			const { projectId, expectedRevision, document } =
@@ -165,14 +180,36 @@ export function createProjectService(
 		async changeMember(actorId: string, input: unknown) {
 			const { projectId, userId, role } = changeMemberInput.parse(input);
 			await requireOwner(actorId, projectId);
-			if (!(await store.changeMember(actorId, projectId, userId, role)))
+			const change = () => store.changeMember(actorId, projectId, userId, role);
+			if (
+				!(await (options.collaboration
+					? options.collaboration.changeAccess(
+							actorId,
+							projectId,
+							userId,
+							role,
+							change,
+						)
+					: change()))
+			)
 				throw new ProjectError("NOT_FOUND");
 			return { userId };
 		},
 		async removeMember(actorId: string, input: unknown) {
 			const { projectId, userId } = memberInput.parse(input);
 			await requireOwner(actorId, projectId);
-			if (!(await store.removeMember(actorId, projectId, userId)))
+			const change = () => store.removeMember(actorId, projectId, userId);
+			if (
+				!(await (options.collaboration
+					? options.collaboration.changeAccess(
+							actorId,
+							projectId,
+							userId,
+							null,
+							change,
+						)
+					: change()))
+			)
 				throw new ProjectError("NOT_FOUND");
 			return { userId };
 		},

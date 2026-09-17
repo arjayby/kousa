@@ -88,12 +88,102 @@ export function createProjectStore(db: ProjectDatabase) {
 		or(eq(project.ownerId, actorId), isNotNull(projectMember.userId));
 
 	return {
+		// Serialize provisioning, grants and membership changes across server instances.
+		// Remote calls use a 10s timeout, well within this two-minute crash-recovery lease.
+		async lockCollaboration(
+			actorId: string,
+			projectId: string,
+			lockId: string,
+		) {
+			const [locked] = await db
+				.update(project)
+				.set({
+					collaborationLockId: lockId,
+					collaborationLockUntil: sql`now() + interval '2 minutes'`,
+				})
+				.where(
+					and(
+						eq(project.id, projectId),
+						or(
+							eq(project.ownerId, actorId),
+							exists(
+								db
+									.select({ id: projectMember.userId })
+									.from(projectMember)
+									.where(
+										and(
+											eq(projectMember.projectId, project.id),
+											eq(projectMember.userId, actorId),
+										),
+									),
+							),
+						),
+						sql`(${project.collaborationLockId} is null or ${project.collaborationLockUntil} < now())`,
+					),
+				)
+				.returning({
+					roomId: project.canvasRoomId,
+					seed: project.canvasSeed,
+					ready: project.canvasReady,
+					document: project.canvas,
+					revision: project.canvasRevision,
+				});
+			return locked ?? null;
+		},
+		async unlockCollaboration(projectId: string, lockId: string) {
+			await db
+				.update(project)
+				.set({ collaborationLockId: null, collaborationLockUntil: null })
+				.where(
+					and(
+						eq(project.id, projectId),
+						eq(project.collaborationLockId, lockId),
+					),
+				);
+		},
+		async prepareCollaboration(
+			projectId: string,
+			lockId: string,
+			revision: number,
+			roomId: string,
+			seed: string,
+		) {
+			const [saved] = await db
+				.update(project)
+				.set({ canvasRoomId: roomId, canvasSeed: seed })
+				.where(
+					and(
+						eq(project.id, projectId),
+						eq(project.collaborationLockId, lockId),
+						gt(project.collaborationLockUntil, new Date()),
+						isNull(project.canvasRoomId),
+						eq(project.canvasRevision, revision),
+					),
+				)
+				.returning({ id: project.id });
+			return saved ?? null;
+		},
+		async finishCollaboration(projectId: string, lockId: string) {
+			const [saved] = await db
+				.update(project)
+				.set({ canvasReady: true })
+				.where(
+					and(
+						eq(project.id, projectId),
+						eq(project.collaborationLockId, lockId),
+						gt(project.collaborationLockUntil, new Date()),
+					),
+				)
+				.returning({ id: project.id });
+			return saved ?? null;
+		},
 		async getCanvas(actorId: string, projectId: string) {
 			const [found] = await db
 				.select({
 					document: project.canvas,
 					revision: project.canvasRevision,
 					updatedAt: project.canvasUpdatedAt,
+					roomId: project.canvasRoomId,
 				})
 				.from(project)
 				.leftJoin(
@@ -127,6 +217,7 @@ export function createProjectStore(db: ProjectDatabase) {
 						eq(project.id, projectId),
 						editable(actorId),
 						eq(project.canvasRevision, expectedRevision),
+						isNull(project.canvasRoomId),
 					),
 				)
 				.returning({

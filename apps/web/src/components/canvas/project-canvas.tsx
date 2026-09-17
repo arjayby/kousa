@@ -1,6 +1,6 @@
 "use client";
 
-import { accessDenied, type SavedCanvas } from "@kousa/projects/canvas-sync";
+import { accessDenied } from "@kousa/projects/canvas-sync";
 import type { ProjectDetails } from "@kousa/projects/service";
 import { Badge } from "@kousa/ui/components/badge";
 import { Button, buttonVariants } from "@kousa/ui/components/button";
@@ -34,11 +34,9 @@ const CanvasEditor = dynamic(() => import("./canvas-editor"), {
 export function ProjectCanvas({
 	userId,
 	initialProject,
-	initialCanvas,
 }: {
 	userId: string;
 	initialProject: ProjectDetails;
-	initialCanvas: SavedCanvas;
 }) {
 	const session = authClient.useSession();
 	const query = useQuery({
@@ -50,18 +48,8 @@ export function ProjectCanvas({
 		retry: false,
 		refetchInterval: 30_000,
 	});
-	const canvasQuery = useQuery({
-		...orpc.projects.getCanvas.queryOptions({
-			input: { projectId: initialProject.id },
-		}),
-		queryKey: ["projects", userId, "canvas", initialProject.id],
-		initialData: initialCanvas,
-		retry: false,
-		refetchInterval: 15_000,
-	});
 	if (
 		accessDenied(query.error) ||
-		accessDenied(canvasQuery.error) ||
 		(!session.isPending && session.data?.user.id !== userId)
 	)
 		return (
@@ -115,7 +103,6 @@ export function ProjectCanvas({
 				userId={userId}
 				projectId={project.id}
 				canEdit={project.permissions.canEdit}
-				remote={canvasQuery.data}
 			/>
 		</main>
 	);

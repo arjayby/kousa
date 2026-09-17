@@ -17,6 +17,8 @@
 		"@kousa/env": "workspace:*",
 		"@kousa/projects": "workspace:*",
 		"@kousa/ui": "workspace:*",
+		"@liveblocks/client": "^3.24.1",
+		"@liveblocks/yjs": "^3.24.1",
 		"@opennextjs/cloudflare": "catalog:",
 		"@orpc/client": "catalog:",
 		"@orpc/openapi": "catalog:",
@@ -27,6 +29,7 @@
 		"@swc/helpers": "^0.5.23",
 		"@tanstack/react-form": "^1.33.2",
 		"@tanstack/react-query": "^5.101.4",
+		"@xyflow/react": "^12.11.6",
 		"babel-plugin-react-compiler": "^1.0.0",
 		"better-auth": "catalog:",
 		"critters": "npm:beasties@0.5.4",
@@ -38,8 +41,9 @@
 		"react": "catalog:",
 		"react-dom": "catalog:",
 		"sonner": "catalog:",
-		"zod": "catalog:",
-		"@xyflow/react": "^12.11.6"
+		"y-indexeddb": "^9.0.12",
+		"yjs": "^13.6.32",
+		"zod": "catalog:"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "catalog:",

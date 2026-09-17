@@ -10,9 +10,11 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
+		"@kousa/db": "workspace:*",
 		"@kousa/email": "workspace:*",
 		"@kousa/env": "workspace:*",
-		"@kousa/db": "workspace:*",
+		"@liveblocks/node": "^3.24.1",
+		"yjs": "^13.6.32",
 		"zod": "catalog:"
 	},
 	"devDependencies": {

@@ -86,6 +86,7 @@ export async function testLegacyInvitationMigration() {
 			.values({ projectId: created.id, userId: "member", role: "viewer" });
 		await runMigration("0003_wet_bromley.sql");
 		await runMigration("0004_project_canvas.sql");
+		await runMigration("0005_canvas_collaboration.sql");
 		return {
 			projects: await db.select().from(project),
 			invites: await db.select().from(projectInvite),

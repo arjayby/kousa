@@ -6,11 +6,9 @@ import {
 	type CanvasNode,
 	canvasDocumentSchema,
 	canvasDraftKey,
+	emptyCanvas,
 } from "@kousa/projects/canvas";
-import {
-	createCanvasSync,
-	type SavedCanvas,
-} from "@kousa/projects/canvas-sync";
+import { createCanvasDocumentModel } from "@kousa/projects/canvas-document";
 import {
 	applyEdgeChanges,
 	applyNodeChanges,
@@ -19,18 +17,22 @@ import {
 	type Node,
 	type NodeChange,
 } from "@xyflow/react";
-import { useEffect, useReducer, useState, useSyncExternalStore } from "react";
-import { client } from "@/utils/orpc";
+import {
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+	useSyncExternalStore,
+} from "react";
+import type {
+	CanvasSession,
+	CollaborationState,
+} from "./collaboration-session";
+import { createLiveblocksSession } from "./liveblocks-session";
 
 export type StudioNode = Node<CanvasNode["data"], CanvasNode["type"]>;
 export type StudioEdge = Edge & CanvasEdge;
 export type StudioGraph = { nodes: StudioNode[]; edges: StudioEdge[] };
-type State = {
-	graph: StudioGraph;
-	past: CanvasDocument[];
-	future: CanvasDocument[];
-	group: string | null;
-};
 type Action =
 	| {
 			type: "edit";
@@ -39,11 +41,17 @@ type Action =
 	  }
 	| { type: "nodes"; changes: NodeChange<StudioNode>[] }
 	| { type: "edges"; changes: EdgeChange<StudioEdge>[] }
-	| { type: "replace"; document: CanvasDocument }
-	| { type: "checkpoint" }
-	| { type: "end" }
-	| { type: "undo" | "redo" };
-
+	| { type: "checkpoint" | "end" | "undo" | "redo" };
+const initialSync: CollaborationState = {
+	connection: "connecting",
+	loaded: false,
+	canWrite: false,
+	sync: "loading",
+	error: null,
+	backupError: null,
+};
+const noopSubscribe = () => () => {};
+const initialSnapshot = () => initialSync;
 export function documentFromGraph(graph: StudioGraph): CanvasDocument {
 	return {
 		version: 1,
@@ -64,188 +72,179 @@ export function documentFromGraph(graph: StudioGraph): CanvasDocument {
 		),
 	};
 }
-function remember(state: State) {
-	return [...state.past.slice(-49), documentFromGraph(state.graph)];
-}
-function reducer(state: State, action: Action): State {
-	switch (action.type) {
-		case "replace":
-			return { graph: action.document, past: [], future: [], group: null };
-		case "edit": {
-			const graph = action.update(state.graph);
-			if (graph === state.graph) return state;
-			return {
-				graph,
-				past:
-					action.group && action.group === state.group
-						? state.past
-						: remember(state),
-				future: [],
-				group: action.group ?? null,
-			};
-		}
-		case "nodes": {
-			const keyboardMove = action.changes.some(
-				(change) =>
-					change.type === "position" &&
-					change.position &&
-					change.dragging === undefined,
-			);
-			return {
-				...state,
-				graph: {
-					...state.graph,
-					nodes: applyNodeChanges(action.changes, state.graph.nodes),
-				},
-				...(keyboardMove
-					? { past: remember(state), future: [], group: null }
-					: {}),
-			};
-		}
-		case "edges":
-			return {
-				...state,
-				graph: {
-					...state.graph,
-					edges: applyEdgeChanges(action.changes, state.graph.edges),
-				},
-			};
-		case "checkpoint":
-			return { ...state, past: remember(state), future: [], group: null };
-		case "end":
-			return { ...state, group: null };
-		case "undo": {
-			const previous = state.past.at(-1);
-			return previous
-				? {
-						graph: previous,
-						past: state.past.slice(0, -1),
-						future: [documentFromGraph(state.graph), ...state.future],
-						group: null,
-					}
-				: state;
-		}
-		case "redo": {
-			const next = state.future[0];
-			return next
-				? {
-						graph: next,
-						past: remember(state),
-						future: state.future.slice(1),
-						group: null,
-					}
-				: state;
-		}
-	}
-}
+type Instance = {
+	session: CanvasSession;
+	model: ReturnType<typeof createCanvasDocumentModel>;
+};
 export function useCanvas(
 	userId: string,
 	projectId: string,
-	canEdit: boolean,
-	remote: SavedCanvas,
+	allowedToEdit: boolean,
 ) {
-	const draftKey = canvasDraftKey(userId, projectId);
-	const backupKey = `${draftKey}:recovery`;
-	const [state, dispatch] = useReducer(reducer, {
-		graph: remote.document,
-		past: [],
-		future: [],
-		group: null,
-	});
-	const [controller] = useState(() =>
-		createCanvasSync({
-			initial: remote,
-			canEdit,
-			save: (document, expectedRevision) =>
-				client.projects.saveCanvas({ projectId, document, expectedRevision }),
-			replace: (document) => dispatch({ type: "replace", document }),
-		}),
-	);
+	const [instance, setInstance] = useState<Instance | null>(null);
+	const instanceRef = useRef<Instance | null>(null);
+	const graphRef = useRef<StudioGraph>(emptyCanvas());
+	const [graph, setGraph] = useState<StudioGraph>(graphRef.current);
+	const [history, setHistory] = useState({ canUndo: false, canRedo: false });
+	const [rejected, setRejected] = useState(0);
+	const dragGroup = useRef<string | undefined>(undefined);
+	const permissionRef = useRef(allowedToEdit);
+	permissionRef.current = allowedToEdit;
 	const sync = useSyncExternalStore(
-		controller.subscribe,
-		controller.getSnapshot,
-		controller.getSnapshot,
+		instance?.session.subscribe ?? noopSubscribe,
+		instance?.session.getSnapshot ?? initialSnapshot,
+		initialSnapshot,
 	);
-	const [backupError, setBackupError] = useState<string | null>(null);
-	const [recovery, setRecovery] = useState(() => {
-		try {
-			const backup = localStorage.getItem(backupKey);
-			if (backup) {
-				const value = JSON.parse(backup);
-				const parsed = canvasDocumentSchema.safeParse(value.document);
-				if (
-					parsed.success &&
-					JSON.stringify(parsed.data) !== JSON.stringify(remote.document)
-				)
-					return {
-						document: parsed.data,
-						revision: Number.isInteger(value.revision) ? value.revision : -1,
-						key: backupKey,
-					};
-			}
-			const legacy = localStorage.getItem(draftKey);
-			if (legacy) {
-				const parsed = canvasDocumentSchema.safeParse(JSON.parse(legacy));
-				if (
-					parsed.success &&
-					parsed.data.nodes.length &&
-					JSON.stringify(parsed.data) !== JSON.stringify(remote.document)
-				)
-					return { document: parsed.data, revision: 0, key: draftKey };
-			}
-		} catch {
-			/* Leave unreadable drafts untouched. The server canvas still opens. */
-		}
-		return null;
-	});
-	const [reloadError, setReloadError] = useState<string | null>(null);
-	const [reloading, setReloading] = useState(false);
-	const serialized = JSON.stringify(documentFromGraph(state.graph));
+	const canEdit = allowedToEdit && sync.loaded && sync.canWrite && !sync.error;
+	const assign = useCallback((next: StudioGraph) => {
+		graphRef.current = next;
+		setGraph(next);
+	}, []);
 	useEffect(() => {
-		controller.setActive(true);
-		return () => controller.setActive(false);
-	}, [controller]);
-	useEffect(() => controller.setCanEdit(canEdit), [controller, canEdit]);
-	useEffect(
-		() => controller.edit(JSON.parse(serialized)),
-		[controller, serialized],
-	);
-	useEffect(() => controller.receive(remote), [controller, remote]);
-	useEffect(() => {
-		if (!canEdit) return;
-		try {
-			if (sync.dirty)
-				localStorage.setItem(
-					backupKey,
-					JSON.stringify({
-						revision: sync.revision,
-						document: JSON.parse(serialized),
-					}),
-				);
-			else if (sync.status === "saved") {
-				const backup = localStorage.getItem(backupKey);
-				if (
-					backup &&
-					JSON.stringify(JSON.parse(backup).document) === serialized
-				)
-					localStorage.removeItem(backupKey);
-			}
-			setBackupError(null);
-		} catch {
-			setBackupError(
-				"A recovery copy could not be saved in this browser. Keep this tab open until the project is saved.",
+		const session = createLiveblocksSession(userId, projectId);
+		const model = createCanvasDocumentModel(session.doc);
+		const current = { session, model };
+		instanceRef.current = current;
+		setInstance(current);
+		function refresh() {
+			const { document, rejected } = model.read();
+			const previousNodes = new Map(
+				graphRef.current.nodes.map((node) => [node.id, node]),
 			);
+			const previousEdges = new Map(
+				graphRef.current.edges.map((edge) => [edge.id, edge]),
+			);
+			assign({
+				nodes: document.nodes.map((node) => {
+					const old = previousNodes.get(node.id);
+					if (
+						old &&
+						old.type === node.type &&
+						old.position.x === node.position.x &&
+						old.position.y === node.position.y &&
+						JSON.stringify(old.data) === JSON.stringify(node.data)
+					)
+						return old;
+					return { ...old, ...node };
+				}),
+				edges: document.edges.map((edge) => ({
+					...previousEdges.get(edge.id),
+					...edge,
+				})),
+			});
+			setRejected(rejected);
 		}
-	}, [backupKey, canEdit, serialized, sync.dirty, sync.revision, sync.status]);
-	useEffect(() => {
-		if (!sync.dirty) return;
-		const warn = (event: BeforeUnloadEvent) => {
-			event.preventDefault();
+		function historyChanged() {
+			setHistory({
+				canUndo: model.history.canUndo(),
+				canRedo: model.history.canRedo(),
+			});
+		}
+		session.doc.on("afterTransaction", refresh);
+		model.history.on("stack-item-added", historyChanged);
+		model.history.on("stack-item-popped", historyChanged);
+		model.history.on("stack-cleared", historyChanged);
+		refresh();
+		historyChanged();
+		return () => {
+			session.doc.off("afterTransaction", refresh);
+			model.destroy();
+			session.destroy();
+			if (instanceRef.current === current) instanceRef.current = null;
 		};
-		window.addEventListener("beforeunload", warn);
-		return () => window.removeEventListener("beforeunload", warn);
-	}, [sync.dirty]);
-	function download(document: CanvasDocument = documentFromGraph(state.graph)) {
+	}, [userId, projectId, assign]);
+	const dispatch = useCallback(
+		(action: Action) => {
+			const current = instanceRef.current;
+			if (!current) return;
+			const { session, model } = current;
+			const state = session.getSnapshot();
+			const editable =
+				permissionRef.current && state.canWrite && state.loaded && !state.error;
+			if (action.type === "end") {
+				model.end();
+				dragGroup.current = undefined;
+				return;
+			}
+			if (action.type === "checkpoint") {
+				model.end();
+				dragGroup.current = "drag";
+				return;
+			}
+			if (action.type === "undo" || action.type === "redo") {
+				if (editable) {
+					model.end();
+					model.history[action.type]();
+				}
+				return;
+			}
+			const previous = graphRef.current;
+			let next = previous;
+			if (action.type === "nodes")
+				next = {
+					...previous,
+					nodes: applyNodeChanges(
+						action.changes.filter(
+							(change) =>
+								editable ||
+								change.type === "select" ||
+								change.type === "dimensions",
+						),
+						previous.nodes,
+					),
+				};
+			if (action.type === "edges")
+				next = {
+					...previous,
+					edges: applyEdgeChanges(
+						action.changes.filter((change) => change.type === "select"),
+						previous.edges,
+					),
+				};
+			if (action.type === "edit" && editable) next = action.update(previous);
+			assign(next);
+			if (editable) {
+				const before = documentFromGraph(previous);
+				const after = documentFromGraph(next);
+				if (JSON.stringify(before) !== JSON.stringify(after))
+					model.apply(
+						before,
+						after,
+						action.type === "edit" ? action.group : dragGroup.current,
+					);
+			}
+			session.updatePresence({
+				selection: next.nodes
+					.filter((node) => node.selected)
+					.map((node) => node.id),
+			});
+		},
+		[assign],
+	);
+	const [recovery, setRecovery] = useState<{
+		document: CanvasDocument;
+		key: string;
+	} | null>(null);
+	useEffect(() => {
+		const key = canvasDraftKey(userId, projectId);
+		for (const candidate of [`${key}:recovery`, key]) {
+			try {
+				const raw = localStorage.getItem(candidate);
+				if (!raw) continue;
+				const value = JSON.parse(raw);
+				const parsed = canvasDocumentSchema.safeParse(value.document ?? value);
+				if (parsed.success && parsed.data.nodes.length) {
+					setRecovery({ document: parsed.data, key: candidate });
+					break;
+				}
+			} catch {
+				/* Preserve unreadable legacy drafts without merging them. */
+			}
+		}
+	}, [userId, projectId]);
+	function download(
+		document: CanvasDocument = documentFromGraph(graphRef.current),
+	) {
 		const url = URL.createObjectURL(
 			new Blob([JSON.stringify(document, null, 2)], {
 				type: "application/json",
@@ -257,43 +256,19 @@ export function useCanvas(
 		anchor.click();
 		URL.revokeObjectURL(url);
 	}
-	async function reload() {
-		setReloading(true);
-		setReloadError(null);
-		try {
-			const [latest, project] = await Promise.all([
-				client.projects.getCanvas({ projectId }),
-				client.projects.get({ projectId }),
-			]);
-			controller.setCanEdit(project.permissions.canEdit);
-			controller.reset(latest);
-		} catch {
-			setReloadError(
-				"The saved canvas could not be loaded. Your current changes are still here.",
-			);
-		} finally {
-			setReloading(false);
-		}
-	}
 	return {
-		...state,
+		graph,
 		dispatch,
+		...history,
 		sync,
-		backupError,
-		reloadError,
-		reloading,
-		reload,
-		download,
-		canEdit:
-			canEdit &&
-			sync.canEdit &&
-			!reloading &&
-			sync.status !== "forbidden" &&
-			sync.status !== "conflict",
-		save: controller.flush,
-		retry: controller.retry,
+		canEdit,
+		session: instance?.session ?? null,
+		model: instance?.model ?? null,
+		rejected,
 		recovery,
-		discardRecovery: () => {
+		download,
+		retry: () => instanceRef.current?.session.reconnect(),
+		discardRecovery() {
 			if (!recovery) return;
 			try {
 				const raw = localStorage.getItem(recovery.key);
@@ -307,19 +282,8 @@ export function useCanvas(
 				}
 				setRecovery(null);
 			} catch {
-				setBackupError("The browser draft could not be removed.");
+				/* Keep draft visible if browser storage is unavailable. */
 			}
-		},
-		restoreRecovery: () => {
-			if (
-				!canEdit ||
-				!recovery ||
-				recovery.revision !== sync.revision ||
-				sync.dirty
-			)
-				return;
-			dispatch({ type: "edit", update: () => recovery.document });
-			setRecovery(null);
 		},
 	};
 }

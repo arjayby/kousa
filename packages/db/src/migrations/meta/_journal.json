@@ -36,6 +36,13 @@
 			"when": 1789614215513,
 			"tag": "0004_project_canvas",
 			"breakpoints": true
+		},
+		{
+			"idx": 5,
+			"version": "7",
+			"when": 1789616112065,
+			"tag": "0005_canvas_collaboration",
+			"breakpoints": true
 		}
 	]
 }

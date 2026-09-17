@@ -6,6 +6,7 @@ import {
 	inputPorts,
 	nodeLabels,
 } from "@kousa/projects/canvas";
+import type { createCanvasDocumentModel } from "@kousa/projects/canvas-document";
 import { Button } from "@kousa/ui/components/button";
 import {
 	Field,
@@ -13,14 +14,13 @@ import {
 	FieldGroup,
 	FieldLabel,
 } from "@kousa/ui/components/field";
-import { Input } from "@kousa/ui/components/input";
-import { Textarea } from "@kousa/ui/components/textarea";
 import {
 	ToggleGroup,
 	ToggleGroupItem,
 } from "@kousa/ui/components/toggle-group";
 import { CopyIcon, Trash2Icon, UnplugIcon, XIcon } from "lucide-react";
 import { nodeIcons } from "./media-node";
+import { SharedTextField } from "./shared-text-field";
 import type { StudioEdge, StudioNode } from "./use-canvas";
 
 export function NodeInspector({
@@ -28,6 +28,7 @@ export function NodeInspector({
 	nodes,
 	edges,
 	canEdit,
+	model,
 	update,
 	endEdit,
 	remove,
@@ -39,6 +40,7 @@ export function NodeInspector({
 	nodes: StudioNode[];
 	edges: StudioEdge[];
 	canEdit: boolean;
+	model: ReturnType<typeof createCanvasDocumentModel> | null;
 	update: (data: Partial<CanvasNode["data"]>, field: string) => void;
 	endEdit: () => void;
 	remove: () => void;
@@ -71,16 +73,18 @@ export function NodeInspector({
 				<FieldGroup>
 					<Field>
 						<FieldLabel htmlFor="node-label">Name</FieldLabel>
-						<Input
-							id="node-label"
-							value={node.data.label}
-							maxLength={80}
-							readOnly={!canEdit}
-							onChange={(event) =>
-								update({ label: event.target.value }, "label")
-							}
-							onBlur={endEdit}
-						/>
+						{model ? (
+							<SharedTextField
+								key={`${node.id}:label`}
+								model={model}
+								nodeId={node.id}
+								field="label"
+								id="node-label"
+								maxLength={80}
+								readOnly={!canEdit}
+								onBlur={endEdit}
+							/>
+						) : null}
 					</Field>
 					<Field>
 						<FieldLabel htmlFor="node-content">
@@ -90,22 +94,25 @@ export function NodeInspector({
 									? "Text / prompt"
 									: "Prompt"}
 						</FieldLabel>
-						<Textarea
-							id="node-content"
-							className="min-h-40 resize-y"
-							value={node.data.content}
-							maxLength={20_000}
-							readOnly={!canEdit}
-							placeholder={
-								kind === "speech"
-									? "What should the voice say?"
-									: "Describe your idea…"
-							}
-							onChange={(event) =>
-								update({ content: event.target.value }, "content")
-							}
-							onBlur={endEdit}
-						/>
+						{model ? (
+							<SharedTextField
+								key={`${node.id}:content`}
+								model={model}
+								nodeId={node.id}
+								field="content"
+								multiline
+								id="node-content"
+								className="min-h-40 resize-y"
+								maxLength={20_000}
+								readOnly={!canEdit}
+								placeholder={
+									kind === "speech"
+										? "What should the voice say?"
+										: "Describe your idea…"
+								}
+								onBlur={endEdit}
+							/>
+						) : null}
 						<FieldDescription>
 							{kind === "text"
 								? "Connect this output to a prompt or script input."
@@ -161,20 +168,19 @@ export function NodeInspector({
 					{kind === "speech" ? (
 						<Field>
 							<FieldLabel htmlFor="voice-direction">Voice direction</FieldLabel>
-							<Input
-								id="voice-direction"
-								value={node.data.voiceDirection}
-								maxLength={500}
-								readOnly={!canEdit}
-								placeholder="Warm, calm, conversational…"
-								onChange={(event) =>
-									update(
-										{ voiceDirection: event.target.value },
-										"voiceDirection",
-									)
-								}
-								onBlur={endEdit}
-							/>
+							{model ? (
+								<SharedTextField
+									key={`${node.id}:voiceDirection`}
+									model={model}
+									nodeId={node.id}
+									field="voiceDirection"
+									id="voice-direction"
+									maxLength={500}
+									readOnly={!canEdit}
+									placeholder="Warm, calm, conversational…"
+									onBlur={endEdit}
+								/>
+							) : null}
 						</Field>
 					) : null}
 				</FieldGroup>

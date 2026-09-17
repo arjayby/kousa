@@ -14,23 +14,24 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@kousa/billing": "workspace:*",
 		"@kousa/auth": "workspace:*",
+		"@kousa/billing": "workspace:*",
 		"@kousa/db": "workspace:*",
 		"@kousa/env": "workspace:*",
+		"@kousa/projects": "workspace:*",
 		"@orpc/client": "catalog:",
 		"@orpc/openapi": "catalog:",
 		"@orpc/server": "catalog:",
 		"@orpc/zod": "catalog:",
 		"dotenv": "catalog:",
 		"next": "catalog:",
-		"zod": "catalog:",
-		"@kousa/projects": "workspace:*"
+		"zod": "catalog:"
 	},
 	"devDependencies": {
-		"@kousa/email": "workspace:*",
 		"@kousa/config": "workspace:*",
+		"@kousa/email": "workspace:*",
 		"typescript": "catalog:",
-		"vitest": "^5.0.0"
+		"vitest": "^5.0.0",
+		"yjs": "^13.6.32"
 	}
 }

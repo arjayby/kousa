@@ -64,6 +64,9 @@ export const web = Cloudflare.Website.StaticSite(
 				flags: ["nodejs_compat", "global_fetch_strictly_public"],
 			},
 			env: {
+				LIVEBLOCKS_SECRET_KEY: Config.redacted("LIVEBLOCKS_SECRET_KEY").pipe(
+					Config.withDefault(Redacted.make("")),
+				),
 				EMAIL_FROM: emailFrom,
 				RESEND_API_KEY: Config.redacted("RESEND_API_KEY").pipe(
 					Config.withDefault(Redacted.make("")),

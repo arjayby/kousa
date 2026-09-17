@@ -24,18 +24,5 @@ export default async function CanvasPage({
 				notFound();
 			throw error;
 		});
-	const canvas = await createProjects()
-		.getCanvas(session.user.id, input.data)
-		.catch((error) => {
-			if (error instanceof ProjectError && error.code === "NOT_FOUND")
-				notFound();
-			throw error;
-		});
-	return (
-		<ProjectCanvas
-			userId={session.user.id}
-			initialProject={project}
-			initialCanvas={canvas}
-		/>
-	);
+	return <ProjectCanvas userId={session.user.id} initialProject={project} />;
 }

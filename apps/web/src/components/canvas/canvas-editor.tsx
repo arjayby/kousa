@@ -10,7 +10,6 @@ import {
 	nodeLabels,
 	removeCanvasElements,
 } from "@kousa/projects/canvas";
-import type { SavedCanvas } from "@kousa/projects/canvas-sync";
 import {
 	Alert,
 	AlertDescription,
@@ -45,7 +44,6 @@ import {
 	LockKeyholeIcon,
 	MousePointer2Icon,
 	Redo2Icon,
-	SaveIcon,
 	Trash2Icon,
 	Undo2Icon,
 	WorkflowIcon,
@@ -54,6 +52,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { CanvasCursors, CanvasPeople } from "./canvas-presence";
 import { MediaNode, nodeDescriptions, nodeIcons } from "./media-node";
 import { NodeInspector } from "./node-inspector";
 import {
@@ -145,25 +144,27 @@ function Editor({
 	userId,
 	projectId,
 	canEdit: allowedToEdit,
-	remote,
 }: {
 	userId: string;
 	projectId: string;
 	canEdit: boolean;
-	remote: SavedCanvas;
 }) {
-	const persistence = useCanvas(userId, projectId, allowedToEdit, remote);
-	const { graph, dispatch, past, future, sync, canEdit } = persistence;
-	const saveError =
-		sync.error ?? persistence.reloadError ?? persistence.backupError;
-	const statusLabel =
-		sync.status === "saving"
-			? "Saving…"
-			: sync.status === "unsaved"
-				? "Unsaved changes"
-				: sync.status === "saved"
-					? "Saved to project"
-					: "Changes not saved";
+	const persistence = useCanvas(userId, projectId, allowedToEdit);
+	const { graph, dispatch, canUndo, canRedo, sync, canEdit, session } =
+		persistence;
+	const saveError = sync.error ?? sync.backupError;
+	const statusLabel = sync.error
+		? "Connection needs attention"
+		: sync.connection !== "connected"
+			? sync.loaded
+				? "Reconnecting…"
+				: "Connecting…"
+			: !sync.loaded
+				? "Loading shared canvas…"
+				: sync.sync === "synchronized"
+					? "All changes saved"
+					: "Saving…";
+
 	const flow = useReactFlow<StudioNode, StudioEdge>();
 	const root = useRef<HTMLDivElement>(null);
 	const viewport = useRef<HTMLDivElement>(null);
@@ -463,25 +464,11 @@ function Editor({
 					})}
 				</section>
 				<div className="ml-auto flex items-center gap-1">
-					<Button
-						variant="outline"
-						size="sm"
-						disabled={
-							!canEdit ||
-							!sync.dirty ||
-							sync.status === "saving" ||
-							sync.status === "error"
-						}
-						onClick={() => {
-							void persistence.save();
-						}}
-					>
-						<SaveIcon data-icon="inline-start" /> Save
-					</Button>
+					{session ? <CanvasPeople session={session} /> : null}
 					<Button
 						variant="ghost"
 						size="icon"
-						disabled={!canEdit || !past.length}
+						disabled={!canEdit || !canUndo}
 						onClick={() => dispatch({ type: "undo" })}
 						aria-label="Undo"
 						title="Undo · ⌘/Ctrl Z"
@@ -491,7 +478,7 @@ function Editor({
 					<Button
 						variant="ghost"
 						size="icon"
-						disabled={!canEdit || !future.length}
+						disabled={!canEdit || !canRedo}
 						onClick={() => dispatch({ type: "redo" })}
 						aria-label="Redo"
 						title="Redo · ⌘/Ctrl Shift Z"
@@ -515,21 +502,10 @@ function Editor({
 					<AlertTitle>Browser draft available</AlertTitle>
 					<AlertDescription>
 						<p>
-							{persistence.recovery.revision === sync.revision
-								? "You have a draft from this browser. Restore it to save it to the project."
-								: "The project has changed since this draft. Download it to keep a copy."}
+							You have a draft from before live collaboration. Download it to
+							keep a copy of those changes.
 						</p>
-						<div className="flex flex-wrap gap-2">
-							{persistence.recovery.revision === sync.revision ? (
-								<Button
-									variant="outline"
-									size="sm"
-									disabled={!canEdit || sync.dirty}
-									onClick={persistence.restoreRecovery}
-								>
-									Restore browser draft
-								</Button>
-							) : null}
+						<div className="flex gap-2">
 							<Button
 								variant="outline"
 								size="sm"
@@ -556,36 +532,48 @@ function Editor({
 					<AlertTitle>Canvas needs attention</AlertTitle>
 					<AlertDescription>
 						<p>{saveError}</p>
-						<div className="flex flex-wrap gap-2">
-							{sync.status === "error" && allowedToEdit ? (
-								<Button variant="outline" size="sm" onClick={persistence.retry}>
-									Retry save
+						<div className="flex gap-2">
+							<Button variant="outline" size="sm" onClick={persistence.retry}>
+								Retry connection
+							</Button>
+							{sync.loaded ? (
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={() => persistence.download()}
+								>
+									Download my changes
 								</Button>
 							) : null}
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={() => persistence.download()}
-							>
-								Download my changes
-							</Button>
-							<Button
-								variant="outline"
-								size="sm"
-								disabled={persistence.reloading || sync.status === "saving"}
-								onClick={() => {
-									void persistence.reload();
-								}}
-							>
-								Load saved version
-							</Button>
 						</div>
-						<p>Loading the saved version replaces the changes in this tab.</p>
 					</AlertDescription>
 				</Alert>
 			) : null}
+			{persistence.rejected > 0 ? (
+				<Alert>
+					<AlertTitle>Some connections or nodes need review</AlertTitle>
+					<AlertDescription>
+						Concurrent changes left {persistence.rejected} item(s) outside this
+						canvas's limits or connection rules. They are hidden from the
+						workflow; undo the conflicting edit to resolve them.
+					</AlertDescription>
+				</Alert>
+			) : null}
+
 			<div className="studio-workspace">
-				<div className="studio-viewport" ref={viewport}>
+				<div
+					className="studio-viewport"
+					ref={viewport}
+					onPointerMove={(event) =>
+						session?.updatePresence({
+							cursor: flow.screenToFlowPosition({
+								x: event.clientX,
+								y: event.clientY,
+							}),
+						})
+					}
+					onPointerLeave={() => session?.updatePresence({ cursor: null })}
+				>
 					<ReactFlow<StudioNode, StudioEdge>
 						nodes={graph.nodes}
 						edges={graph.edges}
@@ -649,6 +637,7 @@ function Editor({
 							color="var(--border)"
 						/>
 						<ViewportControls />
+						{session ? <CanvasCursors session={session} /> : null}
 						{graph.nodes.length > 0 ? (
 							<MiniMap
 								pannable
@@ -660,7 +649,15 @@ function Editor({
 							/>
 						) : null}
 					</ReactFlow>
-					{graph.nodes.length === 0 ? (
+					{!sync.loaded ? (
+						<div className="studio-empty">
+							<p role="status" className="text-muted-foreground text-sm">
+								{sync.error
+									? "Shared canvas unavailable"
+									: "Loading shared canvas…"}
+							</p>
+						</div>
+					) : graph.nodes.length === 0 ? (
 						<div className="studio-empty">
 							<Empty className="border-0">
 								<EmptyHeader>
@@ -673,7 +670,7 @@ function Editor({
 									<EmptyDescription>
 										{canEdit
 											? "Turn a thought into a connected workflow. Add your first node to begin."
-											: "An owner or editor can add nodes to this project. You can view their saved changes here."}
+											: "An owner or editor can add nodes to this project. Their changes will appear here live."}
 									</EmptyDescription>
 								</EmptyHeader>
 								{canEdit ? (
@@ -713,6 +710,7 @@ function Editor({
 						nodes={graph.nodes}
 						edges={graph.edges}
 						canEdit={canEdit}
+						model={persistence.model}
 						update={update}
 						endEdit={() => dispatch({ type: "end" })}
 						remove={removeSelected}
@@ -746,8 +744,7 @@ function Editor({
 					)}
 					role="status"
 					title={
-						saveError ??
-						"Project members can view saved changes. Updates refresh every 15 seconds while this tab is active."
+						saveError ?? "Changes sync live with everyone in this project."
 					}
 				>
 					{saveError ? (
@@ -776,7 +773,6 @@ export default function CanvasEditor(props: {
 	userId: string;
 	projectId: string;
 	canEdit: boolean;
-	remote: SavedCanvas;
 }) {
 	return (
 		<ReactFlowProvider>

@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+	boolean,
 	check,
 	index,
 	integer,
@@ -30,6 +31,13 @@ export const project = pgTable(
 			.default({ version: 1, nodes: [], edges: [] }),
 		canvasRevision: integer("canvas_revision").notNull().default(0),
 		canvasUpdatedAt: timestamp("canvas_updated_at", { withTimezone: true }),
+		canvasRoomId: text("canvas_room_id"),
+		canvasSeed: text("canvas_seed"),
+		canvasReady: boolean("canvas_ready").notNull().default(false),
+		collaborationLockId: uuid("collaboration_lock_id"),
+		collaborationLockUntil: timestamp("collaboration_lock_until", {
+			withTimezone: true,
+		}),
 		ownerId: text("owner_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "restrict" }),
