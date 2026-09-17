@@ -30,6 +30,7 @@ type GraphStepBase = {
 export type GraphStep = GraphStepBase &
 	(
 		| { kind: "text" | "image" }
+		| { kind: "speech"; voiceId: string; voiceDirection: string }
 		| {
 				kind: "video";
 				duration: number;

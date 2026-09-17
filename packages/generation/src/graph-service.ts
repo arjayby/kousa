@@ -180,6 +180,10 @@ export function createGraphService(
 					reused: step.reused,
 					imageInput:
 						step.kind === "video" && step.image ? step.image.imageSource : null,
+					speech:
+						step.kind === "speech"
+							? { voiceId: step.voiceId, voiceDirection: step.voiceDirection }
+							: null,
 				})),
 			};
 		},

@@ -4,11 +4,13 @@
 
 Select a Speech node, write its script or connect a Text output to its Script input, then choose a voice and optional delivery direction. Wait for the canvas to finish saving and click **Generate speech**. Saved MP3 audio appears on the node and in the inspector, with native playback, seeking, a transcript, and **Download audio**. Viewers can play and download; only owners and editors can generate.
 
-Connected text contributes its last successful output, or its written text if it has no output. That text is followed by the speech node's own script. Kousa reads this script verbatim rather than asking an LLM to rewrite it. Upstream nodes do not run automatically.
+With **Generate speech**, connected text contributes its last successful output, or its written text if it has no output. That text is followed by the speech node's own script. Kousa reads this script verbatim rather than asking an LLM to rewrite it. Upstream nodes do not run automatically for this action.
+
+Choose **Run to this node** to generate the connected Text steps first, then narrate their new output. The preview shows execution order, voice, delivery direction, and the total cost. Text → Speech costs 3 Kousa credits; Text → Text → Speech costs 4. The person who starts the workflow pays. Completed text is reused for zero additional credits when resuming failed speech. See [speech workflows](graph-execution.md#speech-workflows) for saved inputs, script limits, and recovery.
 
 ## Provider setup
 
-The existing `AI_GATEWAY_API_KEY` in `apps/web/.env` is used by the jobs Worker. No new environment variables or speech-provider keys are needed. Run `pnpm dev` from the repository root; Alchemy applies migration `0010_speech_generation` and starts both apps with shared private R2 storage.
+The existing `AI_GATEWAY_API_KEY` in `apps/web/.env` is used by the jobs Worker. No new environment variables, speech-provider keys, or public image-delivery URL are needed. Run `pnpm dev` from the repository root; Alchemy applies migrations through `0015_speech_workflows` and starts both apps with shared private R2 storage.
 
 The allowlisted model is `fish-audio/s2.1-pro-free`, with Sarah, Polo, Selene, Adrian, and Ethan from the [Gateway model playground](https://vercel.com/ai-gateway/models/s2.1-pro-free). On September 17, 2026, Gateway listed this model at zero provider cost but rejected an actual request from an account with only free-tier credits. **Enable paid Gateway credits for this account before testing speech.** Model availability and pricing can change. Kousa does not fall back to another model.
 
@@ -40,8 +42,13 @@ Pending real-provider checks:
 - [ ] Reload the canvas and confirm the saved clip persists in private project storage.
 - [ ] Verify playback, seeking, and download as an editor and a viewer.
 - [ ] Confirm the payer is charged exactly 2 Kousa credits once, including after reload.
+- [ ] Run Text → Speech through **Run to this node**, confirming the new Text output is narrated with the selected voice and direction. Confirm the full three-credit cost is charged once.
+- [ ] Reload while the speech workflow is running and confirm progress, saved transcript, and audio persist. Check shared progress from a second tab.
+- [ ] Exercise a controlled speech failure after text completes, then resume. Confirm the original text and voice settings are reused, and only the two-credit speech step is charged on resume.
 - [ ] Verify any later feature that consumes this generated audio before releasing that integration.
 
 `pnpm test` covers immutable speech inputs, voice/model allowlists, connected text, limits, permissions, one-time charging, receipt recovery, failed-run refunds, MP3 validation, private byte-range playback, and shared voice edits. The MP3 fixture is a generated 0.2-second sine tone, not a provider recording. Production builds and a real Gateway/native Workflow run are separate checks; a mock provider test cannot establish account eligibility or production performance.
 
 Verified locally on September 17, 2026: 194 tests passed, workspace types and both Cloudflare bundles passed. The in-app browser confirmed the speech controls, Text → Speech connection, persistence, and live voice/direction updates across two tabs. Next.js reported no runtime or compilation errors after fixing an uncontrolled shared-field warning. Real speech generation and playback of a Gateway result remain unverified: the account rejected the initial API probe and paid credits could not be enabled. No Kousa credits were spent during that milestone; the test account remained at 491.
+
+Speech workflow extension verified locally on September 17, 2026: all 289 tests passed, including 16 new speech workflow tests. All ten workspace type-check tasks and both Cloudflare bundles passed. Alchemy applied `0015_speech_workflows`. Browser checks confirmed the three-credit Text → Speech preview, saved voice and delivery direction, and persistence after reload. The Street narration example remains connected to Scene idea with the Selene voice. No provider request was sent and the balance remained at 481 credits. [Detailed verification status](verification.md).

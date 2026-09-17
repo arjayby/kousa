@@ -1,8 +1,8 @@
 # Run to this node
 
-Select a text, image, or video node and choose **Run to this node**. The preview lists its ancestors in execution order and the total Kousa credits. Starting reserves the full cost from the person who starts it. A new workflow regenerates every listed node. It does not reuse outputs from earlier, unrelated runs.
+Select a text, image, video, or speech node and choose **Run to this node**. The preview lists its ancestors in execution order and the total Kousa credits. Starting reserves the full cost from the person who starts it. A new workflow regenerates every listed node. It does not reuse outputs from earlier, unrelated runs.
 
-Supported paths include Text → Text → Image, Text → Video, and Text → Image → Video, plus branches that merge connected text. A shared ancestor runs once. Only the selected node and its ancestors participate, with a maximum of 20 nodes. Speech, video-to-video, audio inputs, and image-reference generation remain unsupported.
+Supported paths include Text → Text → Image, Text → Video, Text → Image → Video, and Text → Speech. A shared ancestor runs once. Only the selected node and its ancestors participate, with a maximum of 20 nodes. Video-to-video, audio inputs, and image-reference generation remain unsupported. Speech accepts one connected Text script; audio output cannot yet feed another generation step.
 
 The canvas shows a workflow progress button and a status on each participating node. Owners, editors and viewers can see progress. Only owners and editors can start workflows. One workflow may run per project and per payer; individual generation requests wait until it finishes.
 
@@ -18,7 +18,7 @@ Image-to-video requires the [public HTTPS media origin](video-generation.md#priv
 
 ## Persistence and credits
 
-`graph_run` stores a server-built plan with prompts, models, input hashes, dependency IDs, per-step prices and generation IDs. Video steps also freeze duration, aspect ratio, image selection, and the configured delivery origin. Starting checks the preview hash against the saved canvas. Later canvas edits do not change the plan.
+`graph_run` stores a server-built plan with prompts, models, input hashes, dependency IDs, per-step prices and generation IDs. Video steps also freeze duration, aspect ratio, image selection, and the configured delivery origin. Speech steps freeze voice and delivery direction. Starting checks the preview hash against the saved canvas. Later canvas edits do not change the plan.
 
 Cloudflare Workflows executes the plan in dependency order. Each node uses the existing generation runner, receipt storage and atomic result publication. Downstream prompts read successful outputs by the exact generation IDs in this plan. Video uses the image asset published by the exact image child in its plan. These inputs never look up the latest output from another run.
 
@@ -34,9 +34,19 @@ After failure, the original payer can choose **Review and resume**. The preview 
 
 Generated text can exceed the input limit when combined at a downstream node. Such a step stops before calling the provider and releases unfinished credits. Completed upstream outputs remain saved.
 
+## Speech workflows
+
+Speech reads the connected Text step's new output followed by the Speech node's own script. It reads that text verbatim, with no prompt labels added. A Text → Text → Speech chain narrates the final connected Text output. The preview shows the saved voice and delivery direction, including the original settings when resuming.
+
+Standalone Speech costs 2 Kousa credits, Text → Speech costs 3, and Text → Text → Speech costs 4. No public HTTPS media origin is needed. The configured speech model still requires paid Gateway access; the preview explains this but does not inspect account funding.
+
+The combined script is limited to 1,000 Unicode code points. Written inputs are checked before reservation and generated text is checked again before speech starts. If the new text is too long, the workflow keeps the completed text and releases the speech reservation. Resume uses the original saved plan and outputs, so an oversized saved script needs a new workflow with a shorter upstream prompt rather than another resume attempt.
+
+Failed speech can be resumed for 2 credits after its text dependencies succeed. The resumed job uses those exact text generations and the original voice settings, even if someone edits the canvas or generates newer text. Saved audio receipts and completed speech results are reused during recovery without another provider call or debit.
+
 ## Setup and verification
 
-No additional services or keys are required. Alchemy applies migrations through `0014_video_workflows` when development starts, using the existing Neon database, Gateway key, private R2 bucket and Workflow binding.
+No additional services or keys are required. Alchemy applies migrations through `0015_speech_workflows` when development starts, using the existing Neon database, Gateway key, private R2 bucket and Workflow binding.
 
 Automated checks cover graph order, shared ancestors, exclusions, cycles, unsupported inputs, the step limit, stale previews, immutable snapshots, exact output propagation, atomic reservations, insufficient balance, request replay, access changes, expiry, interrupted execution and resuming completed work. Route tests verify authenticated actors and input validation.
 
@@ -59,6 +69,13 @@ Text → Image → Video extension verification on September 17, 2026:
 - In the in-app browser, the existing Text → Text → Image → Video canvas quoted 15 credits for five seconds and 25 for ten seconds. Selecting a project image reduced the plan to the video step at 10 credits. The preview explained which starting image would be used.
 - The missing public HTTPS image origin disabled starting before any credits could be reserved. Browser and Next.js runtime checks reported no errors. Original canvas selections were restored after verification.
 - No provider calls were made, and the balance remained at 481 credits. Exact image propagation, durable execution, recovery, access checks and credit accounting were exercised with isolated Postgres and fake providers. A real video workflow remains unverified until public HTTPS image delivery and paid Gateway access are available.
+
+Speech workflow extension verification on September 17, 2026:
+
+- All 289 tests passed, including 16 new speech workflow tests. All 10 workspace type-check tasks and both Cloudflare bundles passed. Alchemy applied `0015_speech_workflows` to development Neon.
+- Automated checks exercised Text → Speech, Text → Text → Speech, frozen voice settings, exact text reuse after failure, audio receipts, one-time charging, permissions, expiry, private MP3 retrieval and the 1,000-character Unicode limit.
+- In the in-app browser, Scene idea → Street narration quoted 3 credits and showed Selene with the saved delivery direction. The connection and settings persisted after reload. No HTTPS tunnel was needed, no generation was started, and the balance remained at 481 credits.
+- Live speech generation remains deferred. Its [provider checklist](speech-generation.md#verification) now includes full workflows and resume.
 
 ## Pending live video workflow verification
 

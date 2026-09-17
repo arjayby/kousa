@@ -1,5 +1,6 @@
 "use client";
 
+import { speechVoices } from "@kousa/generation/contracts";
 import { planGraph } from "@kousa/generation/graph-plan";
 import { Badge } from "@kousa/ui/components/badge";
 import { Button } from "@kousa/ui/components/button";
@@ -194,8 +195,8 @@ export function WorkflowControls({
 				Run to this node
 			</Button>
 			<p className="text-muted-foreground text-xs">
-				Run connected text and image generations before this node. Review the
-				total credits and starting image before starting.
+				Run connected generations in order. Review each step and the total
+				credits before starting.
 			</p>
 		</div>
 	);
@@ -296,6 +297,17 @@ export function WorkflowMonitor({ workflow }: { workflow: Workflow }) {
 							>
 								<span className="min-w-0 break-words">
 									{index + 1}. {step.label || step.kind}
+									{step.speech ? (
+										<span className="mt-1 block text-muted-foreground text-xs">
+											Voice:{" "}
+											{speechVoices.find(
+												(voice) => voice.id === step.speech?.voiceId,
+											)?.name ?? step.speech.voiceId}
+											{step.speech.voiceDirection
+												? ` · ${step.speech.voiceDirection}`
+												: ""}
+										</span>
+									) : null}
 									{step.imageInput ? (
 										<span className="mt-1 block text-muted-foreground text-xs">
 											{step.imageInput === "project"
@@ -314,6 +326,15 @@ export function WorkflowMonitor({ workflow }: { workflow: Workflow }) {
 							</li>
 						))}
 					</ol>
+					{workflow.preview?.estimate.steps.some(
+						(step) => step.kind === "speech" && !step.reused,
+					) ? (
+						<p className="text-muted-foreground text-xs">
+							Speech reads this workflow's text outputs and the node's script
+							verbatim, up to 1,000 characters combined. It requires paid
+							credits enabled on your Vercel AI Gateway account.
+						</p>
+					) : null}
 					{workflow.preview?.estimate.steps.some(
 						(step) => step.kind === "video" && !step.reused,
 					) ? (

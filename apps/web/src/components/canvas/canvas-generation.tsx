@@ -498,18 +498,16 @@ export function GenerationPanel({
 					everyone.
 				</p>
 			)}
-			{kind === "text" || kind === "image" || kind === "video" ? (
-				<WorkflowControls
-					workflow={generation.workflow}
-					nodeId={node.id}
-					canEdit={canEdit}
-					onStart={
-						kind === "image"
-							? () => update({ imageSource: "generated" }, "imageSource")
-							: undefined
-					}
-				/>
-			) : null}
+			<WorkflowControls
+				workflow={generation.workflow}
+				nodeId={node.id}
+				canEdit={canEdit}
+				onStart={
+					kind === "image"
+						? () => update({ imageSource: "generated" }, "imageSource")
+						: undefined
+				}
+			/>
 			{pending ? (
 				<p role="status" className="text-muted-foreground text-xs">
 					{runProgress(run) ?? "Queuing…"} You can leave this page. The result
@@ -547,9 +545,9 @@ export function GenerationPanel({
 			{kind === "speech" ? (
 				<div className="flex flex-col gap-3">
 					<p className="text-muted-foreground text-xs">
-						Reads connected text first, then this script. Connected text uses
-						its last successful output, or its written text. It does not
-						generate a new script.
+						Generate speech reads the connected text's last successful output,
+						or its written text, followed by this script. Run to this node
+						generates connected text first.
 					</p>
 					{speechResult?.assetId ? (
 						<>

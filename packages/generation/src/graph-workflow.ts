@@ -3,6 +3,7 @@ import type { GraphStore } from "@kousa/db/graph-store";
 import {
 	buildImagePrompt,
 	buildPrompt,
+	buildSpeechScript,
 	buildVideoPrompt,
 	GenerationError,
 } from "./input";
@@ -53,11 +54,13 @@ export async function executeGraphWorkflow(
 							"An upstream step has not completed.",
 						);
 					const prompt =
-						item.kind === "video"
-							? buildVideoPrompt(item, outputs)
-							: item.kind === "image"
-								? buildImagePrompt(item, outputs)
-								: buildPrompt(item, outputs);
+						item.kind === "speech"
+							? buildSpeechScript(item, outputs)
+							: item.kind === "video"
+								? buildVideoPrompt(item, outputs)
+								: item.kind === "image"
+									? buildImagePrompt(item, outputs)
+									: buildPrompt(item, outputs);
 					return store.begin(id, index, prompt);
 				},
 			);

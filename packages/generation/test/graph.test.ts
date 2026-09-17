@@ -283,7 +283,7 @@ it("rejects cycles, unsupported connections and empty prompts before charging", 
 	graph.edges.pop();
 	a.type = "speech";
 	await expect(planGraph(graph, c.id)).rejects.toThrow(
-		"text, image, and video",
+		"connected text nodes only",
 	);
 	a.type = "text";
 	a.data.content = "";

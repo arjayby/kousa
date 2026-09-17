@@ -4,6 +4,9 @@ import { z } from "zod";
 import {
 	imageCreditCost,
 	imageModels,
+	speechCreditCost,
+	speechModels,
+	speechVoices,
 	textCreditCost,
 	textModels,
 	videoAspectRatios,
@@ -14,10 +17,12 @@ import {
 import {
 	buildImagePrompt,
 	buildPrompt,
+	buildSpeechScript,
 	buildVideoPrompt,
 	GenerationError,
 	generationInputHash,
 	imageInputSnapshot,
+	speechInputSnapshot,
 	textInputSnapshot,
 	videoInputSnapshot,
 } from "./input";
@@ -54,10 +59,15 @@ export async function planGraph(graph: CanvasDocument, targetId: string) {
 				"BAD_REQUEST",
 				"A workflow node is missing. Refresh the canvas.",
 			);
-		if (node.type !== "text" && node.type !== "image" && node.type !== "video")
+		if (
+			node.type !== "text" &&
+			node.type !== "image" &&
+			node.type !== "video" &&
+			node.type !== "speech"
+		)
 			throw new GenerationError(
 				"BAD_REQUEST",
-				"Workflows currently support text, image, and video nodes only.",
+				"Choose text, image, video, or speech nodes for this workflow.",
 			);
 		visiting.add(id);
 		for (const edge of graph.edges
@@ -89,6 +99,28 @@ export async function planGraph(graph: CanvasDocument, targetId: string) {
 		ordered.map(async (nodeId): Promise<GraphStep> => {
 			const node = nodes.get(nodeId);
 			if (!node) throw new Error("Missing planned node");
+			if (node.type === "speech") {
+				const snapshot = speechInputSnapshot(graph, nodeId);
+				if (
+					!speechModels.some((model) => model.id === snapshot.modelId) ||
+					!speechVoices.some((voice) => voice.id === snapshot.voiceId)
+				)
+					throw new GenerationError(
+						"BAD_REQUEST",
+						"Choose an available speech model and voice.",
+					);
+				buildSpeechScript(snapshot, []);
+				return {
+					...snapshot,
+					kind: "speech",
+					label: node.data.label,
+					size: null,
+					inputHash: await generationInputHash(graph, nodeId),
+					credits: speechCreditCost,
+					runId: "",
+					reused: false,
+				};
+			}
 			if (node.type === "video") {
 				const snapshot = videoInputSnapshot(graph, nodeId);
 				if (
