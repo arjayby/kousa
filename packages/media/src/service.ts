@@ -7,6 +7,7 @@ import {
 	maxAudioBytes,
 	maxAudioDurationMs,
 	maxImageBytes,
+	projectAssetSchema,
 	publicAssetSchema,
 } from "./contracts";
 import { parseMediaRange } from "./range";
@@ -177,7 +178,7 @@ export function createMediaService(
 		async list(actorId: string, projectId: string) {
 			await authorize(actorId, projectId);
 			return (await store.list(projectId)).map((asset) =>
-				publicAssetSchema.parse(asset),
+				projectAssetSchema.parse(asset),
 			);
 		},
 		stage,

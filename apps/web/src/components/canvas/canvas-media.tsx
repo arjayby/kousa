@@ -6,7 +6,7 @@ import {
 	mediaListSchema,
 	mediaUploadSchema,
 	mediaUrl,
-	type PublicAsset,
+	type ProjectAsset,
 } from "@kousa/media/contracts";
 import { type CanvasNode, imageOutputAssetId } from "@kousa/projects/canvas";
 import { Button } from "@kousa/ui/components/button";
@@ -45,19 +45,25 @@ async function responseBody(response: Response) {
 				"message" in body &&
 				typeof body.message === "string"
 				? body.message
-				: "Could not access project images.",
+				: "Could not access project media.",
 		);
 	return body;
 }
 const MediaContext = createContext<{
 	projectId: string;
-	assets: PublicAsset[];
+	assets: ProjectAsset[];
 	pending: boolean;
+	refreshing: boolean;
 	error: boolean;
 	refresh: () => Promise<void>;
 	previewAttempts: Record<string, number>;
 	retryPreview: (assetId: string) => void;
 } | null>(null);
+export function useCanvasMedia() {
+	const media = useContext(MediaContext);
+	if (!media) throw new Error("CanvasMediaProvider is required.");
+	return media;
+}
 export function CanvasMediaProvider({
 	userId,
 	projectId,
@@ -92,6 +98,7 @@ export function CanvasMediaProvider({
 				projectId,
 				assets: query.data?.assets ?? [],
 				pending: query.isPending,
+				refreshing: query.isFetching,
 				error: query.isError,
 				previewAttempts,
 				retryPreview: (assetId) =>

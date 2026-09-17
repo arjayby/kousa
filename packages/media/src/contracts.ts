@@ -24,7 +24,13 @@ export const publicAssetSchema = z.object({
 	durationMs: z.number().nullable(),
 });
 export type PublicAsset = z.infer<typeof publicAssetSchema>;
-export const mediaListSchema = z.object({ assets: z.array(publicAssetSchema) });
+export const projectAssetSchema = publicAssetSchema.extend({
+	transcript: z.string().nullable(),
+});
+export type ProjectAsset = z.infer<typeof projectAssetSchema>;
+export const mediaListSchema = z.object({
+	assets: z.array(projectAssetSchema),
+});
 export const mediaUploadSchema = z.object({ asset: publicAssetSchema });
 export function mediaUrl(projectId: string, assetId?: string) {
 	return `/api/projects/${encodeURIComponent(projectId)}/media${assetId ? `/${encodeURIComponent(assetId)}` : ""}`;

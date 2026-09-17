@@ -1,11 +1,12 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { z } from "zod";
+import { generationRun } from "./schema/generations";
 import { mediaAsset } from "./schema/media";
 
 type Database = Pick<
 	PgDatabase<PgQueryResultHKT>,
-	"select" | "update" | "execute"
+	"select" | "selectDistinctOn" | "update" | "execute"
 >;
 export type MediaAsset = typeof mediaAsset.$inferSelect;
 export function createMediaStore(db: Database) {
@@ -60,9 +61,34 @@ export function createMediaStore(db: Database) {
 			return asset ?? null;
 		},
 		list(projectId: string) {
+			// Preserve the spoken script even after its canvas node is deleted.
+			// Deduplicated audio can have multiple runs; return one entry per asset.
+			const speech = db
+				.selectDistinctOn([generationRun.assetId], {
+					assetId: generationRun.assetId,
+					transcript: generationRun.prompt,
+				})
+				.from(generationRun)
+				.where(
+					and(
+						eq(generationRun.projectId, projectId),
+						eq(generationRun.kind, "speech"),
+						eq(generationRun.status, "succeeded"),
+					),
+				)
+				.orderBy(
+					generationRun.assetId,
+					desc(generationRun.completedAt),
+					desc(generationRun.id),
+				)
+				.as("speech");
 			return db
-				.select()
+				.select({
+					...getTableColumns(mediaAsset),
+					transcript: speech.transcript,
+				})
 				.from(mediaAsset)
+				.leftJoin(speech, eq(speech.assetId, mediaAsset.id))
 				.where(
 					and(
 						eq(mediaAsset.projectId, projectId),

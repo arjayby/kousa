@@ -1,6 +1,6 @@
 # Generation verification
 
-Last updated September 17, 2026, after adding Speech to workflow execution. Video workflow results were recorded for commit `7942495`.
+Last updated September 17, 2026, after adding the project media library. Speech workflow results were recorded for commit `631fb41`; video workflow results for `7942495`.
 
 Text → Image → Video and Text → Speech are implemented. Automated tests and browser checks passed, but successful speech and video generation through the real provider remain unverified. Local development can continue; complete the relevant provider checklist before releasing those features.
 
@@ -8,7 +8,7 @@ Text → Image → Video and Text → Speech are implemented. Automated tests an
 
 | Check | Result |
 | --- | --- |
-| `pnpm test` | 289 tests passed, including 16 new speech workflow tests and the existing 16 video workflow tests. |
+| `pnpm test` | 292 tests passed, including mixed-media library access, revocation, and retained speech scripts after deduplication and node deletion. The 16 speech and 16 video workflow tests still pass. |
 | `pnpm check-types` | All 10 workspace tasks passed. |
 | `pnpm --filter @kousa/jobs build` | Worker dry-run bundle succeeded. |
 | `pnpm --filter web build:cloudflare` | OpenNext Cloudflare bundle succeeded with a placeholder database URL. This was a build check, not a deployment. |
@@ -16,11 +16,12 @@ Text → Image → Video and Text → Speech are implemented. Automated tests an
 | In-app speech workflow | Scene idea → Street narration quoted 3 credits with Selene and the saved delivery direction. Connection and settings persisted after reload. No public image-delivery origin was required. |
 | Earlier video preview checks | Text → Text → Image → Video quoted 15 credits for five seconds and 25 for ten seconds. A selected project image reduced the plan to video only at 10 credits for five seconds. |
 | Earlier missing image-delivery origin check | The browser disabled starting. Automated tests confirmed the API rejects the workflow before reserving credits or dispatching upstream steps. |
+| In-app media library | Image previews, filename search, type filters, empty results, adding an existing image to the canvas, synchronization to a second session, and undo all passed. Stored files remained available after undo. |
 | Runtime diagnostics | Next.js reported no runtime or compilation errors after the browser checks. |
 
 The speech and video workflow tests use isolated Postgres, fake providers and local media fixtures. They cover exact output propagation, saved inputs and voice settings, recovery without resubmission, resuming only unfinished steps, access changes, and credit accounting. Speech tests also cover the 1,000-character Unicode limit, private audio retrieval, and preserving previous audio after a failed run. These checks do not establish provider eligibility, network reachability, or successful playback of a real provider result.
 
-No AI request was sent during this milestone. The test account stayed at 481 credits. A Street narration node connected to Scene idea remains in the Workflow example project for later verification. Earlier milestone balances and test counts in the feature docs are historical results.
+No AI request was sent during the media-library milestone. The temporary image node used to check reuse was undone, leaving the original five-node Workflow example graph intact. Its Street narration node remains for later verification. The earlier speech-workflow milestone ended at 481 credits; balances and test counts recorded for earlier milestones are historical results.
 
 A real Text → Text → Image workflow was already verified, including completion after reload and shared progress across two tabs. See the dated results in [graph execution](graph-execution.md#setup-and-verification).
 

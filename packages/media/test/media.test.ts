@@ -8,7 +8,7 @@ import {
 	it,
 	vi,
 } from "vitest";
-import { maxImageBytes } from "../src/contracts";
+import { maxImageBytes, mediaListSchema } from "../src/contracts";
 import { createMediaHandler } from "../src/http";
 import { createMediaService } from "../src/service";
 import type { MediaStorage } from "../src/storage";
@@ -74,7 +74,9 @@ describe("private project images", () => {
 	it("persists an editor upload and lets viewers read exact bytes without exposing keys", async () => {
 		const asset = await service.upload("editor", projectId, file());
 		expect(asset).toMatchObject({ width: 1, height: 1, mimeType: "image/png" });
-		expect(await service.list("viewer", projectId)).toEqual([asset]);
+		expect(await service.list("viewer", projectId)).toEqual([
+			{ ...asset, transcript: null },
+		]);
 		expect(asset).not.toHaveProperty("sha256");
 		const response = await request("viewer", "GET", asset.id);
 		expect(response.status).toBe(200);
@@ -94,6 +96,54 @@ describe("private project images", () => {
 		).rejects.toMatchObject({ status: 404 });
 		await db.revoke("viewer");
 		expect((await request("viewer", "GET", asset.id)).status).toBe(404);
+	});
+	it("lists ready images, audio, and video once per asset without exposing private metadata", async () => {
+		const image = await service.upload("editor", projectId, file());
+		const audio = await service.stageSpeech("owner", projectId, {
+			bytes: new Uint8Array(
+				readFileSync(new URL("./fixtures/tone.mp3", import.meta.url)),
+			),
+			mimeType: "audio/mpeg",
+			name: "Narration.mp3",
+		});
+		const video = await service.stageVideo("owner", projectId, {
+			bytes: new Uint8Array(
+				readFileSync(new URL("./fixtures/clip.mp4", import.meta.url)),
+			),
+			mimeType: "video/mp4",
+			name: "Clip.mp4",
+		});
+		// Staged generation files are invisible until explicitly published.
+		expect(
+			(await service.list("viewer", projectId)).map((asset) => asset.id),
+		).toEqual([image.id]);
+		await db.store.complete("owner", audio.id);
+		await db.store.complete("owner", video.id);
+		await service.upload("owner", projectId, file());
+		const response = await request("viewer");
+		expect(response.status).toBe(200);
+		expect(response.headers.get("cache-control")).toBe("private, no-store");
+		const body = await response.json();
+		const { assets } = mediaListSchema.parse(body);
+		// The raw response must contain only the allowlisted public fields.
+		expect(body).toEqual({ assets });
+		expect(new Set(assets.map((asset) => asset.id))).toEqual(
+			new Set([image.id, audio.id, video.id]),
+		);
+		expect(assets).toHaveLength(3);
+		for (const asset of assets) {
+			expect(asset.transcript).toBeNull();
+		}
+		for (const asset of assets)
+			expect((await request("viewer", "GET", asset.id)).status).toBe(200);
+	});
+	it("denies library listing after membership revocation and isolates other projects", async () => {
+		await service.upload("owner", projectId, file());
+		expect(await service.list("outsider", otherProjectId)).toEqual([]);
+		expect((await request("outsider")).status).toBe(404);
+		expect((await request(null)).status).toBe(401);
+		await db.revoke("viewer");
+		expect((await request("viewer")).status).toBe(404);
 	});
 	it("deduplicates retries and concurrent identical uploads within a project", async () => {
 		const [first, second] = await Promise.all([
@@ -244,3 +294,6 @@ describe("private project images", () => {
 		});
 	});
 });
+
+import { readFileSync } from "node:fs";
+import { URL } from "node:url";

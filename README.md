@@ -16,6 +16,7 @@ This project was created with [Better-T-Stack](https://github.com/AmanVarshney01
 - **Projects and permissions** - Private projects with owner, editor, and viewer access through email invitations
 - **Background generation** - Durable Cloudflare Workflows for text/image/video/speech jobs, shared progress, recovery, and protected credit reservations
 - **Node canvas** - Text, image, video, and speech nodes with connections, undo/redo, and shared project saving with editor/viewer permissions
+- **Project media library** - Search and filter saved media, preview and download files, and reuse images on the canvas
 - **Resend email** - Expiring invitations bound to a verified email, with roles and invitation status
 - **Biome** - Linting and formatting
 - **Turborepo** - Optimized monorepo build system
@@ -51,6 +52,8 @@ Open [http://localhost:3001](http://localhost:3001) in your browser to see the f
 ## UI Customization
 
 Connected text, image, video, and speech workflows are documented in [Run to this node](docs/graph-execution.md).
+
+Open **Media library** in the canvas toolbar to browse project files. See [project media](docs/project-media.md) for supported formats, access rules, and local storage.
 
 Generation setup and billing behavior are documented in [Text generation](docs/text-generation.md), [Image generation](docs/image-generation.md), [Speech generation](docs/speech-generation.md), and [Video generation](docs/video-generation.md).
 

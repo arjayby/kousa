@@ -173,6 +173,27 @@ it("queues an immutable script and voice, resumes receipts, publishes private MP
 	expect(new Uint8Array(await response.arrayBuffer())).toEqual(audio);
 	expect([...objects.keys()][0]).toContain(`/audio/${asset.id}`);
 });
+it("keeps one library entry and its spoken script after repeated generation and node deletion", async () => {
+	const first = await request();
+	await service().generate("owner", first);
+	const firstRun = await finish(first.id);
+	const second = await request();
+	await service().generate("owner", second);
+	const secondRun = await finish(second.id);
+	expect(secondRun?.assetId).toBe(firstRun?.assetId);
+	await db.setGraph(projectId, { version: 1, nodes: [], edges: [] });
+	const assets = await media.list("viewer", projectId);
+	expect(assets).toHaveLength(1);
+	expect(assets[0]).toMatchObject({
+		id: firstRun?.assetId,
+		mimeType: "audio/mpeg",
+		transcript: "Welcome to Kousa.",
+	});
+	await db.revoke("viewer");
+	await expect(media.list("viewer", projectId)).rejects.toMatchObject({
+		status: 404,
+	});
+});
 it("serves exact byte ranges, suffixes and HEAD while enforcing access before range errors", async () => {
 	const input = await request();
 	await service().generate("owner", input);

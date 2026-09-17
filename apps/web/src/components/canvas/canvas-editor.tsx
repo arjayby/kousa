@@ -56,6 +56,7 @@ import { GenerationContext, useCanvasGeneration } from "./canvas-generation";
 import { CanvasMediaProvider } from "./canvas-media";
 import { CanvasCursors, CanvasPeople } from "./canvas-presence";
 import { WorkflowMonitor } from "./canvas-workflow";
+import { MediaLibrary } from "./media-library";
 import { MediaNode, nodeDescriptions, nodeIcons } from "./media-node";
 import { NodeInspector } from "./node-inspector";
 import {
@@ -191,14 +192,14 @@ function Editor({
 	const selectionCount = selectedNodes.length + selectedEdges.length;
 
 	const addNode = useCallback(
-		(kind: NodeKind) => {
-			if (!canEdit) return;
+		(kind: NodeKind, data?: Partial<CanvasNode["data"]>) => {
+			if (!canEdit) return false;
 			if (graph.nodes.length >= 200) {
 				setMessage("This draft can hold up to 200 nodes.");
-				return;
+				return false;
 			}
 			const bounds = viewport.current?.getBoundingClientRect();
-			if (!bounds) return;
+			if (!bounds) return false;
 			const point = flow.screenToFlowPosition({
 				x: bounds.left + bounds.width / 2 - 130,
 				y: bounds.top + bounds.height / 2 - 110,
@@ -224,6 +225,7 @@ function Editor({
 			}
 			fitAfterAdd.current = true;
 			const node = createCanvasNode(kind, point);
+			node.data = { ...node.data, ...data };
 			dispatch({
 				type: "edit",
 				update: (current) => ({
@@ -235,6 +237,7 @@ function Editor({
 				}),
 			});
 			setMessage(`${nodeLabels[kind]} node added.`);
+			return true;
 		},
 		[canEdit, graph.nodes, flow, dispatch],
 	);
@@ -479,6 +482,17 @@ function Editor({
 					})}
 				</section>
 				<div className="ml-auto flex items-center gap-1">
+					<MediaLibrary
+						canEdit={canEdit}
+						atNodeLimit={graph.nodes.length >= 200}
+						onUseImage={(asset) =>
+							addNode("image", {
+								label: asset.name.slice(0, 80),
+								assetId: asset.id,
+								imageSource: "project",
+							})
+						}
+					/>
 					<WorkflowMonitor workflow={generation.workflow} />
 					{session ? <CanvasPeople session={session} /> : null}
 					<Button
