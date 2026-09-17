@@ -37,3 +37,7 @@ The oRPC router authenticates every operation, including invitation preview and 
 See [Resend email setup](../email/README.md) for the sending domain and environment variables. Alchemy applies `0003_wet_bromley.sql` on development startup. This migration revokes old unclaimed invitations without a recipient email and preserves accepted memberships. A dedicated migration test checks both cases.
 
 Future canvas and collaboration endpoints must check project access on every operation and handle permission changes for open connections. These project permissions do not grant access to another account's billing balance.
+
+## Canvas editor
+
+The project’s **Open canvas** action opens the text, image, video, and speech editor. See [CANVAS.md](CANVAS.md) for interactions, graph rules, local draft storage, and the boundary of this milestone.

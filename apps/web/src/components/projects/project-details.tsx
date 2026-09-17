@@ -70,6 +70,12 @@ export function ProjectDetailsPanel({
 			<header className="flex flex-wrap items-center gap-3">
 				<h1 className="break-words font-semibold text-2xl">{project.name}</h1>
 				<Badge variant="secondary">{project.role}</Badge>
+				<Link
+					href={`/projects/${project.id}/canvas`}
+					className={buttonVariants({ className: "ml-auto" })}
+				>
+					Open canvas
+				</Link>
 			</header>
 			<div className="grid items-start gap-6 lg:grid-cols-2">
 				<Card>
@@ -128,12 +134,18 @@ export function ProjectDetailsPanel({
 			</div>
 			<Empty>
 				<EmptyHeader>
-					<EmptyTitle>Project ready</EmptyTitle>
+					<EmptyTitle>Your creative workspace</EmptyTitle>
 					<EmptyDescription>
-						Your project and permissions are saved. The node canvas is the next
-						step.
+						Build a workflow with text, image, video, and speech nodes. Canvas
+						drafts are saved in this browser.
 					</EmptyDescription>
 				</EmptyHeader>
+				<Link
+					href={`/projects/${project.id}/canvas`}
+					className={buttonVariants({ variant: "outline" })}
+				>
+					Open canvas
+				</Link>
 			</Empty>
 		</main>
 	);

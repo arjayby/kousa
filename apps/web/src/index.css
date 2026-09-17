@@ -1,1 +1,43 @@
 @import "@kousa/ui/globals.css";
+
+/* The editor inherits the application's light and dark palettes. */
+.studio-page { display: flex; min-height: 0; flex-direction: column; overflow: hidden; }
+.studio-project-header { display: flex; min-height: 58px; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); padding: 8px 18px; background: var(--background); }
+.studio-editor { display: flex; flex: 1; min-height: 0; flex-direction: column; }
+.studio-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 18px; border-bottom: 1px solid var(--border); background: var(--background); }
+.studio-workspace { position: relative; display: flex; flex: 1; min-height: 0; }
+.studio-viewport { position: relative; flex: 1; min-width: 0; min-height: 300px; }
+.studio-editor .react-flow { --xy-background-color: var(--background); --xy-edge-stroke: var(--muted-foreground); --xy-edge-stroke-selected: var(--ring); --xy-selection-background-color: color-mix(in oklch, var(--ring), transparent 92%); --xy-selection-border: 1px solid var(--ring); --xy-attribution-background-color: var(--background); }
+.studio-editor .react-flow__node { border-radius: 12px; }
+.studio-editor .react-flow__node:focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; }
+.studio-node { width: 270px; overflow: visible; border: 1px solid var(--border); border-radius: 12px; background: var(--card); color: var(--card-foreground); box-shadow: 0 4px 18px color-mix(in oklch, var(--foreground), transparent 94%); --node-color: var(--chart-1); }
+.studio-node[data-kind=image] { --node-color: var(--chart-3); }
+.studio-node[data-kind=video] { --node-color: var(--chart-2); }
+.studio-node[data-kind=speech] { --node-color: var(--chart-5); }
+.studio-node-selected { border-color: var(--ring); box-shadow: 0 0 0 2px color-mix(in oklch, var(--ring), transparent 60%), 0 8px 28px color-mix(in oklch, var(--foreground), transparent 92%); }
+.studio-node-header { display: flex; align-items: center; gap: 10px; padding: 14px 16px 10px; cursor: grab; }
+.studio-node-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; color: var(--foreground); background: color-mix(in oklch, var(--node-color), transparent 78%); }
+.studio-node-body { margin: 2px 12px 12px; min-height: 92px; padding: 12px; border-radius: 6px; background: color-mix(in oklch, var(--muted), transparent 35%); }
+.studio-node-ports { border-top: 1px solid var(--border); padding: 8px 0; }
+.studio-port-row { position: relative; display: flex; align-items: center; height: 25px; padding: 0 16px; font-size: 10px; color: var(--muted-foreground); }
+.studio-node .react-flow__handle { width: 10px; height: 10px; min-width: 10px; min-height: 10px; border: 2px solid var(--card); background: var(--muted-foreground); transition: background 120ms, box-shadow 120ms; }
+.studio-node .react-flow__handle-left { left: 0; }
+.studio-node .react-flow__handle-right { right: 0; background: var(--node-color); }
+.studio-node .react-flow__handle:hover, .studio-node .react-flow__handle.valid { background: var(--ring); box-shadow: 0 0 0 5px color-mix(in oklch, var(--ring), transparent 80%); }
+.studio-node .react-flow__handle.connectionindicator { cursor: crosshair; }
+.studio-inspector { display: flex; width: 300px; flex-shrink: 0; min-height: 0; flex-direction: column; border-left: 1px solid var(--border); background: var(--background); }
+.studio-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; pointer-events: none; }
+.studio-empty > * { pointer-events: auto; max-width: 420px; }
+.studio-empty-icon { display: grid; place-items: center; width: 64px; height: 64px; margin: 0 auto 14px; border: 1px solid var(--border); border-radius: 16px; color: var(--muted-foreground); background: var(--card); box-shadow: var(--shadow-sm); }
+.studio-viewport-controls { position: absolute; bottom: 20px; left: 20px; display: flex; align-items: center; gap: 2px; border: 1px solid var(--border); padding: 3px; background: var(--background); border-radius: 6px; z-index: 5; box-shadow: var(--shadow-sm); }
+.studio-editor .studio-minimap { margin: 20px; margin-bottom: 30px; width: 130px; height: 88px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); opacity: .8; }
+.studio-editor .react-flow__attribution { font-size: 9px; }
+.studio-selection-info { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; border: 1px solid var(--border); padding: 8px 12px; background: var(--background); border-radius: 6px; font-size: 12px; }
+.studio-statusbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 30px; padding: 6px 18px; border-top: 1px solid var(--border); background: var(--background); color: var(--muted-foreground); font-size: 10px; }
+@media (max-width: 767px) {
+  .studio-project-header, .studio-toolbar { padding-right: 10px; padding-left: 10px; gap: 6px; }
+  .studio-project-header { flex-wrap: wrap; }
+  .studio-inspector { position: absolute; right: 0; top: 0; bottom: 0; width: min(300px, 85%); z-index: 6; box-shadow: var(--shadow-lg); }
+  .studio-editor .studio-minimap { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .studio-node .react-flow__handle { transition: none; } }
