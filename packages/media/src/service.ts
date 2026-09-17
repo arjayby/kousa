@@ -11,6 +11,7 @@ import {
 } from "./contracts";
 import { parseMediaRange } from "./range";
 import type { MediaStorage } from "./storage";
+import { inspectVideo } from "./video";
 
 export class MediaError extends Error {
 	constructor(
@@ -21,7 +22,7 @@ export class MediaError extends Error {
 	}
 }
 const objectKey = (asset: MediaAsset) =>
-	`projects/${asset.projectId}/${asset.mimeType === "audio/mpeg" ? "audio" : "images"}/${asset.id}`;
+	`projects/${asset.projectId}/${asset.mimeType === "video/mp4" ? "videos" : asset.mimeType === "audio/mpeg" ? "audio" : "images"}/${asset.id}`;
 export function createMediaService(
 	store: MediaStore,
 	projects: Pick<ProjectStore, "get">,
@@ -108,6 +109,25 @@ export function createMediaService(
 			durationMs,
 		});
 	}
+	async function stageVideo(
+		actorId: string,
+		projectId: string,
+		file: { bytes: Uint8Array<ArrayBuffer>; name: string; mimeType: string },
+	) {
+		await authorize(actorId, projectId, true);
+		if (file.mimeType !== "video/mp4")
+			throw new MediaError(415, "Expected MP4 video.");
+		let metadata: ReturnType<typeof inspectVideo>;
+		try {
+			metadata = inspectVideo(file.bytes);
+		} catch {
+			throw new MediaError(
+				415,
+				"Expected a complete silent H.264 MP4, up to 12 seconds and 20 MB.",
+			);
+		}
+		return save(actorId, projectId, file, metadata);
+	}
 	async function save(
 		actorId: string,
 		projectId: string,
@@ -162,6 +182,7 @@ export function createMediaService(
 		},
 		stage,
 		stageSpeech,
+		stageVideo,
 		async upload(
 			actorId: string,
 			projectId: string,

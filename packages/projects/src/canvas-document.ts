@@ -31,6 +31,7 @@ function sharedNode(node: CanvasNode) {
 	if (node.data.textModel) value.set("textModel", node.data.textModel);
 	if (node.data.speechModel) value.set("speechModel", node.data.speechModel);
 	if (node.data.voiceId) value.set("voiceId", node.data.voiceId);
+	if (node.data.videoModel) value.set("videoModel", node.data.videoModel);
 	if (node.data.imageModel) value.set("imageModel", node.data.imageModel);
 	if (node.data.imageSource) value.set("imageSource", node.data.imageSource);
 	if (node.data.assetId) value.set("assetId", node.data.assetId);
@@ -64,6 +65,7 @@ export function readCanvasDocument(doc: Y.Doc) {
 			aspectRatio: value.get("aspectRatio"),
 			textModel: value.get("textModel"),
 			imageModel: value.get("imageModel"),
+			videoModel: value.get("videoModel"),
 			speechModel: value.get("speechModel"),
 			voiceId: value.get("voiceId"),
 			imageSource: value.get("imageSource"),
@@ -205,6 +207,7 @@ export function createCanvasDocumentModel(doc: Y.Doc) {
 						"duration",
 						"textModel",
 						"imageModel",
+						"videoModel",
 						"speechModel",
 						"voiceId",
 						"imageSource",

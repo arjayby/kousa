@@ -33,6 +33,7 @@ const nodeDataSchema = z.object({
 	label: z.string().max(80),
 	textModel: z.string().max(120).optional(),
 	imageModel: z.string().max(120).optional(),
+	videoModel: z.string().max(120).optional(),
 	speechModel: z.string().max(120).optional(),
 	voiceId: z.string().max(120).optional(),
 	imageSource: z.enum(["generated", "project"]).optional(),

@@ -78,6 +78,13 @@
 			"when": 1789636122427,
 			"tag": "0010_speech_generation",
 			"breakpoints": true
+		},
+		{
+			"idx": 11,
+			"version": "7",
+			"when": 1789638858574,
+			"tag": "0011_video_generation",
+			"breakpoints": true
 		}
 	]
 }

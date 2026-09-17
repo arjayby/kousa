@@ -393,3 +393,45 @@ it("persists speech model and voice changes while preserving concurrent shared s
 	b.destroy();
 	restored.destroy();
 });
+
+it("persists video model, duration and aspect ratio without losing concurrent prompt edits", () => {
+	const node = createCanvasNode("video", { x: 0, y: 0 });
+	node.data.videoModel = "model-a";
+	node.data.duration = 5;
+	const seed = seedCanvasDocument({ ...emptyCanvas(), nodes: [node] });
+	const a = new Y.Doc();
+	const b = new Y.Doc();
+	Y.applyUpdate(a, seed);
+	Y.applyUpdate(b, seed);
+	const first = createCanvasDocumentModel(a);
+	const second = createCanvasDocumentModel(b);
+	const before = first.read().document;
+	first.apply(before, {
+		...before,
+		nodes: before.nodes.map((n) => ({
+			...n,
+			data: {
+				...n.data,
+				duration: 10,
+				aspectRatio: "9:16",
+				videoModel: "model-b",
+			},
+		})),
+	});
+	second.editText(node.id, "content", (text) => text.insert(0, "Hello"));
+	merge(a, b);
+	expect(second.read().document.nodes[0]?.data).toMatchObject({
+		duration: 10,
+		aspectRatio: "9:16",
+		videoModel: "model-b",
+		content: "Hello",
+	});
+	const restored = new Y.Doc();
+	Y.applyUpdate(restored, seedCanvasDocument(second.read().document));
+	expect(readCanvasDocument(restored).document).toEqual(first.read().document);
+	first.destroy();
+	second.destroy();
+	a.destroy();
+	b.destroy();
+	restored.destroy();
+});

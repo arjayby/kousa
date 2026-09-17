@@ -3,6 +3,7 @@ import {
 	defaultImageModel,
 	defaultSpeechModel,
 	defaultSpeechVoice,
+	defaultVideoModel,
 	imageSizes,
 	maxInputBytes,
 	maxSpeechCharacters,
@@ -105,9 +106,6 @@ export function imageInputSnapshot(graph: CanvasDocument, nodeId: string) {
 	return {
 		nodeId,
 		modelId: node.data.imageModel ?? defaultImageModel,
-		defaultSpeechModel,
-		defaultSpeechVoice,
-		maxSpeechCharacters,
 		content: node.data.content,
 		sources,
 		size: imageSizes[node.data.aspectRatio],
@@ -119,15 +117,17 @@ export async function generationInputHash(
 	nodeId: string,
 ) {
 	const kind = graph.nodes.find((node) => node.id === nodeId)?.type;
-	if (kind !== "image" && kind !== "speech")
+	if (kind !== "image" && kind !== "speech" && kind !== "video")
 		return textInputHash(graph, nodeId);
 	const digest = await crypto.subtle.digest(
 		"SHA-256",
 		new TextEncoder().encode(
 			JSON.stringify(
-				kind === "speech"
-					? speechInputSnapshot(graph, nodeId)
-					: imageInputSnapshot(graph, nodeId),
+				kind === "video"
+					? videoInputSnapshot(graph, nodeId)
+					: kind === "speech"
+						? speechInputSnapshot(graph, nodeId)
+						: imageInputSnapshot(graph, nodeId),
 			),
 		),
 	);
@@ -137,7 +137,7 @@ export async function generationInputHash(
 }
 
 export function buildImagePrompt(
-	snapshot: ReturnType<typeof imageInputSnapshot>,
+	snapshot: Pick<ReturnType<typeof imageInputSnapshot>, "content" | "sources">,
 	outputs: Array<{ nodeId: string; output: string | null }>,
 ) {
 	const prompt = [
@@ -216,4 +216,33 @@ export function buildSpeechScript(
 			"The script and connected text exceed 1,000 characters. Shorten them before generating.",
 		);
 	return script;
+}
+
+export function videoInputSnapshot(graph: CanvasDocument, nodeId: string) {
+	const node = graph.nodes.find((n) => n.id === nodeId);
+	if (node?.type !== "video")
+		throw new GenerationError(
+			"BAD_REQUEST",
+			"Select a video node to generate.",
+		);
+	const sources = graph.edges
+		.filter((e) => e.target === nodeId)
+		.sort((a, b) => a.id.localeCompare(b.id))
+		.map((edge) => {
+			const source = graph.nodes.find((n) => n.id === edge.source);
+			if (edge.targetHandle !== "prompt" || source?.type !== "text")
+				throw new GenerationError(
+					"BAD_REQUEST",
+					"Video generation accepts text prompts only. Disconnect image, video, and audio inputs before generating.",
+				);
+			return { id: source.id, content: source.data.content };
+		});
+	return {
+		nodeId,
+		modelId: node.data.videoModel ?? defaultVideoModel,
+		content: node.data.content,
+		sources,
+		aspectRatio: node.data.aspectRatio,
+		duration: Number(node.data.duration),
+	};
 }

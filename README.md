@@ -14,7 +14,7 @@ This project was created with [Better-T-Stack](https://github.com/AmanVarshney01
 - **Authentication** - Better-Auth
 - **Polar sandbox billing** - Verified payments grant credits once per order
 - **Projects and permissions** - Private projects with owner, editor, and viewer access through email invitations
-- **Background generation** - Durable Cloudflare Workflows for text/image/speech jobs, shared progress, recovery, and protected credit reservations
+- **Background generation** - Durable Cloudflare Workflows for text/image/video/speech jobs, shared progress, recovery, and protected credit reservations
 - **Node canvas** - Text, image, video, and speech nodes with connections, undo/redo, and shared project saving with editor/viewer permissions
 - **Resend email** - Expiring invitations bound to a verified email, with roles and invitation status
 - **Biome** - Linting and formatting
@@ -50,7 +50,7 @@ Open [http://localhost:3001](http://localhost:3001) in your browser to see the f
 
 ## UI Customization
 
-Generation setup and billing behavior are documented in [Text generation](docs/text-generation.md) and [Image generation](docs/image-generation.md), and [Speech generation](docs/speech-generation.md).
+Generation setup and billing behavior are documented in [Text generation](docs/text-generation.md), [Image generation](docs/image-generation.md), [Speech generation](docs/speech-generation.md), and [Video generation](docs/video-generation.md).
 
 React web apps in this stack share shadcn/ui primitives through `packages/ui`.
 
@@ -120,7 +120,7 @@ kousa/
 │   ├── api/         # API layer / business logic
 │   ├── auth/        # Authentication configuration & logic
 │   ├── billing/     # Credit pack catalog, fulfillment, and webhook verification
-│   ├── generation/  # AI Gateway text/image/speech generation and credit reservations
+│   ├── generation/  # AI Gateway text/image/video/speech generation and credit reservations
 │   ├── media/       # Private project image/audio storage, validation, and upload routes
 │   ├── email/       # Resend email transport and invitation/verification templates
 │   ├── projects/    # Project contracts, permissions, and invitation service

@@ -28,7 +28,7 @@ The durable job stores the script, model, voice, and direction in Neon at queue 
 
 Audio assets use `projects/{projectId}/audio/{assetId}` in private R2. Clients receive only authenticated project media URLs. GET supports single byte ranges for seeking; HEAD returns metadata without a body. Access checks apply before range validation, including to viewers whose membership was revoked. Local files remain under `apps/web/.wrangler/state`; hosted R2 activation and deployment are separate.
 
-See [background generation](background-generation.md) for interrupted provider calls, reservation expiry, and recovery. A lost provider response may incur provider usage even when Kousa releases its reservation. Pending-file cleanup, cancellation, audio uploads, and video generation remain follow-up work.
+See [background generation](background-generation.md) for interrupted provider calls, reservation expiry, and recovery. A lost provider response may incur provider usage even when Kousa releases its reservation. Pending-file cleanup, cancellation, and audio uploads remain follow-up work. Text-to-video is documented in [video generation](video-generation.md).
 
 ## Verification
 

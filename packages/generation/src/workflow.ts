@@ -2,7 +2,8 @@ import type { createGenerationRunner, PreparedResult } from "./runner";
 
 // A small adapter keeps orchestration testable without importing cloudflare:workers.
 export interface DurableSteps {
-	do<T extends PreparedResult | boolean | undefined>(
+	sleep(name: string, duration: number): Promise<void>;
+	do<T extends PreparedResult | boolean | "pending" | undefined>(
 		name: string,
 		options: {
 			retries: {
@@ -25,14 +26,27 @@ export async function executeGenerationWorkflow(
 	step: DurableSteps,
 ) {
 	try {
-		const generated = await step.do(
+		let generated = await step.do(
 			"generate-and-store-receipt",
 			{
 				retries: { limit: 8, delay: 20_000, backoff: "constant" },
-				timeout: 120_000,
+				// A recovered video step may need both a status read and a download.
+				timeout: 150_000,
 			},
 			() => runner.generate(id),
 		);
+		for (let attempt = 0; generated === "pending" && attempt < 60; attempt++) {
+			await step.sleep(`wait-for-video-${attempt}`, 20_000);
+			generated = await step.do(
+				`check-video-${attempt}`,
+				{
+					retries: { limit: 5, delay: 20_000, backoff: "constant" },
+					timeout: 150_000,
+				},
+				() => runner.generate(id),
+			);
+		}
+		if (generated === "pending") throw new Error("Video generation timed out");
 		if (generated) {
 			const prepared = await step.do("prepare-result", storageRetry, () =>
 				runner.prepare(id),

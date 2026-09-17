@@ -43,12 +43,15 @@ export const mediaAsset = pgTable(
 		check("media_asset_status", sql`${table.status} in ('pending', 'ready')`),
 		check(
 			"media_asset_mime",
-			sql`${table.mimeType} in ('image/png', 'image/jpeg', 'image/webp', 'audio/mpeg')`,
+			sql`${table.mimeType} in ('image/png', 'image/jpeg', 'image/webp', 'audio/mpeg', 'video/mp4')`,
 		),
-		check("media_asset_bytes", sql`${table.bytes} between 1 and 10485760`),
+		check(
+			"media_asset_bytes",
+			sql`${table.bytes} between 1 and (case when ${table.mimeType} = 'video/mp4' then 20971520 else 10485760 end)`,
+		),
 		check(
 			"media_asset_dimensions",
-			sql`(${table.mimeType} <> 'audio/mpeg' and ${table.width} is not null and ${table.height} is not null and ${table.width} > 0 and ${table.height} > 0 and ${table.width}::bigint * ${table.height} <= 40000000 and ${table.durationMs} is null) or (${table.mimeType} = 'audio/mpeg' and ${table.width} is null and ${table.height} is null and ${table.durationMs} is not null and ${table.durationMs} between 1 and 180000)`,
+			sql`(${table.mimeType} in ('image/png', 'image/jpeg', 'image/webp') and ${table.width} is not null and ${table.height} is not null and ${table.width} > 0 and ${table.height} > 0 and ${table.width}::bigint * ${table.height} <= 40000000 and ${table.durationMs} is null) or (${table.mimeType} = 'audio/mpeg' and ${table.width} is null and ${table.height} is null and ${table.durationMs} is not null and ${table.durationMs} between 1 and 180000) or (${table.mimeType} = 'video/mp4' and ${table.width} is not null and ${table.height} is not null and ${table.width} between 1 and 1920 and ${table.height} between 1 and 1920 and ${table.durationMs} is not null and ${table.durationMs} between 1 and 12000)`,
 		),
 		check("media_asset_hash", sql`${table.sha256} ~ '^[a-f0-9]{64}$'`),
 	],

@@ -158,7 +158,7 @@ export function AssetDownload({
 	kind = "image",
 }: {
 	assetId: string;
-	kind?: "image" | "audio";
+	kind?: "image" | "audio" | "video";
 }) {
 	const media = useContext(MediaContext);
 	if (!media) return null;
@@ -409,6 +409,55 @@ export function AudioPreview({
 						{transcript}
 					</p>
 				</details>
+			) : null}
+		</div>
+	);
+}
+
+export function VideoPreview({
+	assetId,
+	compact = false,
+}: {
+	assetId: string;
+	compact?: boolean;
+}) {
+	const media = useContext(MediaContext);
+	const [failedSource, setFailedSource] = useState<string | null>(null);
+	if (!media) return null;
+	const source = `${mediaUrl(media.projectId, assetId)}?v=${media.previewAttempts[assetId] ?? 0}`;
+	const asset = media.assets.find((a) => a.id === assetId);
+	return (
+		<div className="nodrag nopan nowheel flex min-w-0 flex-col gap-2">
+			{failedSource === source ? (
+				<div role="alert" className="flex flex-col gap-2 text-xs">
+					<p>Video unavailable.</p>
+					<Button
+						size="sm"
+						variant="outline"
+						onClick={() => media.retryPreview(assetId)}
+					>
+						Retry video
+					</Button>
+				</div>
+			) : (
+				// biome-ignore lint/a11y/useMediaCaption: This version only generates silent video with no audio track to caption.
+				<video
+					key={source}
+					controls
+					playsInline
+					preload={compact ? "none" : "metadata"}
+					src={source}
+					aria-label="Generated silent video"
+					className="max-h-72 w-full rounded-md bg-black"
+					onError={() => setFailedSource(source)}
+				/>
+			)}
+			{!compact && asset ? (
+				<p className="break-words text-muted-foreground text-xs">
+					{asset.width} × {asset.height} ·{" "}
+					{((asset.durationMs ?? 0) / 1000).toFixed(1)} seconds ·{" "}
+					{(asset.bytes / 1024 / 1024).toFixed(2)} MB · Silent
+				</p>
 			) : null}
 		</div>
 	);

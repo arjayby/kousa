@@ -10,11 +10,20 @@ import {
 	speechModels,
 	speechVoices,
 	textModels,
+	videoAspectRatios,
+	videoDurations,
+	videoModels,
 } from "./contracts";
-import type { ImageProvider, SpeechProvider, TextProvider } from "./providers";
+import type {
+	ImageProvider,
+	SpeechProvider,
+	TextProvider,
+	VideoProvider,
+} from "./providers";
 
 export type TextResult = Awaited<ReturnType<TextProvider["generate"]>>;
 export type Artifact =
+	| { kind: "video"; bytes: Uint8Array<ArrayBuffer>; mimeType: string }
 	| ({ kind: "text" } & TextResult)
 	| ({ kind: "speech" } & Awaited<ReturnType<SpeechProvider["generate"]>>)
 	| ({ kind: "image" } & Awaited<ReturnType<ImageProvider["generate"]>>);
@@ -33,8 +42,9 @@ export function createGenerationRunner(
 	text: TextProvider,
 	image: ImageProvider,
 	media: Pick<MediaService, "stage"> &
-		Partial<Pick<MediaService, "stageSpeech">>,
+		Partial<Pick<MediaService, "stageSpeech" | "stageVideo">>,
 	speech?: SpeechProvider,
+	video?: VideoProvider,
 ) {
 	async function active(id: string): Promise<GenerationRun | null> {
 		const run = await store.get(id);
@@ -50,12 +60,92 @@ export function createGenerationRunner(
 		const run = await store.get(id);
 		if (run) await store.expire(run.projectId);
 	}
+	async function generateVideo(
+		run: GenerationRun,
+	): Promise<boolean | "pending"> {
+		const aspectRatio = videoAspectRatios.find((r) => r === run.aspectRatio);
+		if (
+			!video?.configured ||
+			!videoModels.some((m) => m.id === run.modelId) ||
+			!aspectRatio ||
+			!videoDurations.some((d) => d === run.duration) ||
+			!run.duration
+		) {
+			await fail(run.id);
+			return false;
+		}
+		if (run.providerOperation == null) {
+			if (!(await store.start(run.id))) {
+				const current = await active(run.id);
+				if (!current) return false;
+				if (current.providerOperation != null) return "pending";
+				if (
+					current.providerStartedAt &&
+					Date.now() - current.providerStartedAt.getTime() >= 120_000
+				) {
+					await fail(run.id);
+					return false;
+				}
+				// No repeat paid submission if a response or database acknowledgement was lost.
+				throw new Error("Waiting to recover video submission");
+			}
+			let operation: unknown;
+			try {
+				operation = await video.start({
+					id: run.id,
+					modelId: run.modelId,
+					prompt: run.prompt,
+					aspectRatio,
+					duration: run.duration,
+				});
+				if (operation == null) throw new Error("Missing video operation");
+			} catch {
+				await fail(run.id);
+				return false;
+			}
+			for (let attempt = 0; ; attempt++) {
+				try {
+					await store.saveOperation(run.id, operation);
+					break;
+				} catch {
+					if (attempt === 2)
+						throw new Error("Could not confirm video operation storage");
+					await new Promise((resolve) =>
+						setTimeout(resolve, 500 * (attempt + 1)),
+					);
+				}
+			}
+			return "pending";
+		}
+		// A status read or download can be retried without buying another generation.
+		const result = await video.poll({
+			modelId: run.modelId,
+			operation: run.providerOperation,
+		});
+		if (result.status === "pending") return "pending";
+		if (
+			result.status === "failed" ||
+			!result.bytes.length ||
+			result.bytes.length > 20 * 1024 * 1024 ||
+			result.mimeType !== "video/mp4"
+		) {
+			await fail(run.id);
+			return false;
+		}
+		await artifacts.put(run.id, {
+			kind: "video",
+			bytes: result.bytes,
+			mimeType: result.mimeType,
+		});
+		return true;
+	}
 	return {
-		async generate(id: string) {
+		async generate(id: string): Promise<boolean | "pending"> {
 			const run = await active(id);
 			if (!run) return false;
 			// Recover an already saved provider response if a step checkpoint was lost.
 			if (await artifacts.get(id)) return true;
+			if (run.kind === "video") return generateVideo(run);
 			if (!(await store.start(id))) {
 				const current = await active(id);
 				if (!current) return false;
@@ -161,6 +251,20 @@ export function createGenerationRunner(
 					inputTokens: result.inputTokens,
 					outputTokens: result.outputTokens,
 				};
+			if (result.kind === "video") {
+				if (!media.stageVideo) throw new Error("Video storage unavailable");
+				const asset = await media.stageVideo(run.userId, run.projectId, {
+					...result,
+					name: `Generated video ${id.slice(0, 8)}.mp4`,
+				});
+				if (
+					!asset.durationMs ||
+					!run.duration ||
+					Math.abs(asset.durationMs - run.duration * 1000) > 1000
+				)
+					throw new Error("Unexpected video duration");
+				return { assetId: asset.id };
+			}
 			if (result.kind === "speech") {
 				if (!media.stageSpeech) throw new Error("Audio storage unavailable");
 				const asset = await media.stageSpeech(run.userId, run.projectId, {

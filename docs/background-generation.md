@@ -1,10 +1,10 @@
 # Background generation
 
-Text, image, and speech generation run through Cloudflare Workflows in `apps/jobs`. The web request reserves credits, saves the complete input snapshot in Neon and submits the run ID. It returns without waiting for AI. The canvas polls shared status every three seconds: **Queued**, **Generating**, **Saving result**, then success or failure. Owners and editors can run; viewers can observe. The person clicking Generate pays the existing sandbox price only for a saved successful result.
+Text, image, video, and speech generation run through Cloudflare Workflows in `apps/jobs`. The web request reserves credits, saves the complete input snapshot in Neon and submits the run ID. It returns without waiting for AI. The canvas polls shared status every three seconds: **Queued**, **Generating**, **Saving result**, then success or failure. Owners and editors can run; viewers can observe. The person clicking Generate pays the existing sandbox price only for a saved successful result.
 
 ## Local development
 
-Run `pnpm dev` from the root. Alchemy applies migrations through `0010_speech_generation`, supplies the managed Neon URL and existing `AI_GATEWAY_API_KEY`, starts Wrangler on `127.0.0.1:8787`, and starts Next.js on port 3001. No additional environment variables are needed. Do not run a second jobs Worker on the same port.
+Run `pnpm dev` from the root. Alchemy applies migrations through `0011_video_generation`, supplies the managed Neon URL and existing `AI_GATEWAY_API_KEY`, starts Wrangler on `127.0.0.1:8787`, and starts Next.js on port 3001. No additional environment variables are needed. Do not run a second jobs Worker on the same port.
 
 The web app uses a Wrangler service binding to `kousa-jobs-local`. Both processes use the private local R2 bucket `kousa-media-local` and persist emulator data under `apps/web/.wrangler/state`. Keep that directory to retain local media and workflow state. A local timer invokes Wrangler's scheduled-event endpoint once at startup, then every fifteen minutes, matching the deployed cron. Restart `pnpm dev` after changing bindings or secrets. While local dev is stopped, jobs do not progress; Neon still retains the queue and reservations.
 
@@ -21,13 +21,14 @@ The local Worker is a loopback-only development endpoint. Production has no publ
 
 - The queued Neon row is also a durable outbox entry. If the initial dispatch is lost, a scheduled sweep submits pending IDs within fifteen minutes using Workflow `createBatch`, which skips existing IDs. The run UUID is the workflow instance ID.
 - An atomic database transition rechecks editor access and records that the provider call has started. A repeated execution cannot cross that boundary again. Gateway SDK retries are disabled.
-- The exact provider response is saved under the private R2 prefix `generation-results/`. Images and audio are never embedded in Workflow step results. A replay checks for this receipt before attempting any further work.
+- The exact provider response is saved under the private R2 prefix `generation-results/`. Images, audio, and video are never embedded in Workflow step results. A replay checks for this receipt before attempting any further work.
+- Video submission saves a Gateway operation reference in Neon. Durable sleeps separate status reads, up to 60 polls at 20-second intervals. A restarted runner polls the saved operation instead of submitting again. Status and download failures may retry; paid submissions do not. See [video generation](video-generation.md).
 - Storage and publication steps retry with bounded exponential backoff. Publication rechecks permissions and atomically marks the asset ready and the run successful. Repeating finalization cannot charge twice. A lost commit response cannot refund a successful run.
-- If a started provider call has no receipt, recovery waits for the original request's timeout window, then fails the run. **An interrupted provider request is not automatically regenerated.** The provider may have billed the app even though the user receives no saved result. Kousa releases their reservation and they may explicitly generate again.
+- If a started provider call has neither a receipt nor a saved video operation, recovery waits for the original request's timeout window, then fails the run. **An interrupted provider request is not automatically regenerated.** The provider may have billed the app even though the user receives no saved result. Kousa releases their reservation and they may explicitly generate again.
 - Active reservations expire after thirty minutes. Expired runs cannot execute or finalize. The fallback sweep also releases errored or terminated workflows. Successful and failed rows remain as the billing history.
-- Temporary receipts are removed when the workflow finishes. A crash after terminal state can leave private orphan receipts, and interrupted image staging can leave pending assets counted toward project quotas. A storage cleanup policy is a separate follow-up; do not delete active job receipts.
+- Temporary receipts are removed when the workflow finishes. A crash after terminal state can leave private orphan receipts, and interrupted media staging can leave pending assets counted toward project quotas. A storage cleanup policy is a separate follow-up; do not delete active job receipts.
 
-Prompt edits after queuing apply to the next run. Upstream nodes are not executed automatically. Deleting a canvas node does not cancel its existing job. Video generation and explicit cancellation are not implemented yet.
+Prompt edits after queuing apply to the next run. Upstream nodes are not executed automatically. Deleting a canvas node does not cancel its existing job. Explicit cancellation and image-to-video inputs are not implemented yet.
 
 ## Deployment and limits
 

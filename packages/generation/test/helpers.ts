@@ -23,6 +23,7 @@ export function memoryArtifacts(): ArtifactStore {
 	};
 }
 export const inlineSteps: DurableSteps = {
+	sleep: async () => {},
 	do: async (_name, _options, callback) => callback(),
 };
 export const unavailableImage: ImageProvider = {

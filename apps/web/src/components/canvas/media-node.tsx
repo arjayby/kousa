@@ -10,8 +10,13 @@ import { cn } from "@kousa/ui/lib/utils";
 import { Handle, type NodeProps, Position } from "@xyflow/react";
 import { FileTextIcon, ImageIcon, MicIcon, VideoIcon } from "lucide-react";
 import { memo } from "react";
-import { useNodeImage, useNodeRun, useNodeSpeech } from "./canvas-generation";
-import { AssetPreview, AudioPreview } from "./canvas-media";
+import {
+	useNodeImage,
+	useNodeRun,
+	useNodeSpeech,
+	useNodeVideo,
+} from "./canvas-generation";
+import { AssetPreview, AudioPreview, VideoPreview } from "./canvas-media";
 import type { StudioNode } from "./use-canvas";
 
 export const nodeIcons = {
@@ -44,6 +49,7 @@ export const MediaNode = memo(function MediaNode({
 	const run = useNodeRun(id);
 	const imageResult = useNodeImage(id);
 	const speechResult = useNodeSpeech(id);
+	const videoResult = useNodeVideo(id);
 	const assetId = imageOutputAssetId(data, imageResult?.assetId);
 	const Icon = nodeIcons[kind];
 	return (
@@ -68,6 +74,13 @@ export const MediaNode = memo(function MediaNode({
 				{kind === "image" && assetId ? (
 					<AssetPreview key={assetId} assetId={assetId} compact />
 				) : null}
+				{kind === "video" && videoResult?.assetId ? (
+					<VideoPreview
+						key={videoResult.assetId}
+						assetId={videoResult.assetId}
+						compact
+					/>
+				) : null}
 				{kind === "speech" && speechResult?.assetId ? (
 					<AudioPreview
 						key={speechResult.assetId}
@@ -91,6 +104,7 @@ export const MediaNode = memo(function MediaNode({
 						{run?.output ?? data.content}
 					</p>
 				) : (kind === "image" && assetId) ||
+					(kind === "video" && videoResult?.assetId) ||
 					(kind === "speech" && speechResult?.assetId) ? null : (
 					<div className="flex flex-col items-center gap-2 py-3 text-center text-muted-foreground">
 						<Icon className="size-6 opacity-50" aria-hidden="true" />

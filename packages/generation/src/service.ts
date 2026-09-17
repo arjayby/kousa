@@ -14,6 +14,10 @@ import {
 	speechVoices,
 	textCreditCost,
 	textModels,
+	videoAspectRatios,
+	videoCreditCost,
+	videoDurations,
+	videoModels,
 } from "./contracts";
 import {
 	buildImagePrompt,
@@ -24,6 +28,7 @@ import {
 	imageInputSnapshot,
 	speechInputSnapshot,
 	textInputSnapshot,
+	videoInputSnapshot,
 } from "./input";
 
 export type { ImageProvider, TextProvider } from "./providers";
@@ -55,6 +60,7 @@ export function createGenerationService(
 		textConfigured: boolean;
 		imageConfigured: boolean;
 		speechConfigured?: boolean;
+		videoConfigured?: boolean;
 		dispatch: (id: string) => Promise<void>;
 	},
 ) {
@@ -88,17 +94,21 @@ export function createGenerationService(
 			const { projectId, nodeIds } = listGenerationsInput.parse(raw);
 			await projects.get(actorId, { projectId });
 			await store.expire(projectId);
-			const [runs, balance, imageResults, speechResults] = await Promise.all([
-				store.latest(projectId, nodeIds),
-				store.balance(actorId),
-				store.outputs(projectId, nodeIds, "image"),
-				store.outputs(projectId, nodeIds, "speech"),
-			]);
+			const [runs, balance, imageResults, speechResults, videoResults] =
+				await Promise.all([
+					store.latest(projectId, nodeIds),
+					store.balance(actorId),
+					store.outputs(projectId, nodeIds, "image"),
+					store.outputs(projectId, nodeIds, "speech"),
+					store.outputs(projectId, nodeIds, "video"),
+				]);
 			return {
 				runs: runs.map(publicRun),
 				balance,
 				imageResults: imageResults.map(publicRun),
 				speechResults: speechResults.map(publicRun),
+				videoResults: videoResults.map(publicRun),
+				videoConfigured: jobs.videoConfigured ?? false,
 				speechConfigured: jobs.speechConfigured ?? false,
 				imageConfigured: jobs.imageConfigured,
 				configured: jobs.textConfigured,
@@ -122,15 +132,21 @@ export function createGenerationService(
 			const kind = document.nodes.find(
 				(node) => node.id === input.nodeId,
 			)?.type;
-			if (kind !== "text" && kind !== "image" && kind !== "speech")
+			if (
+				kind !== "text" &&
+				kind !== "image" &&
+				kind !== "speech" &&
+				kind !== "video"
+			)
 				throw new GenerationError(
 					"BAD_REQUEST",
-					"Choose a text, image, or speech node to generate.",
+					"Choose a text, image, video, or speech node to generate.",
 				);
 			const configured = {
 				text: jobs.textConfigured,
 				image: jobs.imageConfigured,
 				speech: jobs.speechConfigured,
+				video: jobs.videoConfigured,
 			}[kind];
 			if (!configured)
 				throw new GenerationError(
@@ -145,24 +161,30 @@ export function createGenerationService(
 					"The shared prompt changed or is still saving. Wait for it to sync, then try again.",
 				);
 			const snapshot =
-				kind === "speech"
+				kind === "video"
 					? {
-							kind: "speech" as const,
-							...speechInputSnapshot(document, input.nodeId),
+							kind: "video" as const,
+							...videoInputSnapshot(document, input.nodeId),
 						}
-					: kind === "image"
+					: kind === "speech"
 						? {
-								kind: "image" as const,
-								...imageInputSnapshot(document, input.nodeId),
+								kind: "speech" as const,
+								...speechInputSnapshot(document, input.nodeId),
 							}
-						: {
-								kind: "text" as const,
-								...textInputSnapshot(document, input.nodeId),
-							};
+						: kind === "image"
+							? {
+									kind: "image" as const,
+									...imageInputSnapshot(document, input.nodeId),
+								}
+							: {
+									kind: "text" as const,
+									...textInputSnapshot(document, input.nodeId),
+								};
 			const models = {
 				text: textModels,
 				image: imageModels,
 				speech: speechModels,
+				video: videoModels,
 			}[kind];
 			if (
 				snapshot.kind === "speech" &&
@@ -174,6 +196,15 @@ export function createGenerationService(
 					"BAD_REQUEST",
 					`Choose an available ${kind} model.`,
 				);
+			if (
+				snapshot.kind === "video" &&
+				(!videoDurations.some((d) => d === snapshot.duration) ||
+					!videoAspectRatios.some((r) => r === snapshot.aspectRatio))
+			)
+				throw new GenerationError(
+					"BAD_REQUEST",
+					"Choose an available video duration and aspect ratio.",
+				);
 			const outputs = await store.outputs(
 				input.projectId,
 				snapshot.sources.map((s) => s.id),
@@ -181,13 +212,15 @@ export function createGenerationService(
 			const prompt =
 				snapshot.kind === "speech"
 					? buildSpeechScript(snapshot, outputs)
-					: snapshot.kind === "image"
+					: snapshot.kind === "image" || snapshot.kind === "video"
 						? buildImagePrompt(snapshot, outputs)
 						: buildPrompt(snapshot, outputs);
 			const credits = {
 				text: textCreditCost,
 				image: imageCreditCost,
 				speech: speechCreditCost,
+				video:
+					snapshot.kind === "video" ? videoCreditCost(snapshot.duration) : 0,
 			}[kind];
 			const claim = await store.claim({
 				...input,
@@ -196,6 +229,8 @@ export function createGenerationService(
 				prompt,
 				credits,
 				kind,
+				duration: snapshot.kind === "video" ? snapshot.duration : null,
+				aspectRatio: snapshot.kind === "video" ? snapshot.aspectRatio : null,
 				size: snapshot.kind === "image" ? snapshot.size : null,
 				voiceId: snapshot.kind === "speech" ? snapshot.voiceId : null,
 				voiceDirection:

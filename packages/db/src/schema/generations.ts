@@ -3,6 +3,7 @@ import {
 	check,
 	index,
 	integer,
+	jsonb,
 	pgTable,
 	text,
 	timestamp,
@@ -27,7 +28,7 @@ export const generationRun = pgTable(
 			.notNull()
 			.references(() => user.id, { onDelete: "restrict" }),
 		modelId: text("model_id").notNull(),
-		kind: text("kind", { enum: ["text", "image", "speech"] })
+		kind: text("kind", { enum: ["text", "image", "speech", "video"] })
 			.notNull()
 			.default("text"),
 		assetId: uuid("asset_id").references(() => mediaAsset.id, {
@@ -35,6 +36,9 @@ export const generationRun = pgTable(
 		}),
 		prompt: text("prompt").notNull(),
 		size: text("size"),
+		duration: integer("duration"),
+		aspectRatio: text("aspect_ratio"),
+		providerOperation: jsonb("provider_operation"),
 		voiceId: text("voice_id"),
 		voiceDirection: text("voice_direction"),
 		stage: text("stage", { enum: ["queued", "generating", "saving"] })
@@ -76,14 +80,18 @@ export const generationRun = pgTable(
 			"generation_status_valid",
 			sql`${t.status} in ('queued', 'running', 'succeeded', 'failed')`,
 		),
+		check(
+			"generation_video_settings",
+			sql`${t.kind} <> 'video' or (${t.duration} is not null and ${t.duration} in (5,10) and ${t.aspectRatio} is not null and ${t.aspectRatio} in ('1:1','16:9','9:16','4:3'))`,
+		),
 		check("generation_credits_positive", sql`${t.credits} > 0`),
 		check(
 			"generation_kind_valid",
-			sql`${t.kind} in ('text', 'image', 'speech')`,
+			sql`${t.kind} in ('text', 'image', 'speech', 'video')`,
 		),
 		check(
 			"generation_result_valid",
-			sql`(${t.status} = 'succeeded' and ${t.completedAt} is not null and ((${t.kind} = 'text' and ${t.output} is not null and length(${t.output}) > 0 and ${t.assetId} is null) or (${t.kind} in ('image', 'speech') and ${t.output} is null and ${t.assetId} is not null))) or (${t.status} <> 'succeeded' and ${t.output} is null and ${t.assetId} is null)`,
+			sql`(${t.status} = 'succeeded' and ${t.completedAt} is not null and ((${t.kind} = 'text' and ${t.output} is not null and length(${t.output}) > 0 and ${t.assetId} is null) or (${t.kind} in ('image', 'speech', 'video') and ${t.output} is null and ${t.assetId} is not null))) or (${t.status} <> 'succeeded' and ${t.output} is null and ${t.assetId} is null)`,
 		),
 	],
 );

@@ -340,7 +340,7 @@ function Editor({
 			if (
 				target instanceof HTMLElement &&
 				(target.closest(
-					"input, textarea, select, audio, [contenteditable=true]",
+					"input, textarea, select, audio, video, [contenteditable=true]",
 				) ||
 					event.altKey)
 			)

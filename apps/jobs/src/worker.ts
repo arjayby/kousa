@@ -12,6 +12,7 @@ import {
 	createGatewayProvider,
 	createGatewaySpeechProvider,
 } from "@kousa/generation/gateway";
+import { createGatewayVideoProvider } from "@kousa/generation/gateway-video";
 import { createGenerationRunner } from "@kousa/generation/runner";
 import { executeGenerationWorkflow } from "@kousa/generation/workflow";
 import { createMediaService } from "@kousa/media/service";
@@ -39,6 +40,7 @@ function runtime(env: JobsEnv) {
 			r2Storage(env.MEDIA),
 		),
 		createGatewaySpeechProvider(env.AI_GATEWAY_API_KEY),
+		createGatewayVideoProvider(env.AI_GATEWAY_API_KEY),
 	);
 	return { store, runner };
 }

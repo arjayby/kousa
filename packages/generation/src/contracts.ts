@@ -48,6 +48,15 @@ export const speechVoices = [
 export const defaultSpeechVoice = speechVoices[0].id;
 export const speechCreditCost = 2;
 export const maxSpeechCharacters = 1_000;
+// Gateway catalog verified 2026-09-17. Paid Gateway credits required.
+export const videoModels = [
+	{ id: "bytedance/seedance-v1.0-pro-fast", name: "Seedance v1.0 Pro Fast" },
+] as const;
+export const defaultVideoModel = videoModels[0].id;
+export const videoAspectRatios = ["1:1", "16:9", "9:16", "4:3"] as const;
+export const videoDurations = [5, 10] as const;
+export const videoCreditCost = (duration: number) =>
+	duration === 10 ? 20 : 10;
 export const maxInputBytes = 12_000;
 export const maxOutputTokens = 2_048;
 export const generationProjectInput = z.object({ projectId: z.uuid() });
@@ -65,7 +74,7 @@ export type PublicRun = {
 	nodeId: string;
 	userId: string;
 	modelId: string;
-	kind: "text" | "image" | "speech";
+	kind: "text" | "image" | "speech" | "video";
 	transcript: string | null;
 	voiceId: string | null;
 	assetId: string | null;

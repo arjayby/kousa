@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export const maxVideoBytes = 20 * 1024 * 1024;
+export const maxVideoDurationMs = 12_000;
 export const maxAudioDurationMs = 180_000;
 export const maxAudioBytes = 10 * 1024 * 1024;
 export const maxImageBytes = 10 * 1024 * 1024;
@@ -15,7 +17,7 @@ export const mediaParams = z.object({
 export const publicAssetSchema = z.object({
 	id: z.uuid(),
 	name: z.string(),
-	mimeType: z.enum([...imageMimeTypes, "audio/mpeg"]),
+	mimeType: z.enum([...imageMimeTypes, "audio/mpeg", "video/mp4"]),
 	bytes: z.number(),
 	width: z.number().nullable(),
 	height: z.number().nullable(),

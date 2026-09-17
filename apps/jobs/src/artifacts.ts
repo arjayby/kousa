@@ -17,8 +17,10 @@ export function r2Artifacts(bucket: R2Bucket): ArtifactStore {
 				return textResult.parse(await object.json());
 			if (
 				(object.customMetadata?.kind !== "image" &&
-					object.customMetadata?.kind !== "speech") ||
-				object.size > 10 * 1024 * 1024
+					object.customMetadata?.kind !== "speech" &&
+					object.customMetadata?.kind !== "video") ||
+				object.size >
+					(object.customMetadata?.kind === "video" ? 20 : 10) * 1024 * 1024
 			)
 				throw new Error("Invalid stored generation result");
 			return {

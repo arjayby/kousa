@@ -123,7 +123,7 @@ export function NodeInspector({
 									? "Write a prompt here, connect a Text node, or use both."
 									: kind === "speech"
 										? "Write the words to speak, connect a Text node, or use both."
-										: "Connected inputs will supply context when video generation is added."}
+										: "Describe a scene and its motion, connect a Text node, or use both."}
 						</FieldDescription>
 					</Field>
 					{kind === "image" || kind === "video" ? (
@@ -191,9 +191,7 @@ export function NodeInspector({
 						</Field>
 					) : null}
 				</FieldGroup>
-				{kind === "text" || kind === "image" || kind === "speech" ? (
-					<GenerationPanel node={node} canEdit={canEdit} update={update} />
-				) : null}
+				<GenerationPanel node={node} canEdit={canEdit} update={update} />
 				{kind === "image" ? (
 					<ImageMediaPanel
 						generatedAssetId={imageResult?.assetId}

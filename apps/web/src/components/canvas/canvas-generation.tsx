@@ -4,6 +4,7 @@ import {
 	defaultImageModel,
 	defaultSpeechModel,
 	defaultSpeechVoice,
+	defaultVideoModel,
 	imageCreditCost,
 	imageModels,
 	imageSizes,
@@ -16,12 +17,15 @@ import {
 	speechVoices,
 	textCreditCost,
 	textModels,
+	videoCreditCost,
+	videoModels,
 } from "@kousa/generation/contracts";
 import {
 	generationInputHash,
 	imageInputSnapshot,
 	speechInputSnapshot,
 	textInputSnapshot,
+	videoInputSnapshot,
 } from "@kousa/generation/input";
 import type { CanvasNode } from "@kousa/projects/canvas";
 import { Button } from "@kousa/ui/components/button";
@@ -44,7 +48,12 @@ import { CopyIcon, LoaderCircleIcon, PlayIcon } from "lucide-react";
 import { createContext, useContext, useRef, useState } from "react";
 import { toast } from "sonner";
 import { client, orpc } from "@/utils/orpc";
-import { AssetDownload, AssetPreview, AudioPreview } from "./canvas-media";
+import {
+	AssetDownload,
+	AssetPreview,
+	AudioPreview,
+	VideoPreview,
+} from "./canvas-media";
 import {
 	documentFromGraph,
 	type StudioGraph,
@@ -68,7 +77,11 @@ export function useCanvasGeneration({
 	const cache = useQueryClient();
 	const nodeIds = graph.nodes
 		.filter(
-			(n) => n.type === "text" || n.type === "image" || n.type === "speech",
+			(n) =>
+				n.type === "text" ||
+				n.type === "image" ||
+				n.type === "speech" ||
+				n.type === "video",
 		)
 		.map((n) => n.id)
 		.sort();
@@ -159,6 +172,10 @@ export function useCanvasGeneration({
 			(query.data?.speechResults ?? []).map((run) => [run.nodeId, run]),
 		),
 		speechConfigured: query.data?.speechConfigured,
+		videoConfigured: query.data?.videoConfigured,
+		videoResults: new Map(
+			(query.data?.videoResults ?? []).map((run) => [run.nodeId, run]),
+		),
 		run,
 		balance: query.data?.balance,
 		configured: query.data?.configured,
@@ -185,6 +202,9 @@ export function useNodeRun(id: string): PublicRun | undefined {
 export function useNodeImage(id: string): PublicRun | undefined {
 	return useContext(GenerationContext)?.imageResults.get(id);
 }
+export function useNodeVideo(id: string): PublicRun | undefined {
+	return useContext(GenerationContext)?.videoResults.get(id);
+}
 export function useNodeSpeech(id: string): PublicRun | undefined {
 	return useContext(GenerationContext)?.speechResults.get(id);
 }
@@ -200,8 +220,18 @@ export function GenerationPanel({
 	const generation = useContext(GenerationContext);
 	if (!generation) return null;
 	const kind =
-		node.type === "image" || node.type === "speech" ? node.type : "text";
+		node.type === "image" || node.type === "speech" || node.type === "video"
+			? node.type
+			: "text";
 	const settings = {
+		video: {
+			cost: videoCreditCost(node.data.duration),
+			models: videoModels,
+			configured: generation.videoConfigured,
+			model: node.data.videoModel ?? defaultVideoModel,
+			field: "videoModel",
+			snapshot: videoInputSnapshot,
+		},
 		text: {
 			cost: textCreditCost,
 			models: textModels,
@@ -237,6 +267,7 @@ export function GenerationPanel({
 		label: voice.name,
 	}));
 	const speechResult = generation.speechResults.get(node.id);
+	const videoResult = generation.videoResults.get(node.id);
 	const imageResult = generation.imageResults.get(node.id);
 	const run = generation.runs.get(node.id);
 	const pending = generation.pendingNode === node.id || isRunActive(run);
@@ -301,15 +332,17 @@ export function GenerationPanel({
 				</Select>
 				<FieldDescription>
 					{cost} Kousa {cost === 1 ? "credit" : "credits"} per successful run ·{" "}
-					{kind === "image"
-						? `${imageSizes[node.data.aspectRatio].replace("x", " × ")} pixels`
-						: kind === "speech"
-							? "MP3 · Up to 1,000 script characters"
-							: "Up to 2,048 output tokens"}
+					{kind === "video"
+						? `Silent MP4 · 480p · ${node.data.duration} seconds`
+						: kind === "image"
+							? `${imageSizes[node.data.aspectRatio].replace("x", " × ")} pixels`
+							: kind === "speech"
+								? "MP3 · Up to 1,000 script characters"
+								: "Up to 2,048 output tokens"}
 					.
 				</FieldDescription>
 				<FieldDescription>
-					{kind === "speech"
+					{kind === "speech" || kind === "video"
 						? "Requires paid credits enabled on your Vercel AI Gateway account."
 						: "Models eligible for Vercel free credits."}
 				</FieldDescription>
@@ -456,6 +489,29 @@ export function GenerationPanel({
 				</div>
 			) : null}
 
+			{kind === "video" ? (
+				<div className="flex flex-col gap-3">
+					<p className="text-muted-foreground text-xs">
+						Uses the prompt and connected text. Connected text uses its last
+						successful output, or its written text. Creates a silent clip;
+						image, video, and audio inputs are not supported yet.
+					</p>
+					{videoResult?.assetId ? (
+						<>
+							<h3 className="font-medium text-xs">Last generated video</h3>
+							<VideoPreview
+								key={videoResult.assetId}
+								assetId={videoResult.assetId}
+							/>
+							<AssetDownload assetId={videoResult.assetId} kind="video" />
+							<p className="text-muted-foreground text-xs">
+								Saved to this project. Generate again to apply prompt or
+								duration changes.
+							</p>
+						</>
+					) : null}
+				</div>
+			) : null}
 			{run?.output ? (
 				<div className="flex flex-col gap-2">
 					<div className="flex items-center justify-between gap-2">

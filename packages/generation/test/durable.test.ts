@@ -191,6 +191,7 @@ it("retries publishing safely when a successful database commit loses its respon
 	});
 	const attempts = new Map<string, number>();
 	const retrySteps: DurableSteps = {
+		sleep: async () => {},
 		async do(name, options, callback) {
 			for (let attempt = 0; ; attempt++) {
 				attempts.set(name, attempt + 1);

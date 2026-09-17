@@ -24,3 +24,19 @@ export interface SpeechProvider {
 		voiceDirection: string;
 	}): Promise<{ bytes: Uint8Array<ArrayBuffer>; mimeType: string }>;
 }
+
+export type VideoStatus =
+	| { status: "pending" }
+	| { status: "failed" }
+	| { status: "succeeded"; bytes: Uint8Array<ArrayBuffer>; mimeType: string };
+export interface VideoProvider {
+	configured: boolean;
+	start(input: {
+		id: string;
+		modelId: string;
+		prompt: string;
+		aspectRatio: `${number}:${number}`;
+		duration: number;
+	}): Promise<unknown>;
+	poll(input: { modelId: string; operation: unknown }): Promise<VideoStatus>;
+}
