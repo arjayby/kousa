@@ -2,6 +2,7 @@ import { fileURLToPath, URL } from "node:url";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
+import { createMediaGalleryStore } from "./src/media-gallery-store";
 import { createMediaLifecycleStore } from "./src/media-lifecycle-store";
 import { createMediaStore } from "./src/media-store";
 import { createProjectStore } from "./src/project-store";
@@ -17,6 +18,7 @@ export async function createMediaTestDatabase() {
 		),
 	});
 	return {
+		gallery: createMediaGalleryStore(db),
 		lifecycle: createMediaLifecycleStore(db),
 		query: (text: string, params: unknown[] = []) =>
 			db.$client.query(text, params),

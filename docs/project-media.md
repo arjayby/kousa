@@ -1,5 +1,17 @@
 # Project media library and storage
 
+## Generated media page
+
+Open **Media** in the main navigation to browse generated images, videos, speech, and completed narrated clips at `/media`. The page combines your personal playground outputs with outputs from projects you currently own or belong to, including workflow results and files from older generations. Each stored file appears once within its project or playground library. Uploads and unfinished outputs are excluded.
+
+Filter by media type, search filenames or project names, and use **Load more media** to reach older files. Results are ordered by file creation time, newest first, and refresh every ten seconds. Open a preview to view an image or play video/audio, read saved speech or clip transcripts, download the file, or open its source project. Video and audio files load only when their preview is opened. All file delivery uses the existing private media routes.
+
+The gallery checks current ownership and project membership on every request. Cursor pagination preserves database timestamp precision, and query caches are scoped to the signed-in account. No migration or new configuration is required.
+
+Gallery tests cover personal and shared outputs, clip results, deduplication, revoked access, private metadata, filters, and pagination with equal timestamps and microseconds. API tests cover authentication and input validation. The local browser check verified existing project and playground files, filename search, empty results, type filters, image previews, and video loading.
+
+## Project library
+
 Open **Media library** in the canvas toolbar to browse this project's uploaded images, videos, speech, completed generations, and narrated clips. Filter by Images, Videos, or Speech, or search filenames. Click a thumbnail to preview an image or open a video/audio player. Each file has a download link and format, dimensions, duration (where applicable), and size. Media refreshes every ten seconds and when the library opens; Refresh also reloads it manually.
 
 Owners and editors can use **Add to canvas** on any file to create a selected node of its media type referencing the same asset, without uploading or generating it again. The node uses the project media as its source and participates in shared saving and undo/redo. The 200-node limit still applies. Viewers can browse, preview, and download, but cannot add nodes. Video and speech sources can be combined using [Narrated clip](clip-composition.md).

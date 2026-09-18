@@ -5,6 +5,7 @@ import { protectedProcedure, publicProcedure } from "../index";
 import { createClipRouter } from "./clips";
 import { createGenerationRouter } from "./generation";
 import { createGraphRouter } from "./graph";
+import { createMediaRouter } from "./media";
 import { createPlaygroundRouter } from "./playground";
 import { createProjectsRouter } from "./projects";
 import { createRunRouter } from "./runs";
@@ -12,6 +13,7 @@ import { createRunRouter } from "./runs";
 import { createTemplatesRouter } from "./templates";
 
 export const appRouter = {
+	media: createMediaRouter(),
 	playground: createPlaygroundRouter(),
 	runs: createRunRouter(),
 	templates: createTemplatesRouter(),
