@@ -38,7 +38,7 @@ import {
 	ToggleGroupItem,
 } from "@kousa/ui/components/toggle-group";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { ImagesIcon, RefreshCwIcon, SearchIcon } from "lucide-react";
+import { ImagesIcon, SearchIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { client } from "@/utils/orpc";
@@ -79,7 +79,6 @@ export function MediaGallery({
 				? { pages: [initial], pageParams: [undefined] }
 				: undefined,
 		staleTime: 10_000,
-		refetchInterval: 10_000,
 		retry: false,
 	});
 	// Hide stale metadata after a failed refresh, including revoked access.
@@ -105,19 +104,9 @@ export function MediaGallery({
 						projects.
 					</p>
 				</div>
-				<div className="flex flex-wrap gap-2">
-					<Button
-						variant="outline"
-						disabled={query.isFetching}
-						onClick={() => void query.refetch()}
-					>
-						<RefreshCwIcon data-icon="inline-start" />
-						{query.isFetching ? "Refreshing…" : "Refresh"}
-					</Button>
-					<Link href="/playground" className={buttonVariants()}>
-						Generate media
-					</Link>
-				</div>
+				<Link href="/playground" className={buttonVariants()}>
+					Generate media
+				</Link>
 			</div>
 
 			<div className="flex flex-wrap items-end justify-between gap-4">

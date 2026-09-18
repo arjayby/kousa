@@ -4,7 +4,7 @@
 
 Open **Media** in the main navigation to browse generated images, videos, speech, and completed narrated clips at `/media`. The page combines your personal playground outputs with outputs from projects you currently own or belong to, including workflow results and files from older generations. Each stored file appears once within its project or playground library. Uploads and unfinished outputs are excluded.
 
-Filter by media type, search filenames or project names, and use **Load more media** to reach older files. Results are ordered by file creation time, newest first, and refresh every ten seconds. Open a preview to view an image or play video/audio, read saved speech or clip transcripts, download the file, or open its source project. Video and audio files load only when their preview is opened. All file delivery uses the existing private media routes.
+Filter by media type, search filenames or project names, and use **Load more media** to reach older files. Results are ordered by file creation time, newest first. Open a preview to view an image or play video/audio, read saved speech or clip transcripts, download the file, or open its source project. Video and audio files load only when their preview is opened. All file delivery uses the existing private media routes.
 
 The gallery checks current ownership and project membership on every request. Cursor pagination preserves database timestamp precision, and query caches are scoped to the signed-in account. No migration or new configuration is required.
 
