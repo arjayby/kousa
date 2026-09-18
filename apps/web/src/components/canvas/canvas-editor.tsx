@@ -39,6 +39,9 @@ import {
 import {
 	CheckIcon,
 	CircleAlertIcon,
+	ClipboardPasteIcon,
+	CopyIcon,
+	CopyPlusIcon,
 	LayoutTemplateIcon,
 	LocateFixedIcon,
 	LockKeyholeIcon,
@@ -68,6 +71,7 @@ import {
 	type StudioNode,
 	useCanvas,
 } from "./use-canvas";
+import { isCanvasTextTarget, useCanvasClipboard } from "./use-canvas-clipboard";
 import { WorkflowLauncher } from "./workflow-launcher";
 import "@xyflow/react/dist/style.css";
 
@@ -261,35 +265,17 @@ function Editor({
 		});
 		setMessage("Selection deleted. You can undo this change.");
 	}, [canEdit, selectionCount, selectedNodes, selectedEdges, dispatch]);
-	const duplicate = useCallback(() => {
-		if (!canEdit || !selectedNode || graph.nodes.length >= 200) return;
-		const node = {
-			...selectedNode,
-			id: crypto.randomUUID(),
-			selected: true,
-			position: {
-				x: Math.min(99_000, selectedNode.position.x + 48),
-				y: Math.min(99_000, selectedNode.position.y + 48),
-			},
-			data: {
-				...selectedNode.data,
-				selectedRunId: null,
-				label:
-					`${selectedNode.data.label || nodeLabels[selectedNode.type ?? "text"]} copy`.slice(
-						0,
-						80,
-					),
-			},
-		};
-		dispatch({
-			type: "edit",
-			update: (current) => ({
-				...clearSelection(current),
-				nodes: [...clearSelection(current).nodes, node],
-			}),
-		});
-		setMessage("Node duplicated.");
-	}, [canEdit, selectedNode, graph.nodes.length, dispatch]);
+	const { copy, paste, duplicate } = useCanvasClipboard({
+		userId,
+		projectId,
+		graph,
+		canEdit,
+		root,
+		viewport,
+		dispatch,
+		notify: setMessage,
+		fitAfterAdd,
+	});
 	const update = (data: Partial<CanvasNode["data"]>, field: string) => {
 		if (!canEdit || !selectedNode) return;
 		dispatch({
@@ -345,14 +331,7 @@ function Editor({
 		const keydown = (event: KeyboardEvent) => {
 			if (!root.current?.contains(document.activeElement)) return;
 			const target = event.target;
-			if (
-				target instanceof HTMLElement &&
-				(target.closest(
-					"input, textarea, select, audio, video, [contenteditable=true]",
-				) ||
-					event.altKey)
-			)
-				return;
+			if (isCanvasTextTarget(target) || event.altKey) return;
 			if (
 				(event.metaKey || event.ctrlKey) &&
 				event.key.toLowerCase() === "z" &&
@@ -360,6 +339,19 @@ function Editor({
 			) {
 				event.preventDefault();
 				dispatch({ type: event.shiftKey ? "redo" : "undo" });
+			} else if (
+				(event.metaKey || event.ctrlKey) &&
+				event.key.toLowerCase() === "a"
+			) {
+				event.preventDefault();
+				dispatch({
+					type: "nodes",
+					changes: graph.nodes.map((node) => ({
+						type: "select",
+						id: node.id,
+						selected: true,
+					})),
+				});
 			} else if (
 				(event.metaKey || event.ctrlKey) &&
 				event.key.toLowerCase() === "d" &&
@@ -405,6 +397,7 @@ function Editor({
 		selectionCount,
 		selectedNodes,
 		selectedEdges,
+		graph.nodes,
 	]);
 
 	function addStarter() {
@@ -524,6 +517,36 @@ function Editor({
 					<Button
 						variant="ghost"
 						size="icon"
+						disabled={!selectedNodes.length}
+						onClick={copy}
+						aria-label="Copy selection"
+						title="Copy selection · ⌘/Ctrl C"
+					>
+						<CopyIcon />
+					</Button>
+					<Button
+						variant="ghost"
+						size="icon"
+						disabled={!canEdit || !selectedNodes.length}
+						onClick={duplicate}
+						aria-label="Duplicate selection"
+						title="Duplicate selection · ⌘/Ctrl D"
+					>
+						<CopyPlusIcon />
+					</Button>
+					<Button
+						variant="ghost"
+						size="icon"
+						disabled={!canEdit}
+						onClick={paste}
+						aria-label="Paste nodes"
+						title="Paste nodes · ⌘/Ctrl V"
+					>
+						<ClipboardPasteIcon />
+					</Button>
+					<Button
+						variant="ghost"
+						size="icon"
 						disabled={!canEdit || !canUndo}
 						onClick={() => dispatch({ type: "undo" })}
 						aria-label="Undo"
@@ -620,6 +643,7 @@ function Editor({
 				<div
 					className="studio-viewport"
 					ref={viewport}
+					tabIndex={-1}
 					onPointerMove={(event) =>
 						session?.updatePresence({
 							cursor: flow.screenToFlowPosition({
@@ -658,6 +682,7 @@ function Editor({
 						}}
 						onNodeDragStop={() => dispatch({ type: "end" })}
 						onConnect={connect}
+						onPaneClick={() => viewport.current?.focus({ preventScroll: true })}
 						isValidConnection={validConnection}
 						onConnectEnd={(_, state) => {
 							if (state.toNode && !state.isValid)
@@ -744,6 +769,14 @@ function Editor({
 									<LockKeyholeIcon className="size-5 text-muted-foreground" />
 								)}
 							</Empty>
+						</div>
+					) : null}
+					{selectedNodes.length > 1 ? (
+						<div className="studio-selection-info">
+							<span>
+								{selectedNodes.length} nodes selected · Internal connections
+								included when copying
+							</span>
 						</div>
 					) : null}
 					{selectedEdges.length > 0 && !selectedNodes.length ? (

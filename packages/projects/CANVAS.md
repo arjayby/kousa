@@ -5,11 +5,11 @@ Open a project, then choose **Open canvas**. The editor lives at `/projects/[pro
 ## Current milestone
 
 - Add text, image, video, and speech nodes. Each node has a name and text, prompt, or script.
-- Set image/video aspect ratios, video duration, and speech voice direction. These are draft settings; generation is not connected yet.
+- Set image/video aspect ratios, video duration, and speech voice direction. Generate individual nodes or review an affected workflow before spending credits.
 - Drag nodes to move them. Connect an output dot to a compatible input, either by dragging or clicking the two dots in order.
 - Select a node to edit it. Duplicate or delete it from the settings panel. Select an edge and choose **Disconnect**, or remove it from a node's connection list.
 - Drag the background to select several nodes. Scroll or hold Space and drag to pan. Pinch to zoom, or use the zoom and fit controls.
-- Delete/Backspace removes a selection. Cmd/Ctrl+Z undoes changes, Cmd/Ctrl+Shift+Z redoes them, and Cmd/Ctrl+D duplicates a selected node. Text inputs keep their normal editing shortcuts.
+- Delete/Backspace removes a selection. Cmd/Ctrl+Z undoes changes, Cmd/Ctrl+Shift+Z redoes them, and Cmd/Ctrl+D duplicates selected nodes with their internal connections. Cmd/Ctrl+A selects all nodes. Cmd/Ctrl+C/V copies and pastes a selection, including between projects. Text inputs keep their normal editing shortcuts. See [branch copying](../../docs/canvas-copy-paste.md) for reference rules and limits.
 - Undo affects this tab's edits during the current visit and preserves other collaborators' edits. Deleting a node removes attached edges in the same undo operation.
 
 ## Project storage and access
@@ -43,4 +43,4 @@ Each input accepts one connection. Outputs can feed several nodes. Validation re
 
 `pnpm --filter @kousa/projects test` covers graph validation, Yjs convergence, local undo, deletion conflicts, deterministic connection rules, portable export, and the legacy autosave helpers. `pnpm --filter @kousa/api test` uses PGlite to verify real membership queries, import retries, concurrent initialization, old-save rejection, and permission changes during provider failures.
 
-AI generation and media uploads are separate milestones.
+Generation history, selective reruns, and project media are documented in the repository's `docs/` directory.

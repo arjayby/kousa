@@ -89,6 +89,17 @@ See [node generation history](node-generation-history.md) for usage, exact-outpu
 
 See [selective reruns](selective-reruns.md) for behavior, input records, migration, and legacy limits.
 
+## Selection duplication and branch copy/paste
+
+- **51 project tests passed**, including eight new graph-copying tests and six clipboard-access tests. They cover fresh IDs, internal-only connections, all four node kinds and authored settings, same-project attachment retention, cross-project reference clearing, input validation, coordinate bounds, node/edge limits, and one-step shared undo/redo that preserves a concurrent collaborator edit. Clipboard checks cover denied reads/writes, account isolation, invalid text clearing the fallback, keyboard-to-toolbar copying, and delayed reads preserving newer copies.
+- All **9 type-check tasks** in the web/projects dependency graph passed. Changed TypeScript files pass Biome and `git diff --check`. Next.js runtime and compilation diagnostics were clean.
+- In the in-app browser, selecting all five demo nodes and duplicating with Ctrl+D produced ten nodes and eight connections; one undo restored five nodes and four connections. A two-node branch copied with its single internal edge through both the toolbar copy action and native Cmd+C/V. Undo and redo each operated on the entire pasted branch.
+- Pasting the branch into **Workflow example** increased its counts from eleven nodes/nine connections to thirteen nodes/ten connections, without links to the source project's nodes. Undo restored the destination. Native text copying inside a prompt field remained normal, and non-Kousa clipboard text was rejected without changing the graph.
+- The browser denied direct clipboard reads from the paste button. An account-scoped in-memory copy now lets the Copy and Paste icons work despite that denial. A follow-up browser check pasted one node through the icons, showed the last-canvas-copy message, and used the Undo icon to restore the user's current fourteen nodes and eight connections. Keyboard copy followed by toolbar paste also worked. Copying ordinary prompt text cleared the saved selection, and toolbar paste rejected that text without adding nodes.
+- Test insertions were undone. No generation, credit spending, migration, or deployment was needed.
+
+See [branch copying](canvas-copy-paste.md) for shortcuts and saved-result rules.
+
 ## Deferred provider checks
 
 | Feature | What is needed | Remaining checks |

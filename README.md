@@ -16,6 +16,7 @@ This project was created with [Better-T-Stack](https://github.com/AmanVarshney01
 - **Projects and permissions** - Private projects with owner, editor, and viewer access through email invitations
 - **Background generation** - Durable Cloudflare Workflows for text/image/video/speech jobs, shared progress, recovery, and protected credit reservations
 - **Node canvas** - Text, image, video, and speech nodes with connections, undo/redo, and shared project saving with editor/viewer permissions
+- **Branch copying** - Duplicate selections or copy/paste nodes with their settings and internal connections, including between projects
 - **Node generation history** - Browse attempts, reuse saved outputs, and restore authored settings without starting a generation
 - **Project media library** - Search and filter saved media, preview and download files, and reuse images, videos, and speech on the canvas
 - **Narrated clips** - Combine video and speech with timing/volume controls and durable server exports
@@ -53,6 +54,8 @@ Alchemy starts Next.js, the local generation Worker, and the clip renderer, appl
 Open [http://localhost:3001](http://localhost:3001) in your browser to see the fullstack application.
 
 ## UI Customization
+
+Select nodes and use **Duplicate selection**, **Copy selection**, or **Paste nodes** in the canvas toolbar. Cmd/Ctrl+D duplicates, Cmd/Ctrl+C/V copies and pastes, and one undo removes the entire copy. See [branch copying](docs/canvas-copy-paste.md) for media rules and shortcuts.
 
 Choose **Run affected steps** from the toolbar or a node inspector. Changed-input indicators explain outdated results; unchanged steps are reused at zero cost, with explicit force-regeneration controls. See [selective reruns](docs/selective-reruns.md) and [workflow execution](docs/graph-execution.md) for credit review, progress, and resume.
 
