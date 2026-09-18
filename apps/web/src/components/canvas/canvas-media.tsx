@@ -2,12 +2,11 @@
 
 import {
 	imageMimeTypes,
-	maxImageBytes,
 	mediaListSchema,
-	mediaUploadSchema,
 	mediaUrl,
 	type ProjectAsset,
 } from "@kousa/media/contracts";
+import { uploadProjectMedia } from "@kousa/media/upload";
 import { type CanvasNode, imageOutputAssetId } from "@kousa/projects/canvas";
 import { Button } from "@kousa/ui/components/button";
 import {
@@ -224,26 +223,14 @@ export function ImageMediaPanel({
 	async function upload(file: File) {
 		if (!media || busy.current || !canEdit) return;
 		setError(null);
-		if (
-			!file.size ||
-			file.size > maxImageBytes ||
-			!imageMimeTypes.some((type) => type === file.type)
-		) {
+		if (!imageMimeTypes.some((type) => type === file.type)) {
 			setError("Choose a PNG, JPEG, or WebP image up to 10 MB.");
 			return;
 		}
 		busy.current = true;
 		setUploading(true);
 		try {
-			const response = await fetch(mediaUrl(media.projectId), {
-				method: "POST",
-				headers: {
-					"Content-Type": file.type,
-					"X-File-Name": encodeURIComponent(file.name),
-				},
-				body: file,
-			});
-			const { asset } = mediaUploadSchema.parse(await responseBody(response));
+			const asset = await uploadProjectMedia(media.projectId, file);
 			media.retryPreview(asset.id);
 			update(
 				{ selectedRunId: null, assetId: asset.id, imageSource: "project" },

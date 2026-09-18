@@ -2,6 +2,12 @@
 
 import { resolveConnection } from "@kousa/generation/connections";
 import {
+	createCanvasStarter,
+	type StarterKind,
+	starterUnavailable,
+} from "@kousa/generation/starters";
+import { uploadAccept, uploadFormats } from "@kousa/media/upload";
+import {
 	type CanvasConnection,
 	type CanvasNode,
 	createCanvasNode,
@@ -55,6 +61,7 @@ import {
 	ScanIcon,
 	Trash2Icon,
 	Undo2Icon,
+	UploadIcon,
 	WorkflowIcon,
 	ZoomInIcon,
 	ZoomOutIcon,
@@ -64,8 +71,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SaveTemplate } from "@/components/templates/save-template";
 import { ClipContext, ClipMonitor, useCanvasClips } from "./canvas-clips";
 import { GenerationContext, useCanvasGeneration } from "./canvas-generation";
+import {
+	CanvasGuide,
+	StarterProgress,
+	type StarterSession,
+} from "./canvas-guide";
 import { CanvasMediaProvider } from "./canvas-media";
 import { CanvasCursors, CanvasPeople } from "./canvas-presence";
+import { CanvasRecovery } from "./canvas-recovery";
 import { CanvasRunHistory } from "./canvas-run-history";
 import { WorkflowMonitor } from "./canvas-workflow";
 import { ConnectionDialog, type ConnectionReview } from "./connection-preview";
@@ -81,6 +94,7 @@ import {
 	useCanvas,
 } from "./use-canvas";
 import { isCanvasTextTarget, useCanvasClipboard } from "./use-canvas-clipboard";
+import { useCanvasMediaImport } from "./use-canvas-media-import";
 import { WorkflowLauncher } from "./workflow-launcher";
 import "@xyflow/react/dist/style.css";
 
@@ -215,6 +229,16 @@ function Editor({
 	const { resolvedTheme } = useTheme();
 	const [message, setMessage] = useState("");
 	const [searchOpen, setSearchOpen] = useState(false);
+	const [guideOpen, setGuideOpen] = useState(false);
+	const [starterSession, setStarterSession] = useState<StarterSession | null>(
+		null,
+	);
+	const capabilities = {
+		image: generation.imageConfigured,
+		speech: generation.speechConfigured,
+		video: generation.videoConfigured,
+		imageToVideo: generation.imageToVideoConfigured,
+	};
 	const [connectionReview, setConnectionReview] =
 		useState<ConnectionReview | null>(null);
 	const reconnecting = useRef<string | undefined>(undefined);
@@ -345,6 +369,74 @@ function Editor({
 		});
 		setMessage("Selection deleted. You can undo this change.");
 	}, [canEdit, selectionCount, selectedNodes, selectedEdges, dispatch]);
+	const mediaImport = useCanvasMediaImport({
+		userId,
+		projectId,
+		canUpload: canRun,
+		remaining: 200 - graph.nodes.length,
+		position: (point) => {
+			const bounds = viewport.current?.getBoundingClientRect();
+			if (!bounds) return undefined;
+			return flow.screenToFlowPosition(
+				point ?? {
+					x: bounds.left + bounds.width / 2 - 130,
+					y: bounds.top + bounds.height / 2 - 110,
+				},
+			);
+		},
+		onAssets: (assets, origin) => {
+			if (!origin) return false;
+			let added = false;
+			dispatch({
+				type: "edit",
+				update: (current) => {
+					if (current.nodes.length + assets.length > 200) return current;
+					const nodes = clearSelection(current).nodes;
+					for (const asset of assets) {
+						const kind =
+							asset.mimeType === "video/mp4"
+								? "video"
+								: asset.mimeType === "audio/mpeg"
+									? "speech"
+									: "image";
+						const position = { ...origin };
+						for (let slot = 0; slot < 500; slot++) {
+							position.x = Math.max(
+								-99_000,
+								Math.min(99_000, origin.x + (slot % 2) * 380),
+							);
+							position.y = Math.max(
+								-99_000,
+								Math.min(99_000, origin.y + Math.floor(slot / 2) * 380),
+							);
+							if (
+								!nodes.some(
+									(node) =>
+										Math.abs(node.position.x - position.x) < 310 &&
+										Math.abs(node.position.y - position.y) < 350,
+								)
+							)
+								break;
+						}
+						const node = createCanvasNode(kind, position);
+						node.data = {
+							...node.data,
+							label: asset.name.slice(0, 80),
+							assetId: asset.id,
+							selectedRunId: null,
+							imageSource: "project",
+							mediaSource: "project",
+						};
+						nodes.push({ ...node, selected: true });
+					}
+					added = true;
+					fitAfterAdd.current = true;
+					return { nodes, edges: clearSelection(current).edges };
+				},
+			});
+			return added;
+		},
+	});
 	const { copy, paste, duplicate } = useCanvasClipboard({
 		userId,
 		projectId,
@@ -355,6 +447,9 @@ function Editor({
 		dispatch,
 		notify: setMessage,
 		fitAfterAdd,
+		pasteFiles: (files) => {
+			void mediaImport.upload(files);
+		},
 	});
 	const update = (data: Partial<CanvasNode["data"]>, field: string) => {
 		if (!canEdit || !selectedNode) return;
@@ -426,6 +521,7 @@ function Editor({
 		() =>
 			graph.nodes.map((node) => ({
 				...node,
+				ariaLabel: `${node.data.label || nodeLabels[node.type ?? "text"]}, ${nodeLabels[node.type ?? "text"]} node`,
 				className: cn(
 					dependencies.upstream.nodes.has(node.id) && "studio-upstream",
 					dependencies.downstream.nodes.has(node.id) && "studio-downstream",
@@ -474,6 +570,16 @@ function Editor({
 			) {
 				event.preventDefault();
 				setSearchOpen(true);
+				return;
+			}
+			if (
+				(inCanvas || document.activeElement === document.body) &&
+				!event.metaKey &&
+				!event.ctrlKey &&
+				event.key === "?"
+			) {
+				event.preventDefault();
+				setGuideOpen(true);
 				return;
 			}
 			if (!inCanvas) return;
@@ -546,55 +652,41 @@ function Editor({
 		sync.loaded,
 	]);
 
-	function addStarter() {
-		if (!canEdit || graph.nodes.length) return;
-		const text = createCanvasNode("text", { x: 0, y: 150 });
-		text.data.label = "The idea";
-		text.data.content =
-			"A quiet coastal town at sunrise. Soft light, pastel houses, and the sound of the sea.";
-		const image = createCanvasNode("image", { x: 380, y: 0 });
-		image.data.label = "First frame";
-		image.data.aspectRatio = "16:9";
-		const speech = createCanvasNode("speech", { x: 380, y: 340 });
-		speech.data.label = "Narration";
-		const video = createCanvasNode("video", { x: 760, y: 150 });
-		video.data.label = "The scene";
-		const edges: StudioEdge[] = [
-			{
-				id: crypto.randomUUID(),
-				source: text.id,
-				target: image.id,
-				sourceHandle: "output",
-				targetHandle: "prompt",
-			},
-			{
-				id: crypto.randomUUID(),
-				source: text.id,
-				target: speech.id,
-				sourceHandle: "output",
-				targetHandle: "script",
-			},
-			{
-				id: crypto.randomUUID(),
-				source: image.id,
-				target: video.id,
-				sourceHandle: "output",
-				targetHandle: "image",
-			},
-			{
-				id: crypto.randomUUID(),
-				source: speech.id,
-				target: video.id,
-				sourceHandle: "output",
-				targetHandle: "audio",
-			},
-		];
-		fitAfterAdd.current = true;
+	function addStarter(kind: StarterKind) {
+		if (!canEdit || starterUnavailable(kind, capabilities)) return false;
+		let example: StarterSession | null = null;
 		dispatch({
 			type: "edit",
-			update: () => ({ nodes: [text, image, speech, video], edges }),
+			update: (current) => {
+				if (current.nodes.length + (kind === "image-video" ? 3 : 2) > 200)
+					return current;
+				example = createCanvasStarter(kind, {
+					x: 0,
+					y: current.nodes.length
+						? Math.min(
+								97_000,
+								Math.max(...current.nodes.map((node) => node.position.y)) + 420,
+							)
+						: 0,
+				});
+				fitAfterAdd.current = true;
+				return {
+					nodes: [
+						...clearSelection(current).nodes,
+						...example.document.nodes.map((node) => ({
+							...node,
+							selected: node.id === example?.steps[0]?.nodeId,
+						})),
+					],
+					edges: [...clearSelection(current).edges, ...example.document.edges],
+				};
+			},
 		});
-		setMessage("Starter workflow added. Select a node to make it your own.");
+		if (example) {
+			setStarterSession(example);
+			setMessage("Example added. Review the next step before generating.");
+		}
+		return !!example;
 	}
 
 	const content = (
@@ -625,6 +717,38 @@ function Editor({
 					})}
 				</section>
 				<div className="ml-auto flex flex-wrap items-center justify-end gap-1">
+					<CanvasGuide
+						open={guideOpen}
+						onOpenChange={setGuideOpen}
+						canEdit={canEdit}
+						remaining={200 - graph.nodes.length}
+						capabilities={capabilities}
+						onStarter={addStarter}
+					/>
+					<input
+						ref={mediaImport.input}
+						type="file"
+						hidden
+						multiple
+						accept={uploadAccept}
+						aria-label="Upload canvas media"
+						onChange={(event) => {
+							const files = Array.from(event.currentTarget.files ?? []);
+							event.currentTarget.value = "";
+							void mediaImport.upload(files);
+						}}
+					/>
+					<Button
+						variant="ghost"
+						disabled={
+							!canRun || !!mediaImport.progress || graph.nodes.length >= 200
+						}
+						title={uploadFormats}
+						onClick={() => mediaImport.input.current?.click()}
+					>
+						<UploadIcon data-icon="inline-start" />
+						Upload media
+					</Button>
 					<NodeSearch
 						nodes={canvasDocument.nodes}
 						open={searchOpen}
@@ -735,6 +859,53 @@ function Editor({
 					</Button>
 				</div>
 			</div>
+			{mediaImport.progress ? (
+				<p role="status" className="px-4 py-2 text-muted-foreground text-xs">
+					{mediaImport.progress}. Keep this tab open until the upload finishes.
+				</p>
+			) : null}
+			{mediaImport.error ? (
+				<Alert variant="destructive">
+					<AlertTitle>Media import needs attention</AlertTitle>
+					<AlertDescription>
+						<p>{mediaImport.error}</p>
+						<div className="flex flex-wrap gap-2">
+							{mediaImport.retry ? (
+								<Button
+									variant="outline"
+									size="sm"
+									disabled={!canRun || !!mediaImport.progress}
+									onClick={() => {
+										if (mediaImport.retry)
+											void mediaImport.upload(
+												mediaImport.retry.files,
+												mediaImport.retry.point,
+											);
+									}}
+								>
+									Retry remaining files
+								</Button>
+							) : null}
+							<Button variant="ghost" size="sm" onClick={mediaImport.dismiss}>
+								Dismiss upload message
+							</Button>
+						</div>
+					</AlertDescription>
+				</Alert>
+			) : null}
+			{starterSession ? (
+				<StarterProgress
+					session={starterSession}
+					focus={focusNode}
+					dismiss={() => setStarterSession(null)}
+				/>
+			) : null}
+			<CanvasRecovery
+				sync={sync}
+				allowedToEdit={allowedToEdit}
+				retry={persistence.retry}
+				download={() => persistence.download()}
+			/>
 			{persistence.recovery && allowedToEdit ? (
 				<Alert>
 					<AlertTitle>Browser draft available</AlertTitle>
@@ -765,28 +936,6 @@ function Editor({
 					</AlertDescription>
 				</Alert>
 			) : null}
-			{saveError ? (
-				<Alert variant="destructive">
-					<AlertTitle>Canvas needs attention</AlertTitle>
-					<AlertDescription>
-						<p>{saveError}</p>
-						<div className="flex gap-2">
-							<Button variant="outline" size="sm" onClick={persistence.retry}>
-								Retry connection
-							</Button>
-							{sync.loaded ? (
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() => persistence.download()}
-								>
-									Download my changes
-								</Button>
-							) : null}
-						</div>
-					</AlertDescription>
-				</Alert>
-			) : null}
 			{persistence.rejected > 0 ? (
 				<Alert>
 					<AlertTitle>Some connections or nodes need review</AlertTitle>
@@ -803,6 +952,7 @@ function Editor({
 					className="studio-viewport"
 					ref={viewport}
 					tabIndex={-1}
+					{...mediaImport.dropHandlers}
 					onPointerMove={(event) =>
 						session?.updatePresence({
 							cursor: flow.screenToFlowPosition({
@@ -894,6 +1044,18 @@ function Editor({
 							/>
 						) : null}
 					</ReactFlow>
+					{mediaImport.dragging ? (
+						<div className="studio-drop-target" role="status">
+							<p>
+								{canRun
+									? "Drop media to create nodes"
+									: "Reconnect with editing access to upload media"}
+							</p>
+							<p className="text-xs">
+								{uploadFormats}. MP3: 3 minutes; MP4: 12 seconds.
+							</p>
+						</div>
+					) : null}
 					{!sync.loaded ? (
 						<div className="studio-empty">
 							<p role="status" className="text-muted-foreground text-sm">
@@ -914,7 +1076,7 @@ function Editor({
 									</EmptyTitle>
 									<EmptyDescription>
 										{canEdit
-											? "Turn a thought into a connected workflow. Add your first node to begin."
+											? "Choose an example to follow, add a Text node, or drop supported media here. Nothing generates until you choose to run it."
 											: "An owner or editor can add nodes to this project. Their changes will appear here live."}
 									</EmptyDescription>
 								</EmptyHeader>
@@ -924,9 +1086,9 @@ function Editor({
 											<nodeIcons.text data-icon="inline-start" />
 											Add a text node
 										</Button>
-										<Button variant="ghost" onClick={addStarter}>
+										<Button variant="ghost" onClick={() => setGuideOpen(true)}>
 											<LayoutTemplateIcon data-icon="inline-start" />
-											Try a starter workflow
+											Choose a starter example
 										</Button>
 									</div>
 								) : (
@@ -1024,14 +1186,15 @@ function Editor({
 									}),
 								});
 						}}
-						close={() =>
+						close={() => {
 							dispatch({
 								type: "nodes",
 								changes: [
 									{ type: "select", id: selectedNode.id, selected: false },
 								],
-							})
-						}
+							});
+							viewport.current?.focus({ preventScroll: true });
+						}}
 					/>
 				) : null}
 			</div>

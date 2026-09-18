@@ -1,10 +1,5 @@
 "use client";
-import {
-	maxAudioBytes,
-	maxVideoBytes,
-	mediaUploadSchema,
-	mediaUrl,
-} from "@kousa/media/contracts";
+import { uploadProjectMedia } from "@kousa/media/upload";
 import type { CanvasNode } from "@kousa/projects/canvas";
 import {
 	Field,
@@ -74,10 +69,7 @@ export function StoredMediaPanel({
 	async function upload(file: File) {
 		if (!canEdit || busy.current) return;
 		setError(null);
-		if (
-			file.type !== mime ||
-			file.size > (isVideo ? maxVideoBytes : maxAudioBytes)
-		) {
+		if (file.type !== mime) {
 			setError(
 				isVideo
 					? "Choose an H.264 MP4 up to 12 seconds and 20 MB."
@@ -88,25 +80,7 @@ export function StoredMediaPanel({
 		busy.current = true;
 		setPending(true);
 		try {
-			const response = await fetch(mediaUrl(media.projectId), {
-				method: "POST",
-				headers: {
-					"Content-Type": mime,
-					"X-File-Name": encodeURIComponent(file.name),
-				},
-				body: file,
-			});
-			const body = await response.json();
-			if (!response.ok)
-				throw new Error(
-					body &&
-						typeof body === "object" &&
-						"message" in body &&
-						typeof body.message === "string"
-						? body.message
-						: "Upload failed",
-				);
-			const { asset } = mediaUploadSchema.parse(body);
+			const asset = await uploadProjectMedia(media.projectId, file);
 			update(
 				{ selectedRunId: null, assetId: asset.id, mediaSource: "project" },
 				"assetId",

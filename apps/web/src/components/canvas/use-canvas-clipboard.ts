@@ -43,6 +43,7 @@ export function useCanvasClipboard({
 	dispatch,
 	notify: announce,
 	fitAfterAdd,
+	pasteFiles,
 }: {
 	userId: string;
 	projectId: string;
@@ -53,6 +54,7 @@ export function useCanvasClipboard({
 	dispatch: ReturnType<typeof useCanvas>["dispatch"];
 	notify: (message: string) => void;
 	fitAfterAdd: RefObject<boolean>;
+	pasteFiles: (files: File[]) => void;
 }) {
 	const flow = useReactFlow<StudioNode, StudioEdge>();
 	const notify = useCallback(
@@ -216,6 +218,10 @@ export function useCanvasClipboard({
 		const onPaste = (event: ClipboardEvent) => {
 			if (!focused(event) || !canEdit || !event.clipboardData) return;
 			event.preventDefault();
+			if (event.clipboardData.files.length) {
+				pasteFiles(Array.from(event.clipboardData.files));
+				return;
+			}
 			const text = event.clipboardData.getData("text/plain");
 			clipboardAccess.remember(userId, text);
 			pasteText(text);
@@ -229,6 +235,6 @@ export function useCanvasClipboard({
 			window.removeEventListener("paste", onPaste);
 			window.removeEventListener("cut", onCut);
 		};
-	}, [userId, root, selection, canEdit, pasteText, notify]);
+	}, [userId, root, selection, canEdit, pasteText, pasteFiles, notify]);
 	return { copy, paste, duplicate };
 }

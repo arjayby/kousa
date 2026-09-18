@@ -29,6 +29,7 @@ import {
 	videoInputImageAssetId,
 	videoInputSnapshot,
 } from "@kousa/generation/input";
+import { generationBlockReason } from "@kousa/generation/readiness";
 import type { CanvasNode } from "@kousa/projects/canvas";
 import { Button } from "@kousa/ui/components/button";
 import {
@@ -237,6 +238,7 @@ export function useCanvasGeneration({
 		configured: query.data?.configured,
 		loading: query.isPending,
 		queryError: query.isError,
+		refresh: () => query.refetch(),
 		pendingNode,
 		uncertain,
 		error,
@@ -378,26 +380,30 @@ export function GenerationPanel({
 		: generation.error?.nodeId === node.id
 			? generation.error.message
 			: run?.error;
-	const disabled =
-		!generation.canRun ||
-		generation.loading ||
-		generation.queryError ||
-		!configured ||
-		Boolean(generation.pendingNode) ||
-		(!checking &&
-			(pending ||
-				generation.myRunActive ||
-				Boolean(generation.uncertain) ||
-				(generation.balance ?? 0) < cost ||
-				(!node.data.content.trim() &&
-					!inputImageAssetId &&
-					(kind === "text" ||
-						!generation.graph.edges.some(
-							(edge) =>
-								edge.target === node.id &&
-								edge.targetHandle === (kind === "speech" ? "script" : "prompt"),
-						))) ||
-				Boolean(inputError)));
+	const blockedReason = generationBlockReason({
+		canRun: generation.canRun,
+		loading: generation.loading,
+		queryError: generation.queryError,
+		configured,
+		pendingNode: Boolean(generation.pendingNode),
+		checking,
+		pending,
+		myRunActive: generation.myRunActive,
+		uncertain: Boolean(generation.uncertain),
+		balance: generation.balance,
+		cost,
+		inputError,
+		empty:
+			!node.data.content.trim() &&
+			!inputImageAssetId &&
+			(kind === "text" ||
+				!generation.graph.edges.some(
+					(edge) =>
+						edge.target === node.id &&
+						edge.targetHandle === (kind === "speech" ? "script" : "prompt"),
+				)),
+	});
+	const disabled = Boolean(blockedReason);
 	return (
 		<section
 			className="flex flex-col gap-4 border-t pt-4"
@@ -499,6 +505,9 @@ export function GenerationPanel({
 				<div className="flex flex-col gap-2">
 					<Button
 						disabled={disabled}
+						aria-describedby={
+							blockedReason ? `generation-blocked-${node.id}` : undefined
+						}
 						onClick={() => {
 							if (kind === "image" && !checking)
 								update({ imageSource: "generated" }, "imageSource");
@@ -525,23 +534,24 @@ export function GenerationPanel({
 						Your balance: {generation.balance ?? "…"} credits. Uses your
 						credits.
 					</p>
-					{!generation.canRun ? (
-						<p className="text-muted-foreground text-xs">
-							Wait for the canvas to connect and finish saving.
+					{blockedReason ? (
+						<p
+							id={`generation-blocked-${node.id}`}
+							role="status"
+							className="text-muted-foreground text-xs"
+						>
+							{blockedReason}
 						</p>
 					) : null}
-					{configured === false ? (
-						<p className="text-muted-foreground text-xs">
-							Generation is not available yet.
-						</p>
-					) : null}
-					{generation.queryError ? (
-						<p role="alert" className="text-destructive text-xs">
-							Could not load generation status. Reconnect to try again.
-						</p>
-					) : null}
-					{inputError ? (
-						<p className="text-destructive text-xs">{inputError}</p>
+					{generation.queryError ||
+					(!generation.loading && (generation.balance ?? 0) < cost) ? (
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => void generation.refresh()}
+						>
+							Refresh generation status
+						</Button>
 					) : null}
 				</div>
 			) : (
