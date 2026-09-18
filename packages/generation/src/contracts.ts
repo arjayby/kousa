@@ -86,7 +86,8 @@ export type PublicRun = {
 	voiceId: string | null;
 	assetId: string | null;
 	inputImageAssetId?: string | null;
-	status: "queued" | "running" | "succeeded" | "failed";
+	status: "queued" | "running" | "succeeded" | "failed" | "cancelled";
+	cancelRequestedAt?: string | null;
 	stage: "queued" | "generating" | "saving";
 	output: string | null;
 	error: string | null;
@@ -99,8 +100,11 @@ export function isRunActive(run: { status: PublicRun["status"] } | undefined) {
 	return run?.status === "queued" || run?.status === "running";
 }
 export function runProgress(
-	run: Pick<PublicRun, "status" | "stage"> | undefined,
+	run: Pick<PublicRun, "status" | "stage" | "cancelRequestedAt"> | undefined,
 ) {
+	if (run?.status === "cancelled") return "Cancelled";
+	if (run?.status === "running" && run.cancelRequestedAt)
+		return "Finishing submitted request…";
 	if (run?.status === "queued") return "Queued";
 	if (run?.status === "running")
 		return run.stage === "saving" ? "Saving result…" : "Generating…";

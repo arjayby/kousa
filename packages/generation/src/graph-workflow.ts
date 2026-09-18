@@ -26,6 +26,24 @@ export async function executeGraphWorkflow(
 	const flow = await store.get(id);
 	if (flow?.status !== "running") return;
 	try {
+		if (flow.cancelRequestedAt) {
+			// Recover only the request already submitted before cancellation. Never
+			// queue a future step, even if the original workflow checkpoints were lost.
+			for (const [index, item] of flow.plan.entries()) {
+				const child = await generations.get(item.runId);
+				if (child?.graphRunId !== id || child.status !== "running") continue;
+				await executeGenerationWorkflow(item.runId, runner, {
+					do: (name, options, callback) =>
+						step.do(`node-${index}-${name}`, options, callback),
+					sleep: (name, duration) =>
+						step.sleep(`node-${index}-${name}`, duration),
+				});
+			}
+			await step.do("settle-cancelled-workflow", databaseRetry, () =>
+				store.finish(id),
+			);
+			return;
+		}
 		for (const [index, item] of flow.plan.entries()) {
 			const existing = await generations.get(item.runId);
 			if (existing?.status === "succeeded") continue;

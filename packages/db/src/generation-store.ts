@@ -27,6 +27,46 @@ export const availableCredits = (userId: string) =>
 
 export function createGenerationStore(db: Database) {
 	return {
+		async cancel(id: string, projectId: string, actorId: string) {
+			const [result] = await db
+				.select({
+					result: sql<string>`kousa_cancel_generation(${id}::uuid, ${projectId}::uuid, ${actorId})`,
+				})
+				.from(sql`(select 1) request`);
+			return result?.result;
+		},
+		async projectHistory(
+			projectId: string,
+			limit: number,
+			cursor?: { createdAt: string; id: string },
+		) {
+			return db
+				.select({
+					run: generationRun,
+					userName: user.name,
+					cursorTime: sql<string>`to_char(${generationRun.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+				})
+				.from(generationRun)
+				.innerJoin(user, eq(user.id, generationRun.userId))
+				.where(
+					and(
+						eq(generationRun.projectId, projectId),
+						isNull(generationRun.graphRunId),
+						cursor
+							? sql`(${generationRun.createdAt}, ${generationRun.id}) < (${cursor.createdAt}::timestamptz, ${cursor.id}::uuid)`
+							: undefined,
+					),
+				)
+				.orderBy(desc(generationRun.createdAt), desc(generationRun.id))
+				.limit(limit + 1);
+		},
+		async actorName(id: string) {
+			const [actor] = await db
+				.select({ name: user.name })
+				.from(user)
+				.where(eq(user.id, id));
+			return actor?.name ?? "Project member";
+		},
 		async get(id: string) {
 			const [run] = await db
 				.select()

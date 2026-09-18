@@ -532,3 +532,29 @@ it("freezes a project image selection before the queued video starts", async () 
 		prompt: "Pan slowly",
 	});
 });
+
+it("keeps polling submitted video after a stop, without another submission or future steps", async () => {
+	const input = await request();
+	await service().start("owner", input);
+	let stopped = false;
+	poll.mockImplementationOnce(async () => {
+		expect(await db.graphs.cancel(input.id, projectId, "owner")).toBe("OK");
+		const flow = await db.graphs.get(input.id);
+		expect(flow?.cancelRequestedAt).toBeTruthy();
+		expect(flow?.status).toBe("running");
+		expect(await db.store.balance("owner")).toBe(86);
+		stopped = true;
+		return { status: "pending" };
+	});
+	await execute(input.id);
+	expect(stopped).toBe(true);
+	expect(start).toHaveBeenCalledTimes(1);
+	expect(poll).toHaveBeenCalledTimes(2);
+	expect((await db.graphs.get(input.id))?.status).toBe("cancelled");
+	const video = (await db.store.outputs(projectId, [videoNode.id], "video"))[0];
+	expect(video?.status).toBe("succeeded");
+	expect(video?.assetId).toBeTruthy();
+	expect(await db.store.balance("owner")).toBe(86);
+	await execute(input.id);
+	expect(start).toHaveBeenCalledTimes(1);
+});

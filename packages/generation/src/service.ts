@@ -62,6 +62,7 @@ function publicRun(run: GenerationRun): PublicRun {
 		assetId: run.assetId,
 		inputImageAssetId: run.inputImageAssetId,
 		status: run.status,
+		cancelRequestedAt: run.cancelRequestedAt?.toISOString() ?? null,
 		stage: run.stage,
 		output: run.output,
 		error: run.error,
@@ -136,7 +137,7 @@ export function createGenerationService(
 					creditState:
 						run.status === "succeeded"
 							? ("charged" as const)
-							: run.status === "failed"
+							: run.status === "failed" || run.status === "cancelled"
 								? ("released" as const)
 								: ("reserved" as const),
 				})),

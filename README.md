@@ -18,6 +18,7 @@ This project was created with [Better-T-Stack](https://github.com/AmanVarshney01
 - **Node canvas** - Text, image, video, and speech nodes with connections, undo/redo, and shared project saving with editor/viewer permissions
 - **Branch copying** - Duplicate selections or copy/paste nodes with their settings and internal connections, including between projects
 - **Node generation history** - Browse attempts, reuse saved outputs, and restore authored settings without starting a generation
+- **Run management** - Browse canvas runs, inspect credit usage, stop unfinished work, and resume cancelled workflows
 - **Project media library** - Search and filter saved media, preview and download files, and reuse images, videos, and speech on the canvas
 - **Narrated clips** - Combine video and speech with timing/volume controls and durable server exports
 - **Workflow templates** - Save private workflow snapshots and create fresh projects with the same prompts, models, settings, and connections
@@ -68,6 +69,8 @@ Choose **Save template** on a canvas, then open **My templates** on the dashboar
 Generation setup and billing behavior are documented in [Text generation](docs/text-generation.md), [Image generation](docs/image-generation.md), [Speech generation](docs/speech-generation.md), and [Video generation](docs/video-generation.md).
 
 Open **Generation history** in a node's settings to inspect attempts, select a saved output for future work, or restore its authored settings. See [node generation history](docs/node-generation-history.md).
+
+Open **Runs** in the canvas toolbar for project run history, saved outputs, credit breakdowns, and stop controls. Queued work releases its reservation immediately; submitted requests retain theirs until they settle. See [run management](docs/run-management.md).
 
 Completed checks and deferred speech/video provider tests are tracked in the [verification summary](docs/verification.md).
 

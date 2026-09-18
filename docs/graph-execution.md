@@ -4,7 +4,7 @@ Choose **Run affected steps** in the canvas toolbar to select output nodes, or u
 
 Supported paths include Text → Text → Image, Text → Video, Text → Image → Video, and Text → Speech. A shared ancestor runs once. Only the selected outputs and their ancestors participate, with a maximum of 20 steps across the entire workflow. Video-to-video, audio inputs, and image-reference generation remain unsupported. Speech accepts one connected Text script; audio output cannot yet feed another generation step.
 
-The canvas shows a workflow progress button and a status on each participating node. Owners, editors and viewers can see progress. Only owners and editors can start workflows. One workflow may run per project and per payer; individual generation requests wait until it finishes.
+The canvas shows a **Runs** button and a status on each participating node. Owners, editors and viewers can inspect current progress and older runs. Only owners and editors can start or stop workflows. One workflow may run per project and per payer; individual generation requests wait until it finishes.
 
 ## Multiple outputs
 
@@ -14,7 +14,9 @@ For example, Text → Image → Video and the same Text → Speech cost 16 credi
 
 Branches execute one step at a time in dependency order. There are no parallel provider submissions. A failure stops the whole workflow, releases unfinished reservations, and leaves successful branches saved. **Review and resume** keeps the original output selection, prompts, settings and successful child IDs. Only the unfinished steps reserve credits again. Changes to the canvas after the run started do not alter its resume plan.
 
-The progress dialog marks selected outputs and shows both their completion count and each step's status. Viewers can inspect progress; only owners and editors can choose outputs or start a run. The initiating user pays for every branch.
+The **Runs** panel shows completion counts, each step's status, saved outputs, and reserved, charged, and released credits. Viewers can inspect progress; only owners and editors can choose outputs or start a run. The initiating user pays for every branch.
+
+**Stop workflow** cancels unsubmitted work and prevents later steps. A request already submitted to a provider may still finish and be charged; its reservation remains until it settles. Completed outputs are preserved. See [run management](run-management.md) for cancellation and credit behavior.
 
 ## Starting images and preview
 
@@ -42,7 +44,7 @@ The existing service binding dispatches both individual jobs and graph runs to t
 
 A browser reload does not stop execution. An interrupted workflow can recover from its persisted child IDs and completed results without repeating successful generations. Provider submission retains the existing at-most-once safeguards; ambiguous provider responses may require a failed step to be retried explicitly.
 
-After failure, the original payer can choose **Review and resume**. The preview uses the original prompts and settings, reuses successful child IDs for zero additional credits, and reserves only the remaining steps. Resumed video receives a new submission ID and expiring image token, while its completed upstream image stays the same. The current delivery-origin configuration is revalidated for unfinished video steps. Resuming creates a new parent and new IDs for unsuccessful steps. A failed parent may be resumed only once; if its successor fails, resume that successor. Completed steps are never refunded or charged twice.
+After failure or cancellation, the original payer can choose **Review and resume** in **Runs**. The preview uses the original prompts and settings, reuses successful child IDs for zero additional credits, and reserves only the remaining steps. Resumed video receives a new submission ID and expiring image token, while its completed upstream image stays the same. The current delivery-origin configuration is revalidated for unfinished video steps. Resuming creates a new parent and new IDs for unsuccessful steps. A parent may be resumed only once; if its successor fails or is cancelled, resume that successor. Completed steps are never refunded or charged twice.
 
 Generated text can exceed the input limit when combined at a downstream node. Such a step stops before calling the provider and releases unfinished credits. Completed upstream outputs remain saved.
 
@@ -58,7 +60,7 @@ Failed speech can be resumed for 2 credits after its text dependencies succeed. 
 
 ## Setup and verification
 
-No additional services or keys are required. Alchemy applies migrations through `0016_multi_output_workflows` when development starts, using the existing Neon database, Gateway key, private R2 bucket and Workflow binding.
+No additional services or keys are required. Alchemy applies the checked-in migrations when development starts, using the existing Neon database, Gateway key, private R2 bucket and Workflow binding.
 
 Automated checks cover graph order, shared ancestors, exclusions, cycles, unsupported inputs, the step limit, stale previews, immutable snapshots, exact output propagation, atomic reservations, insufficient balance, request replay, access changes, expiry, interrupted execution and resuming completed work. Route tests verify authenticated actors and input validation, including empty, duplicate, excessive, or ambiguous output selections. Multi-output tests run all four node kinds with fake providers, verify shared inputs and selected-image behavior, stop after partial success, resume the remaining branch, preserve historical single-output plans, and reject request-ID reuse for a different output set in both the service and atomic SQL claim.
 

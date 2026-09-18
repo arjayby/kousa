@@ -144,6 +144,7 @@ export function createGraphService(
 			targetNodeIds: targets,
 			userId: run.userId,
 			status: run.status,
+			cancelRequestedAt: run.cancelRequestedAt?.toISOString() ?? null,
 			error: run.error,
 			createdAt: run.createdAt.toISOString(),
 			remainingCredits: run.remainingCredits,
@@ -157,9 +158,11 @@ export function createGraphService(
 				reused: step.reused,
 				status:
 					results.get(step.runId)?.status ??
-					(run.status === "failed"
-						? ("blocked" as const)
-						: ("waiting" as const)),
+					(run.cancelRequestedAt
+						? ("cancelled" as const)
+						: run.status === "failed"
+							? ("blocked" as const)
+							: ("waiting" as const)),
 				error: results.get(step.runId)?.error ?? null,
 			})),
 		};
@@ -234,7 +237,7 @@ export function createGraphService(
 				"FORBIDDEN",
 				"Only the person who started this workflow can resume it.",
 			);
-		if (previous.status !== "failed")
+		if (previous.status !== "failed" && previous.status !== "cancelled")
 			throw new GenerationError(
 				"CONFLICT",
 				"This workflow does not need to be resumed.",

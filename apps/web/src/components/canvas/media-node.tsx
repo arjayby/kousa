@@ -127,9 +127,11 @@ export const MediaNode = memo(function MediaNode({
 									? "Generating"
 									: workflowStep.status === "failed"
 										? "Failed"
-										: workflowStep.status === "blocked"
-											? "Blocked"
-											: "Waiting"}
+										: workflowStep.status === "cancelled"
+											? "Cancelled"
+											: workflowStep.status === "blocked"
+												? "Blocked"
+												: "Waiting"}
 					</p>
 				) : null}
 				{kind === "image" && assetId ? (

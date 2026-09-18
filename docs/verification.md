@@ -100,6 +100,19 @@ See [selective reruns](selective-reruns.md) for behavior, input records, migrati
 
 See [branch copying](canvas-copy-paste.md) for shortcuts and saved-result rules.
 
+## Run history and cancellation
+
+- **410 application tests passed** across generation (221), projects (51), media (26), API (76), email (18), and billing (18). The full suite passed before one additional video-stop test; that test and the run-management tests then passed together. New checks use the checked-in SQL and isolated Postgres to cover queued cancellation, submitted reservations, completion races, expiry, late dispatch, permission revocation, cross-project isolation, mixed history pagination, deleted nodes, and resuming successful steps without another charge.
+- Worker tests stop a workflow during a fake text provider call, recover a submitted result from its saved receipt, and stop during video polling without resubmitting or losing the saved result. Route tests cover authentication, session-derived actors, validation, and expected permission/conflict errors.
+- All **10 workspace type-check tasks** passed. Changed TypeScript and JSON files pass Biome, and `git diff --check` passed. The jobs Worker dry-run and OpenNext Cloudflare web bundles passed with the existing dependency warnings. No deployment was made.
+- Alchemy applied `0021_run_management` to development Neon. No new environment variables or services are needed.
+- In the in-app browser, **Runs** showed the existing five-step demo workflow, its exact saved text output, and **9 charged / 0 reserved / 0 released** credits. The original canvas retained fourteen nodes and eight connections.
+- A separate **Run controls verification** project used database fixtures that could not call an AI provider. **Stop workflow** cancelled both unsubmitted steps and released two credits. **Review and resume** quoted the same two unfinished steps without starting them. **Cancel queued run** released an individual one-credit reservation. **Request stop** on a submitted fixture showed **Stopping**, kept its one credit reserved, and released it only after the fixture settled as failed. **Open node to retry** opened the correct node settings.
+- The temporary fixture script was removed. The final balance returned to **446 credits**; no AI requests or rendering were started. These browser checks verify the UI and real cancellation transactions. Provider settlement and recovery were tested with fake providers, not live cancellation calls.
+- After the build, development restarted and the demo canvas loaded with the **Runs** panel open. Final Next.js runtime and compilation diagnostics were clean.
+
+See [run management](run-management.md) for controls, permissions, credit outcomes, and resume behavior.
+
 ## Deferred provider checks
 
 | Feature | What is needed | Remaining checks |

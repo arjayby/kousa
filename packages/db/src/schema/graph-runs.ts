@@ -64,7 +64,9 @@ export const graphRun = pgTable(
 		inputHash: text("input_hash").notNull(),
 		plan: jsonb("plan").$type<GraphStep[]>().notNull(),
 		resumeOf: uuid("resume_of"),
-		status: text("status", { enum: ["running", "succeeded", "failed"] })
+		status: text("status", {
+			enum: ["running", "succeeded", "failed", "cancelled"],
+		})
 			.notNull()
 			.default("running"),
 		remainingCredits: integer("remaining_credits").notNull(),
@@ -73,6 +75,7 @@ export const graphRun = pgTable(
 			.notNull()
 			.defaultNow(),
 		expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+		cancelRequestedAt: timestamp("cancel_requested_at", { withTimezone: true }),
 		completedAt: timestamp("completed_at", { withTimezone: true }),
 	},
 	(t) => [
@@ -86,7 +89,7 @@ export const graphRun = pgTable(
 		uniqueIndex("graph_run_resume_uidx").on(t.resumeOf),
 		check(
 			"graph_run_status_valid",
-			sql`${t.status} in ('running', 'succeeded', 'failed')`,
+			sql`${t.status} in ('running', 'succeeded', 'failed', 'cancelled')`,
 		),
 		check(
 			"graph_run_reservation_valid",

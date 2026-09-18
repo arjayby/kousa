@@ -17,6 +17,7 @@ export class GenerationError extends Error {
 	constructor(
 		public readonly code:
 			| "BAD_REQUEST"
+			| "NOT_FOUND"
 			| "FORBIDDEN"
 			| "CONFLICT"
 			| "SERVICE_UNAVAILABLE"

@@ -6,10 +6,12 @@ import { createClipRouter } from "./clips";
 import { createGenerationRouter } from "./generation";
 import { createGraphRouter } from "./graph";
 import { createProjectsRouter } from "./projects";
+import { createRunRouter } from "./runs";
 
 import { createTemplatesRouter } from "./templates";
 
 export const appRouter = {
+	runs: createRunRouter(),
 	templates: createTemplatesRouter(),
 	clips: createClipRouter(),
 	generation: createGenerationRouter(),

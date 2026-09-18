@@ -17,7 +17,7 @@ import { mediaAsset } from "./media";
 import { project } from "./projects";
 
 // Server-owned runs form the debit ledger: queued/running reserve, succeeded spends,
-// failed releases. No client-written canvas field can create or finalize a charge.
+// failed/cancelled releases. No client-written canvas field can create or finalize a charge.
 export const generationRun = pgTable(
 	"generation_run",
 	{
@@ -60,7 +60,7 @@ export const generationRun = pgTable(
 		providerStartedAt: timestamp("provider_started_at", { withTimezone: true }),
 		inputHash: text("input_hash").notNull(),
 		status: text("status", {
-			enum: ["queued", "running", "succeeded", "failed"],
+			enum: ["queued", "running", "succeeded", "failed", "cancelled"],
 		}).notNull(),
 		credits: integer("credits").notNull(),
 		output: text("output"),
@@ -71,10 +71,14 @@ export const generationRun = pgTable(
 			.notNull()
 			.defaultNow(),
 		expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+		cancelRequestedAt: timestamp("cancel_requested_at", { withTimezone: true }),
 		completedAt: timestamp("completed_at", { withTimezone: true }),
 	},
 	(t) => [
 		index("generation_project_node_idx").on(t.projectId, t.nodeId, t.createdAt),
+		index("generation_project_history_idx")
+			.on(t.projectId, t.createdAt, t.id)
+			.where(sql`${t.graphRunId} is null`),
 		index("generation_user_idx").on(t.userId),
 		index("generation_pending_idx")
 			.on(t.expiresAt)
@@ -91,7 +95,7 @@ export const generationRun = pgTable(
 			.where(sql`${t.status} in ('queued', 'running')`),
 		check(
 			"generation_status_valid",
-			sql`${t.status} in ('queued', 'running', 'succeeded', 'failed')`,
+			sql`${t.status} in ('queued', 'running', 'succeeded', 'failed', 'cancelled')`,
 		),
 		check(
 			"generation_video_settings",

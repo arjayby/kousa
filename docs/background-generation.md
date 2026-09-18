@@ -4,7 +4,7 @@ Text, image, video, and speech generation run through Cloudflare Workflows in `a
 
 ## Local development
 
-Run `pnpm dev` from the root. Alchemy applies migrations through `0011_video_generation`, supplies the managed Neon URL and existing `AI_GATEWAY_API_KEY`, starts Wrangler on `127.0.0.1:8787`, and starts Next.js on port 3001. No additional environment variables are needed. Do not run a second jobs Worker on the same port.
+Run `pnpm dev` from the root. Alchemy applies the checked-in migrations, supplies the managed Neon URL and existing `AI_GATEWAY_API_KEY`, starts Wrangler on `127.0.0.1:8787`, and starts Next.js on port 3001. No additional environment variables are needed. Do not run a second jobs Worker on the same port.
 
 The web app uses a Wrangler service binding to `kousa-jobs-local`. Both processes use the private local R2 bucket `kousa-media-local` and persist emulator data under `apps/web/.wrangler/state`. Keep that directory to retain local media and workflow state. A local timer invokes Wrangler's scheduled-event endpoint once at startup, then every fifteen minutes, matching the deployed cron. Restart `pnpm dev` after changing bindings or secrets. While local dev is stopped, jobs do not progress; Neon still retains the queue and reservations.
 
@@ -28,7 +28,7 @@ The local Worker is a loopback-only development endpoint. Production has no publ
 - Active reservations expire after thirty minutes. Expired runs cannot execute or finalize. The fallback sweep also releases errored or terminated workflows. Successful and failed rows remain as the billing history.
 - Temporary receipts are removed when the workflow finishes. A crash after terminal state can leave private orphan receipts, and interrupted media staging can leave pending assets counted toward project quotas. A storage cleanup policy is a separate follow-up; do not delete active job receipts.
 
-Prompt edits after queuing apply to the next run. Upstream nodes are not executed automatically. Deleting a canvas node does not cancel its existing job. Explicit cancellation is not implemented yet. Individual video jobs accept a frozen image input through an expiring provider URL; see [video generation](video-generation.md).
+Prompt edits after queuing apply to the next run. Upstream nodes are not executed automatically. Deleting a canvas node does not cancel its existing job. Use **Runs** to inspect history and stop work. Queued jobs cancel immediately; submitted requests keep their reservations until they settle. See [run management](run-management.md). Individual video jobs accept a frozen image input through an expiring provider URL; see [video generation](video-generation.md).
 
 ## Deployment and limits
 

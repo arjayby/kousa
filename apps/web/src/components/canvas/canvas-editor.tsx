@@ -60,6 +60,7 @@ import { ClipContext, ClipMonitor, useCanvasClips } from "./canvas-clips";
 import { GenerationContext, useCanvasGeneration } from "./canvas-generation";
 import { CanvasMediaProvider } from "./canvas-media";
 import { CanvasCursors, CanvasPeople } from "./canvas-presence";
+import { CanvasRunHistory } from "./canvas-run-history";
 import { WorkflowMonitor } from "./canvas-workflow";
 import { MediaLibrary } from "./media-library";
 import { MediaNode, nodeDescriptions, nodeIcons } from "./media-node";
@@ -510,6 +511,27 @@ function Editor({
 						workflow={generation.workflow}
 						graph={graph}
 						canEdit={canEdit}
+					/>
+					<CanvasRunHistory
+						key={`${userId}:${projectId}`}
+						generation={generation}
+						canEdit={canEdit}
+						onFocus={(id) => {
+							dispatch({
+								type: "nodes",
+								changes: graph.nodes.map((node) => ({
+									type: "select" as const,
+									id: node.id,
+									selected: node.id === id,
+								})),
+							});
+							void flow.fitView({
+								nodes: [{ id }],
+								padding: 0.5,
+								maxZoom: 1,
+								duration: 200,
+							});
+						}}
 					/>
 					<WorkflowMonitor workflow={generation.workflow} />
 					<ClipMonitor />

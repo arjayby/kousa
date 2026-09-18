@@ -218,6 +218,7 @@ export function useCanvasGeneration({
 		}
 	}
 	return {
+		loaded,
 		workflow,
 		freshness,
 		userId,

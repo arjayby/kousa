@@ -18,7 +18,6 @@ import { useRef, useState } from "react";
 import { client, orpc } from "@/utils/orpc";
 import { documentFromGraph, type StudioGraph } from "./use-canvas";
 
-type Run = Awaited<ReturnType<typeof client.graph.list>>["runs"][number];
 type Estimate = Awaited<ReturnType<typeof client.graph.preview>>;
 type Request = Parameters<typeof client.graph.start>[0];
 
@@ -217,70 +216,9 @@ export function WorkflowControls({
 	);
 }
 
-function Steps({ run }: { run: Run }) {
-	return (
-		<ol className="flex flex-col gap-2">
-			{run.steps.map((step, index) => (
-				<li
-					key={step.nodeId}
-					className="flex items-start justify-between gap-3 text-sm"
-				>
-					<span className="min-w-0 break-words">
-						{index + 1}. {step.label || step.kind}
-						{step.isOutput ? (
-							<span className="ml-2 text-muted-foreground text-xs">Output</span>
-						) : null}
-					</span>
-					<Badge
-						variant={step.status === "failed" ? "destructive" : "secondary"}
-					>
-						{step.reused
-							? "Reused"
-							: step.status === "succeeded"
-								? "Done"
-								: step.status === "running"
-									? "Generating"
-									: step.status === "blocked"
-										? "Blocked"
-										: step.status === "failed"
-											? "Failed"
-											: "Waiting"}
-					</Badge>
-				</li>
-			))}
-		</ol>
-	);
-}
-
 export function WorkflowMonitor({ workflow }: { workflow: Workflow }) {
-	const [detailsOpen, setDetailsOpen] = useState(false);
-	const run = workflow.active ?? workflow.latest;
-	const completed =
-		run?.steps.filter((step) => step.status === "succeeded").length ?? 0;
 	return (
 		<>
-			{run ? (
-				<Button
-					variant="outline"
-					size="sm"
-					onClick={() => setDetailsOpen(true)}
-				>
-					{run.status === "running" ? (
-						<LoaderCircleIcon
-							data-icon="inline-start"
-							className="animate-spin"
-						/>
-					) : (
-						<WorkflowIcon data-icon="inline-start" />
-					)}
-					Workflow {completed}/{run.steps.length} ·{" "}
-					{run.status === "succeeded"
-						? "Complete"
-						: run.status === "failed"
-							? "Stopped"
-							: "Running"}
-				</Button>
-			) : null}
 			{workflow.error && !workflow.preview ? (
 				<p role="alert" className="text-destructive text-xs">
 					{workflow.error}
@@ -469,58 +407,6 @@ export function WorkflowMonitor({ workflow }: { workflow: Workflow }) {
 									: "Start workflow"}
 						</Button>
 					</DialogFooter>
-				</DialogContent>
-			</Dialog>
-			<Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-				<DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
-					<DialogHeader>
-						<DialogTitle>Workflow progress</DialogTitle>
-						<DialogDescription>
-							{completed} of {run?.steps.length ?? 0} steps completed.{" "}
-							{run?.status === "running"
-								? "Running in the background."
-								: run?.status === "succeeded"
-									? "All outputs are saved to this project."
-									: "Completed outputs are saved. Unfinished credits were released."}
-						</DialogDescription>
-					</DialogHeader>
-					{run ? (
-						<p className="text-muted-foreground text-sm">
-							{
-								run.steps.filter(
-									(step) => step.isOutput && step.status === "succeeded",
-								).length
-							}{" "}
-							of {run.targetNodeIds.length} selected outputs completed. Shared
-							steps appear once below.
-						</p>
-					) : null}
-					{run ? <Steps run={run} /> : null}
-					{run?.error ? (
-						<p role="alert" className="text-destructive text-sm">
-							{run.error}
-						</p>
-					) : null}
-					{run?.status === "failed" &&
-					run.userId === workflow.userId &&
-					!run.resumed ? (
-						<DialogFooter>
-							<Button
-								disabled={
-									!workflow.canRun ||
-									workflow.pending ||
-									workflow.uncertain ||
-									!!workflow.active
-								}
-								onClick={() => {
-									setDetailsOpen(false);
-									void workflow.review(run.targetNodeIds, run.id);
-								}}
-							>
-								Review and resume
-							</Button>
-						</DialogFooter>
-					) : null}
 				</DialogContent>
 			</Dialog>
 		</>

@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
+import { user } from "./schema/auth";
 import type { ResolvedInputs } from "./schema/generation-inputs";
 import { generationRun } from "./schema/generations";
 import { graphRun } from "./schema/graph-runs";
@@ -19,6 +20,47 @@ export function createGraphStore(db: Database) {
 		return result?.ok ?? false;
 	}
 	return {
+		async cancel(id: string, projectId: string, actorId: string) {
+			const [result] = await db
+				.select({
+					result: sql<string>`kousa_cancel_graph(${id}::uuid, ${projectId}::uuid, ${actorId})`,
+				})
+				.from(sql`(select 1) request`);
+			return result?.result;
+		},
+		async history(
+			projectId: string,
+			limit: number,
+			cursor?: { createdAt: string; id: string },
+		) {
+			return db
+				.select({
+					run: graphRun,
+					userName: user.name,
+					cursorTime: sql<string>`to_char(${graphRun.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+					resumed: sql<boolean>`exists(select 1 from graph_run next where next.resume_of = ${graphRun.id})`,
+				})
+				.from(graphRun)
+				.innerJoin(user, eq(user.id, graphRun.userId))
+				.where(
+					and(
+						eq(graphRun.projectId, projectId),
+						cursor
+							? sql`(${graphRun.createdAt}, ${graphRun.id}) < (${cursor.createdAt}::timestamptz, ${cursor.id}::uuid)`
+							: undefined,
+					),
+				)
+				.orderBy(desc(graphRun.createdAt), desc(graphRun.id))
+				.limit(limit + 1);
+		},
+		async hasResume(id: string) {
+			const rows = await db
+				.select({ id: graphRun.id })
+				.from(graphRun)
+				.where(eq(graphRun.resumeOf, id))
+				.limit(1);
+			return rows.length > 0;
+		},
 		async get(id: string) {
 			const [run] = await db.select().from(graphRun).where(eq(graphRun.id, id));
 			return run ?? null;
@@ -65,7 +107,9 @@ export function createGraphStore(db: Database) {
 					and(
 						projectId ? eq(graphRun.projectId, projectId) : undefined,
 						eq(graphRun.status, "running"),
-						sql`${graphRun.expiresAt} <= now()`,
+						sql`(${graphRun.expiresAt} <= now() or (${graphRun.cancelRequestedAt} is not null and not exists (
+							select 1 from generation_run child where child.graph_run_id = ${graphRun.id} and child.status in ('queued', 'running')
+						)))`,
 					),
 				)
 				.limit(100);
