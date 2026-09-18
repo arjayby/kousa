@@ -52,6 +52,7 @@ import {
 	LockKeyholeIcon,
 	MousePointer2Icon,
 	Redo2Icon,
+	ScanIcon,
 	Trash2Icon,
 	Undo2Icon,
 	WorkflowIcon,
@@ -71,6 +72,7 @@ import { ConnectionDialog, type ConnectionReview } from "./connection-preview";
 import { MediaLibrary } from "./media-library";
 import { MediaNode, nodeDescriptions, nodeIcons } from "./media-node";
 import { NodeInspector } from "./node-inspector";
+import { NodeSearch } from "./node-search";
 import {
 	documentFromGraph,
 	type StudioEdge,
@@ -114,7 +116,7 @@ function clearSelection(graph: StudioGraph): StudioGraph {
 		edges: graph.edges.map((edge) => ({ ...edge, selected: false })),
 	};
 }
-function ViewportControls() {
+function ViewportControls({ selection }: { selection: { id: string }[] }) {
 	const { zoomIn, zoomOut, fitView } = useReactFlow();
 	const { zoom } = useViewport();
 	return (
@@ -153,6 +155,18 @@ function ViewportControls() {
 				onClick={() => fitView({ ...fitOptions, duration: 200 })}
 			>
 				<LocateFixedIcon />
+			</Button>
+			<Button
+				variant="ghost"
+				size="icon"
+				aria-label="Fit selection"
+				title="Fit selection"
+				disabled={!selection.length}
+				onClick={() =>
+					fitView({ ...fitOptions, nodes: selection, duration: 200 })
+				}
+			>
+				<ScanIcon />
 			</Button>
 		</section>
 	);
@@ -197,8 +211,10 @@ function Editor({
 	const root = useRef<HTMLDivElement>(null);
 	const viewport = useRef<HTMLDivElement>(null);
 	const fitAfterAdd = useRef(false);
+	const focusFrame = useRef<number | undefined>(undefined);
 	const { resolvedTheme } = useTheme();
 	const [message, setMessage] = useState("");
+	const [searchOpen, setSearchOpen] = useState(false);
 	const [connectionReview, setConnectionReview] =
 		useState<ConnectionReview | null>(null);
 	const reconnecting = useRef<string | undefined>(undefined);
@@ -208,6 +224,59 @@ function Editor({
 	const selectedNode =
 		selectedNodes.length === 1 ? selectedNodes[0] : undefined;
 	const selectionCount = selectedNodes.length + selectedEdges.length;
+	const selectionToFit = [
+		...new Set([
+			...selectedNodes.map((node) => node.id),
+			...selectedEdges.flatMap((edge) => [edge.source, edge.target]),
+		]),
+	].map((id) => ({ id }));
+	const focusNode = useCallback(
+		(id: string) => {
+			const node = graph.nodes.find((node) => node.id === id);
+			if (!node) {
+				setMessage("That node is no longer on this canvas.");
+				return;
+			}
+			dispatch({
+				type: "nodes",
+				changes: graph.nodes.map((node) => ({
+					type: "select",
+					id: node.id,
+					selected: node.id === id,
+				})),
+			});
+			dispatch({
+				type: "edges",
+				changes: graph.edges.map((edge) => ({
+					type: "select",
+					id: edge.id,
+					selected: false,
+				})),
+			});
+			if (focusFrame.current !== undefined)
+				cancelAnimationFrame(focusFrame.current);
+			// Wait for the inspector to open before measuring the remaining viewport.
+			focusFrame.current = requestAnimationFrame(() => {
+				void flow.fitView({
+					nodes: [{ id }],
+					padding: 0.5,
+					maxZoom: 1,
+					duration: 200,
+				});
+			});
+			setMessage(
+				`Focused ${node.data.label || nodeLabels[node.type ?? "text"]}.`,
+			);
+		},
+		[dispatch, flow, graph.nodes, graph.edges],
+	);
+	useEffect(
+		() => () => {
+			if (focusFrame.current !== undefined)
+				cancelAnimationFrame(focusFrame.current);
+		},
+		[],
+	);
 
 	const addNode = useCallback(
 		(kind: NodeKind, data?: Partial<CanvasNode["data"]>) => {
@@ -392,9 +461,22 @@ function Editor({
 
 	useEffect(() => {
 		const keydown = (event: KeyboardEvent) => {
-			if (!root.current?.contains(document.activeElement)) return;
+			const inCanvas = root.current?.contains(document.activeElement);
 			const target = event.target;
-			if (isCanvasTextTarget(target) || event.altKey) return;
+			if (event.defaultPrevented || isCanvasTextTarget(target) || event.altKey)
+				return;
+			if (
+				(inCanvas || document.activeElement === document.body) &&
+				(event.metaKey || event.ctrlKey) &&
+				!event.shiftKey &&
+				event.key.toLowerCase() === "k" &&
+				sync.loaded
+			) {
+				event.preventDefault();
+				setSearchOpen(true);
+				return;
+			}
+			if (!inCanvas) return;
 			if (
 				(event.metaKey || event.ctrlKey) &&
 				event.key.toLowerCase() === "z" &&
@@ -461,6 +543,7 @@ function Editor({
 		selectedNodes,
 		selectedEdges,
 		graph.nodes,
+		sync.loaded,
 	]);
 
 	function addStarter() {
@@ -541,7 +624,14 @@ function Editor({
 						);
 					})}
 				</section>
-				<div className="ml-auto flex items-center gap-1">
+				<div className="ml-auto flex flex-wrap items-center justify-end gap-1">
+					<NodeSearch
+						nodes={canvasDocument.nodes}
+						open={searchOpen}
+						onOpenChange={setSearchOpen}
+						onFocus={focusNode}
+						loaded={sync.loaded}
+					/>
 					{allowedToEdit ? (
 						<SaveTemplate
 							userId={userId}
@@ -578,22 +668,7 @@ function Editor({
 						key={`${userId}:${projectId}`}
 						generation={generation}
 						canEdit={canEdit}
-						onFocus={(id) => {
-							dispatch({
-								type: "nodes",
-								changes: graph.nodes.map((node) => ({
-									type: "select" as const,
-									id: node.id,
-									selected: node.id === id,
-								})),
-							});
-							void flow.fitView({
-								nodes: [{ id }],
-								padding: 0.5,
-								maxZoom: 1,
-								duration: 200,
-							});
-						}}
+						onFocus={focusNode}
 					/>
 					<WorkflowMonitor workflow={generation.workflow} />
 					<ClipMonitor />
@@ -806,7 +881,7 @@ function Editor({
 							size={1}
 							color="var(--border)"
 						/>
-						<ViewportControls />
+						<ViewportControls selection={selectionToFit} />
 						{session ? <CanvasCursors session={session} /> : null}
 						{graph.nodes.length > 0 ? (
 							<MiniMap
