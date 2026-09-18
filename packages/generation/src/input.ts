@@ -2,6 +2,7 @@ import {
 	type CanvasDocument,
 	imageOutputAssetId,
 } from "@kousa/projects/canvas";
+import { resolveConnection } from "./connections";
 import {
 	defaultImageModel,
 	defaultSpeechModel,
@@ -28,28 +29,40 @@ export class GenerationError extends Error {
 	}
 }
 
+function resolvedConnections(graph: CanvasDocument, nodeId: string) {
+	return graph.edges
+		.filter((edge) => edge.target === nodeId)
+		.sort((a, b) => a.id.localeCompare(b.id))
+		.map((edge) => {
+			const input = resolveConnection(graph, edge);
+			if (!input)
+				throw new GenerationError(
+					"BAD_REQUEST",
+					"Both connected nodes must exist.",
+				);
+			if (input.usage === "unsupported")
+				throw new GenerationError("BAD_REQUEST", input.description);
+			return { edge, ...input };
+		});
+}
+
+function connectedText(graph: CanvasDocument, nodeId: string) {
+	return resolvedConnections(graph, nodeId)
+		.filter((input) => input.usage === "text")
+		.map(({ source }) => ({
+			id: source.id,
+			content: source.data.content,
+			...(source.data.selectedRunId
+				? { runId: source.data.selectedRunId }
+				: {}),
+		}));
+}
+
 export function textInputSnapshot(graph: CanvasDocument, nodeId: string) {
 	const node = graph.nodes.find((n) => n.id === nodeId);
 	if (node?.type !== "text")
 		throw new GenerationError("BAD_REQUEST", "Select a text node to generate.");
-	const sources = graph.edges
-		.filter((e) => e.target === nodeId)
-		.sort((a, b) => a.id.localeCompare(b.id))
-		.map((edge) => {
-			const source = graph.nodes.find((n) => n.id === edge.source);
-			if (source?.type !== "text")
-				throw new GenerationError(
-					"BAD_REQUEST",
-					"Text generation currently accepts connected text nodes only.",
-				);
-			return {
-				id: source.id,
-				content: source.data.content,
-				...(source.data.selectedRunId
-					? { runId: source.data.selectedRunId }
-					: {}),
-			};
-		});
+	const sources = connectedText(graph, nodeId);
 	return {
 		nodeId,
 		modelId: resolveTextModel(node.data.textModel),
@@ -101,24 +114,7 @@ export function imageInputSnapshot(graph: CanvasDocument, nodeId: string) {
 			"BAD_REQUEST",
 			"Select an image node to generate.",
 		);
-	const sources = graph.edges
-		.filter((edge) => edge.target === nodeId)
-		.sort((a, b) => a.id.localeCompare(b.id))
-		.map((edge) => {
-			const source = graph.nodes.find((n) => n.id === edge.source);
-			if (edge.targetHandle !== "prompt" || source?.type !== "text")
-				throw new GenerationError(
-					"BAD_REQUEST",
-					"Image generation accepts text prompts only. Disconnect reference images before generating.",
-				);
-			return {
-				id: source.id,
-				content: source.data.content,
-				...(source.data.selectedRunId
-					? { runId: source.data.selectedRunId }
-					: {}),
-			};
-		});
+	const sources = connectedText(graph, nodeId);
 	return {
 		nodeId,
 		modelId: node.data.imageModel ?? defaultImageModel,
@@ -186,24 +182,7 @@ export function speechInputSnapshot(graph: CanvasDocument, nodeId: string) {
 			"BAD_REQUEST",
 			"Select a speech node to generate.",
 		);
-	const sources = graph.edges
-		.filter((e) => e.target === nodeId)
-		.sort((a, b) => a.id.localeCompare(b.id))
-		.map((edge) => {
-			const source = graph.nodes.find((n) => n.id === edge.source);
-			if (edge.targetHandle !== "script" || source?.type !== "text")
-				throw new GenerationError(
-					"BAD_REQUEST",
-					"Speech generation accepts connected text scripts only.",
-				);
-			return {
-				id: source.id,
-				content: source.data.content,
-				...(source.data.selectedRunId
-					? { runId: source.data.selectedRunId }
-					: {}),
-			};
-		});
+	const sources = connectedText(graph, nodeId);
 	return {
 		nodeId,
 		modelId: node.data.speechModel ?? defaultSpeechModel,
@@ -253,45 +232,33 @@ export function videoInputSnapshot(graph: CanvasDocument, nodeId: string) {
 		runId?: string;
 		assetId?: string | null;
 	}> = [];
-	const sources = graph.edges
-		.filter((e) => e.target === nodeId)
-		.sort((a, b) => a.id.localeCompare(b.id))
-		.flatMap((edge) => {
-			const source = graph.nodes.find((n) => n.id === edge.source);
-			// Narration is combined by Create clip, not sent to the AI video model.
-			if (edge.targetHandle === "audio" && source?.type === "speech") return [];
-			if (edge.targetHandle === "image" && source?.type === "image") {
-				if (images.length)
-					throw new GenerationError(
-						"BAD_REQUEST",
-						"Connect only one image to the video node.",
-					);
-				images.push({
-					nodeId: source.id,
-					runId: source.data.selectedRunId ?? undefined,
-					imageSource: source.data.selectedRunId
-						? "history"
-						: (source.data.imageSource ??
-							(source.data.assetId ? "project" : "generated")),
-					assetId: source.data.assetId,
-				});
-				return [];
-			}
-			if (edge.targetHandle !== "prompt" || source?.type !== "text")
-				throw new GenerationError(
-					"BAD_REQUEST",
-					"Video generation accepts text prompts and one image. Disconnect video inputs before generating. Audio is used by Create clip.",
-				);
-			return [
-				{
-					id: source.id,
-					content: source.data.content,
-					...(source.data.selectedRunId
-						? { runId: source.data.selectedRunId }
-						: {}),
-				},
-			];
+	const inputs = resolvedConnections(graph, nodeId);
+	for (const { source, usage } of inputs) {
+		if (usage !== "image") continue;
+		if (images.length)
+			throw new GenerationError(
+				"BAD_REQUEST",
+				"Connect only one image to the video node.",
+			);
+		images.push({
+			nodeId: source.id,
+			runId: source.data.selectedRunId ?? undefined,
+			imageSource: source.data.selectedRunId
+				? "history"
+				: (source.data.imageSource ??
+					(source.data.assetId ? "project" : "generated")),
+			assetId: source.data.assetId,
 		});
+	}
+	const sources = inputs
+		.filter((input) => input.usage === "text")
+		.map(({ source }) => ({
+			id: source.id,
+			content: source.data.content,
+			...(source.data.selectedRunId
+				? { runId: source.data.selectedRunId }
+				: {}),
+		}));
 	return {
 		nodeId,
 		modelId: node.data.videoModel ?? defaultVideoModel,

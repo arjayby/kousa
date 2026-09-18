@@ -1,15 +1,19 @@
 "use client";
 
+import { resolveConnection } from "@kousa/generation/connections";
 import {
 	type CanvasConnection,
 	type CanvasNode,
-	connectionError,
 	createCanvasNode,
 	type NodeKind,
 	nodeKinds,
 	nodeLabels,
 	removeCanvasElements,
 } from "@kousa/projects/canvas";
+import {
+	connectionDependencies,
+	planConnection,
+} from "@kousa/projects/canvas-connections";
 import {
 	Alert,
 	AlertDescription,
@@ -28,6 +32,7 @@ import {
 	BackgroundVariant,
 	type Connection,
 	type Edge,
+	type FinalConnectionState,
 	MiniMap,
 	type NodeTypes,
 	ReactFlow,
@@ -54,7 +59,7 @@ import {
 	ZoomOutIcon,
 } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SaveTemplate } from "@/components/templates/save-template";
 import { ClipContext, ClipMonitor, useCanvasClips } from "./canvas-clips";
 import { GenerationContext, useCanvasGeneration } from "./canvas-generation";
@@ -62,6 +67,7 @@ import { CanvasMediaProvider } from "./canvas-media";
 import { CanvasCursors, CanvasPeople } from "./canvas-presence";
 import { CanvasRunHistory } from "./canvas-run-history";
 import { WorkflowMonitor } from "./canvas-workflow";
+import { ConnectionDialog, type ConnectionReview } from "./connection-preview";
 import { MediaLibrary } from "./media-library";
 import { MediaNode, nodeDescriptions, nodeIcons } from "./media-node";
 import { NodeInspector } from "./node-inspector";
@@ -193,6 +199,10 @@ function Editor({
 	const fitAfterAdd = useRef(false);
 	const { resolvedTheme } = useTheme();
 	const [message, setMessage] = useState("");
+	const [connectionReview, setConnectionReview] =
+		useState<ConnectionReview | null>(null);
+	const reconnecting = useRef<string | undefined>(undefined);
+	const canvasDocument = useMemo(() => documentFromGraph(graph), [graph]);
 	const selectedNodes = graph.nodes.filter((node) => node.selected);
 	const selectedEdges = graph.edges.filter((edge) => edge.selected);
 	const selectedNode =
@@ -292,40 +302,92 @@ function Editor({
 			}),
 		});
 	};
+	const reviewConnection = useCallback(
+		(value: Connection | Edge, reconnectId?: string) => {
+			if (!canEdit) return;
+			const connection = asConnection(value);
+			if (connection) setConnectionReview({ connection, reconnectId });
+		},
+		[canEdit],
+	);
 	const validConnection = useCallback(
 		(value: Connection | Edge) => {
 			const connection = asConnection(value);
-			return (
-				canEdit &&
-				graph.edges.length < 600 &&
-				connection !== null &&
-				connectionError(documentFromGraph(graph), connection) === null
+			if (!canEdit || !connection) return false;
+			const plan = planConnection(
+				canvasDocument,
+				connection,
+				reconnecting.current,
 			);
+			const input = resolveConnection(canvasDocument, connection);
+			return !plan.error && input?.usage !== "unsupported";
 		},
-		[canEdit, graph],
+		[canEdit, canvasDocument],
 	);
-	const connect = useCallback(
-		(value: Connection) => {
-			if (!canEdit) return;
-			const connection = asConnection(value);
-			if (!connection) return;
-			const error = connectionError(documentFromGraph(graph), connection);
-			if (error) {
-				setMessage(error);
-				return;
-			}
-			if (graph.edges.length >= 600) {
-				setMessage("This draft can hold up to 600 connections.");
-				return;
-			}
-			const edge = { id: crypto.randomUUID(), ...connection };
-			dispatch({
-				type: "edit",
-				update: (current) => ({ ...current, edges: [...current.edges, edge] }),
-			});
-			setMessage("Nodes connected.");
-		},
-		[canEdit, graph, dispatch],
+	const endConnection = (state: FinalConnectionState) => {
+		if (!canEdit || state.isValid || !state.fromHandle || !state.toHandle)
+			return;
+		const source =
+			state.fromHandle.type === "source" ? state.fromHandle : state.toHandle;
+		const target =
+			state.fromHandle.type === "target" ? state.fromHandle : state.toHandle;
+		if (source.type !== "source" || target.type !== "target") {
+			setMessage("Connect an output dot to an input dot.");
+			return;
+		}
+		reviewConnection(
+			{
+				source: source.nodeId,
+				target: target.nodeId,
+				sourceHandle: source.id ?? null,
+				targetHandle: target.id ?? null,
+			},
+			reconnecting.current,
+		);
+	};
+	const dependencies = useMemo(
+		() =>
+			connectionDependencies(
+				canvasDocument,
+				graph.nodes.filter((node) => node.selected).map((node) => node.id),
+			),
+		[canvasDocument, graph.nodes],
+	);
+	const displayNodes = useMemo(
+		() =>
+			graph.nodes.map((node) => ({
+				...node,
+				className: cn(
+					dependencies.upstream.nodes.has(node.id) && "studio-upstream",
+					dependencies.downstream.nodes.has(node.id) && "studio-downstream",
+				),
+			})),
+		[graph.nodes, dependencies],
+	);
+	const displayEdges = useMemo(
+		() =>
+			graph.edges.map((edge) => {
+				const input = resolveConnection(canvasDocument, edge);
+				const composition = input?.usage === "composition";
+				const highlighted =
+					dependencies.upstream.edges.has(edge.id) ||
+					dependencies.downstream.edges.has(edge.id);
+				return {
+					...edge,
+					label: composition
+						? "Composition"
+						: input?.usage === "unsupported"
+							? "Unsupported"
+							: undefined,
+					ariaLabel: `${input?.source.data.label ?? "Output"} to ${input?.target.data.label ?? "node"} ${edge.targetHandle}${composition ? ", composition only" : ""}`,
+					style: {
+						strokeWidth: highlighted ? 3 : 1.7,
+						...(highlighted ? { stroke: "var(--ring)" } : {}),
+						...(composition ? { strokeDasharray: "5 4" } : {}),
+					},
+				};
+			}),
+		[graph.edges, canvasDocument, dependencies],
 	);
 
 	useEffect(() => {
@@ -677,8 +739,8 @@ function Editor({
 					onPointerLeave={() => session?.updatePresence({ cursor: null })}
 				>
 					<ReactFlow<StudioNode, StudioEdge>
-						nodes={graph.nodes}
-						edges={graph.edges}
+						nodes={displayNodes}
+						edges={displayEdges}
 						nodeTypes={nodeTypes}
 						defaultEdgeOptions={edgeOptions}
 						onNodesChange={(changes) =>
@@ -703,18 +765,23 @@ function Editor({
 							if (canEdit) dispatch({ type: "checkpoint" });
 						}}
 						onNodeDragStop={() => dispatch({ type: "end" })}
-						onConnect={connect}
+						onConnect={(value) => reviewConnection(value)}
+						onReconnectStart={(_, edge) => {
+							reconnecting.current = edge.id;
+						}}
+						onReconnect={(edge, value) => reviewConnection(value, edge.id)}
+						onReconnectEnd={(_, __, ___, state) => {
+							endConnection(state);
+							reconnecting.current = undefined;
+						}}
+						onEdgeDoubleClick={(_, edge) => reviewConnection(edge, edge.id)}
 						onPaneClick={() => viewport.current?.focus({ preventScroll: true })}
 						isValidConnection={validConnection}
-						onConnectEnd={(_, state) => {
-							if (state.toNode && !state.isValid)
-								setMessage(
-									"Choose a compatible, unused input. Connections cannot form a loop.",
-								);
-						}}
+						onConnectEnd={(_, state) => endConnection(state)}
+						onClickConnectEnd={(_, state) => endConnection(state)}
 						nodesDraggable={canEdit}
 						nodesConnectable={canEdit}
-						edgesReconnectable={false}
+						edgesReconnectable={canEdit}
 						deleteKeyCode={null}
 						selectionOnDrag
 						selectionMode={SelectionMode.Partial}
@@ -807,6 +874,22 @@ function Editor({
 								{selectedEdges.length} connection
 								{selectedEdges.length === 1 ? "" : "s"} selected
 							</span>
+							{selectedEdges.length === 1 ? (
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={() => {
+										const edge = selectedEdges[0];
+										if (edge)
+											setConnectionReview({
+												connection: edge,
+												reconnectId: edge.id,
+											});
+									}}
+								>
+									Review connection
+								</Button>
+							) : null}
 							{canEdit ? (
 								<Button variant="outline" size="sm" onClick={removeSelected}>
 									Disconnect
@@ -818,6 +901,9 @@ function Editor({
 				{selectedNode ? (
 					<NodeInspector
 						node={selectedNode}
+						reviewConnection={(connection, reconnectId) =>
+							setConnectionReview({ connection, reconnectId })
+						}
 						nodes={graph.nodes}
 						edges={graph.edges}
 						canEdit={canEdit}
@@ -874,6 +960,54 @@ function Editor({
 					/>
 				) : null}
 			</div>
+			{connectionReview ? (
+				<ConnectionDialog
+					graph={canvasDocument}
+					review={connectionReview}
+					canEdit={canEdit}
+					close={() => {
+						setConnectionReview(null);
+						viewport.current?.focus({ preventScroll: true });
+					}}
+					apply={(review, expectedRemoved) => {
+						let error: string | null =
+							"You no longer have permission to edit this canvas.";
+						dispatch({
+							type: "edit",
+							update: (current) => {
+								const graph = documentFromGraph(current);
+								const plan = planConnection(
+									graph,
+									review.connection,
+									review.reconnectId,
+								);
+								const input = resolveConnection(graph, review.connection);
+								error =
+									plan.error ??
+									(input?.usage === "unsupported" ? input.description : null);
+								if (!error && JSON.stringify(plan.removed) !== expectedRemoved)
+									error =
+										"This input changed while you were reviewing it. Review the current connection and try again.";
+								if (error) return current;
+								// A new edge ID makes endpoint changes visible to the shared document.
+								const removed = new Set(plan.removed.map((edge) => edge.id));
+								return {
+									...current,
+									edges: [
+										...current.edges.filter((edge) => !removed.has(edge.id)),
+										{ id: crypto.randomUUID(), ...review.connection },
+									],
+								};
+							},
+						});
+						if (!error)
+							setMessage(
+								"Connection saved. Undo restores the previous connections.",
+							);
+						return error;
+					}}
+				/>
+			) : null}
 			<footer className="studio-statusbar">
 				<div
 					className={cn(

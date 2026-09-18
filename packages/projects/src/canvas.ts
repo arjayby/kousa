@@ -116,8 +116,10 @@ export function connectionError(
 	const port = inputPorts[target.type].find(
 		(port) => port.id === connection.targetHandle,
 	);
-	if (!port?.accepts.includes(source.type))
-		return "These input and output types do not match.";
+	if (!port)
+		return `${nodeLabels[target.type]} has no ${connection.targetHandle} input.`;
+	if (!port.accepts.includes(source.type))
+		return `${nodeLabels[source.type]} output cannot connect to ${nodeLabels[target.type]} ${port.label}. This input accepts ${port.accepts.map((kind) => nodeLabels[kind]).join(" or ")}.`;
 	const edges = graph.edges.filter((edge) => edge.id !== ignoreEdgeId);
 	if (
 		edges.some(

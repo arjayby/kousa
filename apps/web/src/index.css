@@ -73,3 +73,7 @@
 		transition: none;
 	}
 }
+
+/* Dependency direction is visible without relying on color. */
+.studio-editor .studio-upstream .studio-node { outline: 2px solid var(--ring); outline-offset: 4px; }
+.studio-editor .studio-downstream .studio-node { outline: 2px dashed var(--ring); outline-offset: 4px; }

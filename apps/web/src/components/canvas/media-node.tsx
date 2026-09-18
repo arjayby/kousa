@@ -196,7 +196,17 @@ export const MediaNode = memo(function MediaNode({
 							aria-label={`${data.label || nodeLabels[kind]} ${port.label} input`}
 							title={`${port.label}: ${port.accepts.map((t) => nodeLabels[t]).join(", ")}`}
 						/>
-						<span>{port.label}</span>
+						<span>
+							{port.label}
+							{kind === "video" && port.id === "audio"
+								? " · Composition"
+								: (kind === "image" && port.id === "reference") ||
+										(kind === "video" && port.id === "video")
+									? " · Unsupported"
+									: kind === "text"
+										? " · Text only"
+										: ""}
+						</span>
 						{index === 0 ? (
 							<>
 								<span className="ml-auto">{nodeLabels[kind]}</span>

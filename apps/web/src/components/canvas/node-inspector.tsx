@@ -2,6 +2,7 @@
 
 import {
 	aspectRatios,
+	type CanvasConnection,
 	type CanvasNode,
 	inputPorts,
 	nodeLabels,
@@ -22,11 +23,13 @@ import { CopyIcon, Trash2Icon, UnplugIcon, XIcon } from "lucide-react";
 import { ClipPanel } from "./canvas-clips";
 import { GenerationPanel, useNodeImage } from "./canvas-generation";
 import { ImageMediaPanel } from "./canvas-media";
+import { ConnectionPreview } from "./connection-preview";
 import { type ApplyHistory, GenerationHistory } from "./generation-history";
 import { nodeIcons } from "./media-node";
 import { SharedTextField } from "./shared-text-field";
 import { StoredMediaPanel } from "./stored-media-panel";
 import type { StudioEdge, StudioNode } from "./use-canvas";
+import { documentFromGraph } from "./use-canvas";
 
 export function NodeInspector({
 	node,
@@ -40,6 +43,7 @@ export function NodeInspector({
 	duplicate,
 	applyHistory,
 	disconnect,
+	reviewConnection,
 	close,
 }: {
 	node: StudioNode;
@@ -53,9 +57,14 @@ export function NodeInspector({
 	duplicate: () => void;
 	applyHistory: ApplyHistory;
 	disconnect: (id: string) => void;
+	reviewConnection: (
+		connection: CanvasConnection,
+		reconnectId?: string,
+	) => void;
 	close: () => void;
 }) {
 	const imageResult = useNodeImage(node.id);
+	const graph = documentFromGraph({ nodes, edges });
 	const kind = node.type ?? "text";
 	const Icon = nodeIcons[kind];
 	const attached = edges.filter(
@@ -212,6 +221,93 @@ export function NodeInspector({
 				{kind === "video" ? (
 					<ClipPanel node={node} canEdit={canEdit} update={update} />
 				) : null}
+				<section className="flex flex-col gap-4" aria-label="Node connections">
+					<h3 className="font-medium text-xs">
+						Connections · {attached.length}
+					</h3>
+					<p className="text-muted-foreground text-xs">
+						Upstream nodes have a solid outline. Downstream nodes have a dashed
+						outline. Dashed connections carry audio for composition.
+					</p>
+					{inputPorts[kind].map((port) => {
+						const edge = edges.find(
+							(edge) =>
+								edge.target === node.id && edge.targetHandle === port.id,
+						);
+						return (
+							<div key={port.id} className="flex flex-col gap-2">
+								<h4 className="font-medium text-xs">{port.label} input</h4>
+								{edge ? (
+									<ConnectionPreview graph={graph} connection={edge} />
+								) : (
+									<p className="text-muted-foreground text-xs">
+										{kind === "image" && port.id === "reference"
+											? "Reference images are not supported by the current generator."
+											: kind === "video" && port.id === "video"
+												? "Video-to-video is not supported by the current generator."
+												: kind === "video" && port.id === "audio"
+													? "Speech is used by Create clip for composition only."
+													: kind === "text"
+														? "The current generator consumes Text context only."
+														: `Connect ${port.accepts.map((kind) => nodeLabels[kind]).join(" or ")}.`}
+									</p>
+								)}
+								<div className="flex gap-2">
+									<Button
+										variant="outline"
+										size="sm"
+										disabled={!canEdit}
+										onClick={() =>
+											reviewConnection(
+												edge ?? {
+													source: "",
+													target: node.id,
+													sourceHandle: "output",
+													targetHandle: port.id,
+												},
+												edge?.id,
+											)
+										}
+									>
+										{edge
+											? `Change ${port.label} connection`
+											: `Connect ${port.label}`}
+									</Button>
+									{edge ? (
+										<Button
+											variant="ghost"
+											size="icon-sm"
+											disabled={!canEdit}
+											aria-label={`Disconnect ${port.label}`}
+											onClick={() => disconnect(edge.id)}
+										>
+											<UnplugIcon />
+										</Button>
+									) : null}
+								</div>
+							</div>
+						);
+					})}
+					{attached
+						.filter((edge) => edge.source === node.id)
+						.map((edge) => (
+							<div key={edge.id} className="flex flex-col gap-2">
+								<h4 className="font-medium text-xs">
+									Downstream ·{" "}
+									{nodes.find((node) => node.id === edge.target)?.data.label ||
+										"Node"}{" "}
+									· {edge.targetHandle}
+								</h4>
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={() => reviewConnection(edge, edge.id)}
+								>
+									{canEdit ? "Preview or reconnect" : "Preview connection"}
+								</Button>
+							</div>
+						))}
+				</section>
 				<GenerationPanel node={node} canEdit={canEdit} update={update} />
 				{kind === "image" ? (
 					<ImageMediaPanel
@@ -222,53 +318,6 @@ export function NodeInspector({
 						update={update}
 					/>
 				) : null}
-				<section className="flex flex-col gap-3" aria-label="Node connections">
-					<h3 className="font-medium text-xs">
-						Connections{" "}
-						<span className="text-muted-foreground">{attached.length}</span>
-					</h3>
-					{attached.length === 0 ? (
-						<p className="text-muted-foreground text-xs leading-relaxed">
-							Drag an output dot to a compatible input dot. You can also click
-							each dot in turn.
-						</p>
-					) : (
-						attached.map((edge) => {
-							const incoming = edge.target === node.id;
-							const other = nodes.find(
-								(n) => n.id === (incoming ? edge.source : edge.target),
-							);
-							const target = nodes.find((n) => n.id === edge.target);
-							const input = inputPorts[target?.type ?? "text"].find(
-								(port) => port.id === edge.targetHandle,
-							)?.label;
-							return (
-								<div
-									className="flex items-center gap-2 border p-2"
-									key={edge.id}
-								>
-									<div className="min-w-0 flex-1">
-										<p className="truncate text-xs">
-											{other?.data.label || nodeLabels[other?.type ?? "text"]}
-										</p>
-										<p className="text-[10px] text-muted-foreground">
-											{incoming ? "Into" : "Out to"} {input}
-										</p>
-									</div>
-									<Button
-										variant="ghost"
-										size="icon-sm"
-										disabled={!canEdit}
-										aria-label={`Disconnect ${other?.data.label || "node"}`}
-										onClick={() => disconnect(edge.id)}
-									>
-										<UnplugIcon />
-									</Button>
-								</div>
-							);
-						})
-					)}
-				</section>
 			</div>
 			{canEdit ? (
 				<footer className="flex gap-2 border-t p-3">
