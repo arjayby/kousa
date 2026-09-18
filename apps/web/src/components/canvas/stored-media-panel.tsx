@@ -1,5 +1,5 @@
 "use client";
-import { uploadProjectMedia } from "@kousa/media/upload";
+import { retainProjectMedia, uploadProjectMedia } from "@kousa/media/upload";
 import type { CanvasNode } from "@kousa/projects/canvas";
 import {
 	Field,
@@ -112,18 +112,35 @@ export function StoredMediaPanel({
 						items={items}
 						value={selected}
 						disabled={!canEdit || pending || media.pending || media.error}
-						onValueChange={(value) => {
-							if (value)
-								update(
-									value === "generated"
-										? { selectedRunId: null, mediaSource: "generated" }
-										: {
-												selectedRunId: null,
-												mediaSource: "project",
-												assetId: value === "none" ? null : value,
-											},
-									"assetId",
+						onValueChange={async (value) => {
+							if (!value || busy.current) return;
+							busy.current = true;
+							setPending(true);
+							setError(null);
+							try {
+								if (value !== "generated" && value !== "none")
+									await retainProjectMedia(media.projectId, value);
+								if (value)
+									update(
+										value === "generated"
+											? { selectedRunId: null, mediaSource: "generated" }
+											: {
+													selectedRunId: null,
+													mediaSource: "project",
+													assetId: value === "none" ? null : value,
+												},
+										"assetId",
+									);
+							} catch (cause) {
+								setError(
+									cause instanceof Error
+										? cause.message
+										: "Could not attach this file.",
 								);
+							} finally {
+								busy.current = false;
+								setPending(false);
+							}
 						}}
 					>
 						<SelectTrigger id="stored-media-source">

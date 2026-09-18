@@ -2,11 +2,12 @@
 
 import {
 	imageMimeTypes,
+	mediaLifecycleHeaders,
 	mediaListSchema,
 	mediaUrl,
 	type ProjectAsset,
 } from "@kousa/media/contracts";
-import { uploadProjectMedia } from "@kousa/media/upload";
+import { retainProjectMedia, uploadProjectMedia } from "@kousa/media/upload";
 import { type CanvasNode, imageOutputAssetId } from "@kousa/projects/canvas";
 import { Button } from "@kousa/ui/components/button";
 import {
@@ -49,6 +50,7 @@ async function responseBody(response: Response) {
 	return body;
 }
 const MediaContext = createContext<{
+	userId: string;
 	projectId: string;
 	assets: ProjectAsset[];
 	pending: boolean;
@@ -84,7 +86,11 @@ export function CanvasMediaProvider({
 		queryFn: async ({ signal }) =>
 			mediaListSchema.parse(
 				await responseBody(
-					await fetch(mediaUrl(projectId), { signal, cache: "no-store" }),
+					await fetch(mediaUrl(projectId), {
+						signal,
+						cache: "no-store",
+						headers: mediaLifecycleHeaders,
+					}),
 				),
 			),
 		enabled: loaded,
@@ -94,6 +100,7 @@ export function CanvasMediaProvider({
 	return (
 		<MediaContext
 			value={{
+				userId,
 				projectId,
 				assets: query.data?.assets ?? [],
 				pending: query.isPending,
@@ -294,18 +301,35 @@ export function ImageMediaPanel({
 							items={items}
 							value={selectedValue}
 							disabled={uploading || media.pending || media.error}
-							onValueChange={(value) => {
-								if (value)
-									update(
-										value === "generated"
-											? { selectedRunId: null, imageSource: "generated" }
-											: {
-													assetId: value === "none" ? null : value,
-													selectedRunId: null,
-													imageSource: "project",
-												},
-										"assetId",
+							onValueChange={async (value) => {
+								if (!value || busy.current) return;
+								busy.current = true;
+								setUploading(true);
+								setError(null);
+								try {
+									if (value !== "generated" && value !== "none")
+										await retainProjectMedia(media.projectId, value);
+									if (value)
+										update(
+											value === "generated"
+												? { selectedRunId: null, imageSource: "generated" }
+												: {
+														assetId: value === "none" ? null : value,
+														selectedRunId: null,
+														imageSource: "project",
+													},
+											"assetId",
+										);
+								} catch (cause) {
+									setError(
+										cause instanceof Error
+											? cause.message
+											: "Could not attach this file.",
 									);
+								} finally {
+									busy.current = false;
+									setUploading(false);
+								}
 							}}
 						>
 							<SelectTrigger id="node-project-image" className="w-full">

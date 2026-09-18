@@ -60,7 +60,7 @@ export function createLiveblocksProvider(
 		async identify(user) {
 			return client.identifyUser(user.id, { userInfo: { name: user.name } });
 		},
-		async read(roomId) {
+		async read(roomId, strict = false) {
 			const update = await client.getYjsDocumentAsBinaryUpdate(
 				roomId,
 				undefined,
@@ -69,7 +69,12 @@ export function createLiveblocksProvider(
 			const doc = new Y.Doc();
 			try {
 				Y.applyUpdate(doc, new Uint8Array(update));
-				return readCanvasDocument(doc).document;
+				const result = readCanvasDocument(doc);
+				if (strict && result.rejected)
+					throw new Error(
+						"Canvas contains unrecognized entries; media references cannot be verified",
+					);
+				return result.document;
 			} finally {
 				doc.destroy();
 			}

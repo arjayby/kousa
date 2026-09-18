@@ -22,8 +22,18 @@ export class MediaError extends Error {
 		super(message);
 	}
 }
-const objectKey = (asset: MediaAsset) =>
+export const objectKey = (
+	asset: Pick<MediaAsset, "id" | "projectId" | "mimeType">,
+) =>
 	`projects/${asset.projectId}/${asset.mimeType === "video/mp4" ? "videos" : asset.mimeType === "audio/mpeg" ? "audio" : "images"}/${asset.id}`;
+type MediaFile = {
+	bytes: Uint8Array<ArrayBuffer>;
+	name: string;
+	mimeType: string;
+	retentionReason?: string | null;
+	writeId?: string;
+};
+
 export function createMediaService(
 	store: MediaStore,
 	projects: Pick<ProjectStore, "get">,
@@ -36,11 +46,7 @@ export function createMediaService(
 			throw new MediaError(403, "Only owners and editors can save media.");
 	}
 	// Generated files stay private until the generation ledger publishes them.
-	async function stage(
-		actorId: string,
-		projectId: string,
-		file: { bytes: Uint8Array<ArrayBuffer>; name: string; mimeType: string },
-	) {
+	async function stage(actorId: string, projectId: string, file: MediaFile) {
 		await authorize(actorId, projectId, true);
 		if (!file.bytes.length || file.bytes.length > maxImageBytes)
 			throw new MediaError(413, "Choose an image up to 10 MB.");
@@ -75,7 +81,7 @@ export function createMediaService(
 	async function stageSpeech(
 		actorId: string,
 		projectId: string,
-		file: { bytes: Uint8Array<ArrayBuffer>; name: string; mimeType: string },
+		file: MediaFile,
 	) {
 		await authorize(actorId, projectId, true);
 		if (!file.bytes.length || file.bytes.length > maxAudioBytes)
@@ -113,7 +119,7 @@ export function createMediaService(
 	async function stageVideo(
 		actorId: string,
 		projectId: string,
-		file: { bytes: Uint8Array<ArrayBuffer>; name: string; mimeType: string },
+		file: MediaFile,
 		audio: "none" | "optional" | "required" = "none",
 	) {
 		await authorize(actorId, projectId, true);
@@ -133,7 +139,7 @@ export function createMediaService(
 	async function save(
 		actorId: string,
 		projectId: string,
-		file: { bytes: Uint8Array<ArrayBuffer>; name: string; mimeType: string },
+		file: MediaFile,
 		metadata: {
 			width: number | null;
 			height: number | null;
@@ -156,6 +162,8 @@ export function createMediaService(
 		const asset = await store.reserve({
 			projectId,
 			uploaderId: actorId,
+			retentionReason: file.retentionReason,
+			writeId: file.writeId,
 			sha256,
 			name,
 			mimeType: file.mimeType,
@@ -169,9 +177,15 @@ export function createMediaService(
 				409,
 				"This project has reached its media limit (100 files or 100 MB).",
 			);
+		if (asset === "deleting")
+			throw new MediaError(
+				409,
+				"This file is being removed. Wait, then upload it again.",
+			);
 		// Repeating the same upload safely resumes interrupted writes. No deletion on
 		// uncertain completion: the database may have committed before the response failed.
 		await storage.put(objectKey(asset), file.bytes, file.mimeType);
+		if (file.writeId) await store.finishWrite(file.writeId);
 		return publicAssetSchema.parse(asset);
 	}
 	return {
@@ -185,22 +199,25 @@ export function createMediaService(
 		stage,
 		stageSpeech,
 		stageVideo,
-		stageClip: (
-			actorId: string,
-			projectId: string,
-			file: { bytes: Uint8Array<ArrayBuffer>; name: string; mimeType: string },
-		) => stageVideo(actorId, projectId, file, "required"),
+		stageClip: (actorId: string, projectId: string, file: MediaFile) =>
+			stageVideo(actorId, projectId, file, "required"),
 		async upload(
 			actorId: string,
 			projectId: string,
-			file: { bytes: Uint8Array<ArrayBuffer>; name: string; mimeType: string },
+			file: MediaFile,
+			libraryOnly = false,
 		) {
+			const uploadFile = {
+				...file,
+				retentionReason: libraryOnly ? null : "canvas",
+				writeId: libraryOnly ? crypto.randomUUID() : undefined,
+			};
 			const asset =
-				file.mimeType === "video/mp4"
-					? await stageVideo(actorId, projectId, file, "optional")
-					: file.mimeType === "audio/mpeg"
-						? await stageSpeech(actorId, projectId, file)
-						: await stage(actorId, projectId, file);
+				uploadFile.mimeType === "video/mp4"
+					? await stageVideo(actorId, projectId, uploadFile, "optional")
+					: uploadFile.mimeType === "audio/mpeg"
+						? await stageSpeech(actorId, projectId, uploadFile)
+						: await stage(actorId, projectId, uploadFile);
 			const completed = await store.complete(actorId, asset.id);
 			if (!completed)
 				throw new MediaError(403, "Your editing access has changed.");

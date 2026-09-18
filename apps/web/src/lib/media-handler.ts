@@ -1,5 +1,7 @@
 import { createAuth } from "@kousa/auth";
+import { env } from "@kousa/env/server";
 import { createMediaHandler } from "@kousa/media/http";
+import { mediaLifecycleRuntime } from "@kousa/media/lifecycle-runtime";
 import { createMedia } from "@kousa/media/runtime";
 
 export const handleMedia = createMediaHandler({
@@ -10,4 +12,5 @@ export const handleMedia = createMediaHandler({
 		);
 	},
 	service: createMedia,
+	lifecycle: () => mediaLifecycleRuntime(env),
 });

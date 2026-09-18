@@ -15,17 +15,19 @@ export function createMediaStore(db: Database) {
 			input: Omit<
 				typeof mediaAsset.$inferInsert,
 				"id" | "status" | "createdAt"
-			> & { uploaderId: string },
+			> & { uploaderId: string; writeId?: string },
 		) {
-			const result = await db.execute(sql`select reserve_media_asset(
+			const result = await db.execute(sql`select reserve_media_asset_lifecycle(
 				${input.projectId}::uuid, ${input.uploaderId}, ${input.sha256}, ${input.name},
-				${input.mimeType}, ${input.bytes}, ${input.width ?? null}, ${input.height ?? null}, ${input.durationMs ?? null}
+				${input.mimeType}, ${input.bytes}, ${input.width ?? null}, ${input.height ?? null}, ${input.durationMs ?? null},
+				${input.retentionReason === undefined ? "generation" : input.retentionReason}, ${input.writeId ?? null}::uuid
 			) as id`);
 			const id = z
 				.object({ rows: z.array(z.object({ id: z.string() })) })
 				.parse(result).rows[0]?.id;
 			if (!id || id === "forbidden") return "forbidden" as const;
 			if (id === "full") return "full" as const;
+			if (id === "deleting") return "deleting" as const;
 			const [asset] = await db
 				.select()
 				.from(mediaAsset)
@@ -33,13 +35,19 @@ export function createMediaStore(db: Database) {
 			if (!asset) throw new Error("Reserved asset missing");
 			return asset;
 		},
+		async finishWrite(id: string) {
+			await db.execute(
+				sql`delete from media_upload_write where id=${id}::uuid`,
+			);
+		},
 		async complete(actorId: string, id: string) {
 			const [asset] = await db
 				.update(mediaAsset)
-				.set({ status: "ready" })
+				.set({ status: "ready", uploadedAt: sql`now()` })
 				.where(
 					and(
 						eq(mediaAsset.id, id),
+						sql`${mediaAsset.status} in ('pending','ready')`,
 						sql`exists (select 1 from project p where p.id = ${mediaAsset.projectId} and
 				(p.owner_id = ${actorId} or exists (select 1 from project_member m where m.project_id = p.id and m.user_id = ${actorId} and m.role = 'editor')))`,
 					),

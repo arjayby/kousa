@@ -1,11 +1,22 @@
 "use client";
 
 import type { ProjectAsset, PublicAsset } from "@kousa/media/contracts";
+import { mediaUrl } from "@kousa/media/contracts";
+import { retainProjectMedia } from "@kousa/media/upload";
 import {
 	Alert,
 	AlertDescription,
 	AlertTitle,
 } from "@kousa/ui/components/alert";
+import {
+	AlertDialog,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@kousa/ui/components/alert-dialog";
 import { Button } from "@kousa/ui/components/button";
 import { Card, CardContent, CardFooter } from "@kousa/ui/components/card";
 import {
@@ -40,7 +51,7 @@ import {
 	RefreshCwIcon,
 	SearchIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
 	AssetDownload,
 	AssetPreview,
@@ -48,6 +59,12 @@ import {
 	useCanvasMedia,
 	VideoPreview,
 } from "./canvas-media";
+import {
+	AssetUsage,
+	LibraryUpload,
+	MediaStorageSummary,
+	useMediaLifecycle,
+} from "./media-lifecycle-controls";
 
 const filters = [
 	{ value: "all", label: "All" },
@@ -90,6 +107,48 @@ export function MediaLibrary({
 	const [filter, setFilter] = useState("all");
 	const [search, setSearch] = useState("");
 	const [previewId, setPreviewId] = useState<string | null>(null);
+	const lifecycle = useMediaLifecycle(open);
+	const [removeAsset, setRemoveAsset] = useState<ProjectAsset | null>(null);
+	const [actionError, setActionError] = useState<string | null>(null);
+	const [busy, setBusy] = useState(false);
+	const actionPending = useRef(false);
+	const refresh = async () => {
+		await Promise.all([media.refresh(), lifecycle.refetch()]);
+	};
+	async function remove() {
+		if (!removeAsset || !canEdit || actionPending.current) return;
+		actionPending.current = true;
+		setBusy(true);
+		setActionError(null);
+		try {
+			const response = await fetch(mediaUrl(media.projectId, removeAsset.id), {
+				method: "DELETE",
+			});
+			if (!response.ok) {
+				const body = await response.json().catch(() => null);
+				throw new Error(
+					(body &&
+					typeof body === "object" &&
+					"message" in body &&
+					typeof body.message === "string"
+						? body.message
+						: null) ?? "Could not remove this file. Refresh and try again.",
+				);
+			}
+			setRemoveAsset(null);
+			setPreviewId(null);
+		} catch (error) {
+			setActionError(
+				error instanceof Error
+					? error.message
+					: "Removal was interrupted. Refresh and retry.",
+			);
+		} finally {
+			actionPending.current = false;
+			setBusy(false);
+			await refresh();
+		}
+	}
 	const assets = media.error ? [] : media.assets;
 	const query = search.trim().toLocaleLowerCase();
 	const visible = assets.filter(
@@ -98,11 +157,25 @@ export function MediaLibrary({
 			asset.name.toLocaleLowerCase().includes(query),
 	);
 	const preview = assets.find((asset) => asset.id === previewId);
-	function addAssetToCanvas(asset: ProjectAsset) {
-		if (!canEdit || atNodeLimit) return;
-		if (onUseAsset(asset)) {
-			setPreviewId(null);
-			setOpen(false);
+	async function addAssetToCanvas(asset: ProjectAsset) {
+		if (!canEdit || atNodeLimit || actionPending.current) return;
+		actionPending.current = true;
+		setBusy(true);
+		setActionError(null);
+		try {
+			await retainProjectMedia(media.projectId, asset.id);
+			if (onUseAsset(asset)) {
+				setPreviewId(null);
+				setOpen(false);
+			}
+		} catch (error) {
+			setActionError(
+				error instanceof Error ? error.message : "Could not add this file.",
+			);
+		} finally {
+			actionPending.current = false;
+			setBusy(false);
+			await refresh();
 		}
 	}
 	function reuseButton(asset: ProjectAsset) {
@@ -110,7 +183,7 @@ export function MediaLibrary({
 			<Button
 				size="sm"
 				variant="outline"
-				disabled={atNodeLimit}
+				disabled={atNodeLimit || busy}
 				onClick={() => addAssetToCanvas(asset)}
 			>
 				<PlusIcon data-icon="inline-start" /> Add to canvas
@@ -122,8 +195,13 @@ export function MediaLibrary({
 			open={open}
 			onOpenChange={(value) => {
 				setOpen(value);
-				if (value) void media.refresh();
-				else setPreviewId(null);
+				if (value) {
+					void refresh();
+					setActionError(null);
+				} else {
+					setPreviewId(null);
+					setRemoveAsset(null);
+				}
 			}}
 		>
 			<DialogTrigger render={<Button variant="ghost" />}>
@@ -137,6 +215,19 @@ export function MediaLibrary({
 						here when a node is deleted.
 					</DialogDescription>
 				</DialogHeader>
+				<MediaStorageSummary
+					state={lifecycle.data}
+					loading={lifecycle.isPending}
+					error={lifecycle.isError}
+					retry={() => void lifecycle.refetch()}
+				/>
+				<LibraryUpload canEdit={canEdit} refresh={() => lifecycle.refetch()} />
+				{actionError && !removeAsset ? (
+					<Alert variant="destructive">
+						<AlertTitle>Media action needs attention</AlertTitle>
+						<AlertDescription>{actionError}</AlertDescription>
+					</Alert>
+				) : null}
 				<div className="flex flex-wrap items-center gap-3">
 					<ToggleGroup
 						aria-label="Media type"
@@ -170,7 +261,7 @@ export function MediaLibrary({
 						size="icon"
 						disabled={media.refreshing}
 						aria-label="Refresh media"
-						onClick={() => void media.refresh()}
+						onClick={() => void refresh()}
 					>
 						<RefreshCwIcon
 							className={media.refreshing ? "animate-spin" : undefined}
@@ -228,7 +319,7 @@ export function MediaLibrary({
 								<EmptyDescription>
 									{assets.length
 										? "Try a different media type or filename."
-										: "Upload an image from an Image node or generate media to start this library."}
+										: "Upload to this library or generate media from a canvas node to get started."}
 								</EmptyDescription>
 							</EmptyHeader>
 							{assets.length > 0 ? (
@@ -278,6 +369,13 @@ export function MediaLibrary({
 											<CardFooter className="flex-wrap justify-between gap-2">
 												<AssetDownload assetId={asset.id} kind={kind} />
 												{reuseButton(asset)}
+												<Button
+													size="sm"
+													variant="ghost"
+													onClick={() => setPreviewId(asset.id)}
+												>
+													Usage &amp; removal
+												</Button>
 											</CardFooter>
 										</Card>
 									</li>
@@ -303,6 +401,15 @@ export function MediaLibrary({
 						</DialogHeader>
 						{preview ? (
 							<>
+								<AssetUsage
+									usage={
+										lifecycle.isError
+											? undefined
+											: lifecycle.data?.usage.find(
+													(item) => item.assetId === preview.id,
+												)
+									}
+								/>
 								{assetKind(preview) === "image" ? (
 									<div className="[&_img]:max-h-[55dvh]">
 										<AssetPreview assetId={preview.id} />
@@ -322,10 +429,58 @@ export function MediaLibrary({
 										kind={assetKind(preview)}
 									/>
 									{reuseButton(preview)}
+									{canEdit ? (
+										<Button
+											variant="destructive"
+											disabled={
+												busy ||
+												lifecycle.isError ||
+												!lifecycle.data?.usage.find(
+													(item) => item.assetId === preview.id,
+												)?.removable
+											}
+											onClick={() => {
+												setActionError(null);
+												setRemoveAsset(preview);
+											}}
+										>
+											Remove file
+										</Button>
+									) : null}
 								</div>
 							</>
 						) : null}
 					</DialogContent>
+					<AlertDialog
+						open={!!removeAsset}
+						onOpenChange={(value) => {
+							if (!value && !busy) setRemoveAsset(null);
+						}}
+					>
+						<AlertDialogContent>
+							<AlertDialogHeader>
+								<AlertDialogTitle>
+									Permanently remove {removeAsset?.name}?
+								</AlertDialogTitle>
+								<AlertDialogDescription>
+									This removes the stored file for everyone in this project. It
+									cannot be undone. References and permissions are checked again
+									before removal.
+								</AlertDialogDescription>
+							</AlertDialogHeader>
+							{actionError ? <p role="alert">{actionError}</p> : null}
+							<AlertDialogFooter>
+								<AlertDialogCancel disabled={busy}>Keep file</AlertDialogCancel>
+								<Button
+									variant="destructive"
+									disabled={busy}
+									onClick={() => void remove()}
+								>
+									{busy ? "Removing…" : "Permanently remove file"}
+								</Button>
+							</AlertDialogFooter>
+						</AlertDialogContent>
+					</AlertDialog>
 				</Dialog>
 			</DialogContent>
 		</Dialog>

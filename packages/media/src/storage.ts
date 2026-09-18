@@ -1,5 +1,6 @@
 // Provider-neutral boundary: graph nodes store asset IDs, never provider URLs.
 export interface MediaStorage {
+	delete?(key: string): Promise<void>;
 	put(
 		key: string,
 		bytes: Uint8Array<ArrayBuffer>,
@@ -12,6 +13,9 @@ export interface MediaStorage {
 }
 export function r2Storage(bucket: R2Bucket): MediaStorage {
 	return {
+		async delete(key) {
+			await bucket.delete(key);
+		},
 		async put(key, bytes, mimeType) {
 			await bucket.put(key, bytes, {
 				httpMetadata: {

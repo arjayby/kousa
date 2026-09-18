@@ -70,7 +70,13 @@ export const generationJobs = Cloudflare.Worker(
 		yield* Command.Dev("generation-dev", {
 			command: "pnpm run dev:worker",
 			cwd: "../../apps/jobs",
-			env: { ...databaseBindings, AI_GATEWAY_API_KEY: key },
+			env: {
+				...databaseBindings,
+				AI_GATEWAY_API_KEY: key,
+				LIVEBLOCKS_SECRET_KEY: yield* Config.redacted(
+					"LIVEBLOCKS_SECRET_KEY",
+				).pipe(Config.withDefault(Redacted.make(""))),
+			},
 		});
 		return {
 			main: "../../apps/jobs/src/worker.ts",
@@ -83,6 +89,9 @@ export const generationJobs = Cloudflare.Worker(
 				...databaseBindings,
 				AI_GATEWAY_API_KEY: key,
 				MEDIA: media,
+				LIVEBLOCKS_SECRET_KEY: Config.redacted("LIVEBLOCKS_SECRET_KEY").pipe(
+					Config.withDefault(Redacted.make("")),
+				),
 				...(clipsEnabled
 					? {
 							CLIP_RENDERER: Cloudflare.Container("ClipRendererContainer", {

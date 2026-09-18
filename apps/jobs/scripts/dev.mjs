@@ -5,8 +5,7 @@ renderer.on("error", () =>
 	console.error("Start the clip renderer with node renderer/server.mjs."),
 );
 
-// Alchemy supplies the managed database URL and API key in the child environment.
-// Wrangler's required-secrets allowlist imports only those two into the Worker.
+// Alchemy supplies the database and provider keys; Wrangler imports the declared secrets.
 const worker = spawn(
 	"pnpm",
 	[

@@ -10,9 +10,19 @@ Use **Upload media**, drop files onto the canvas, or paste copied files while th
 
 Owners and editors can upload and change attachments. Every metadata and file request checks current project membership; responses are private, non-cacheable, and served through authenticated Kousa routes. R2 has no public domain, public access, or browser credentials. SVG and mismatched image types are rejected. Image headers determine dimensions and type; this is not full pixel decoding or malware scanning.
 
+## Storage usage and removal
+
+The library shows reserved bytes and files against the project's 100 MiB and 100-file limits, including unfinished uploads and removals awaiting storage confirmation. Open **Usage & removal** on a file to see its shared canvas nodes, generation and workflow records, clip records, and retention reason. The check includes disconnected nodes, selected historical outputs, active jobs, and retained inputs. If the authoritative shared canvas cannot be read completely, removal stays disabled.
+
+**Upload to library** saves a file without creating a node. An unused library upload can be permanently removed by an owner or editor after confirmation. The server rechecks current permissions and references before deleting it. The existing jobs worker checks every 15 minutes and removes confirmed, unused library uploads after seven days. Uploading the same file again restarts that interval.
+
+Adding a file to the canvas or choosing it as a node source first retains it on the server. Retention survives deleting a node, replacing an attachment, undo, and offline edits. Run and clip records retain their inputs and outputs even after completion or failure. Files that predate lifecycle tracking also stay retained because older offline undo stacks cannot be inspected. This first version has no expiry for those retained files; a disconnected or deleted node is never enough to prove a file unused.
+
+Canvas uploads, drops, and pastes retain files before returning them to the editor. Only explicit library uploads are eligible for unused-file cleanup. General interrupted-upload recovery and abandoned-generation cleanup remain follow-ups. An uncertain storage write reserves its space and prevents removal; temporary clip receipts continue to use their separate expiry policy.
+
 ## Local development
 
-Run `pnpm dev` from the repository root. Alchemy applies migrations, including `0007_project_media` and `0008_image_generation`, before starting Next. OpenNext's platform proxy reads the `MEDIA` R2 binding from `apps/web/wrangler.jsonc`. Objects persist locally under `apps/web/.wrangler/state`; metadata stays in the configured development Neon database. No extra environment variables or R2 access keys are needed.
+Run `pnpm dev` from the repository root. Alchemy applies migrations, including `0022_media_lifecycle`, before starting Next. OpenNext's platform proxy reads the `MEDIA` R2 binding from `apps/web/wrangler.jsonc`. Objects persist locally under `apps/web/.wrangler/state`; metadata stays in the configured development Neon database. Alchemy passes the existing `LIVEBLOCKS_SECRET_KEY` to both the web app and jobs worker for authoritative shared-canvas checks. No extra R2 access keys are needed.
 
 Local media files survive a dev-server restart, but are not uploaded to Cloudflare. Do not remove `.wrangler/state` if you want to keep them. Another checkout or computer does not share these local files. If local files are lost, uploading the same original image restores the existing asset ID. Keep production and development databases separate; local objects are not automatically migrated on deployment. Clip composition adds migration `0017_clip_composition` and a local FFmpeg renderer; see its setup guide.
 
@@ -30,10 +40,15 @@ Use the normal Alchemy deployment so it creates the bucket and configures the bi
 - Upload bytes are size-bounded while streaming, validated, and hashed on the server. A database function locks the project to serialize quota reservations and deduplicates by project and SHA-256.
 - A reservation is `pending` until R2 finishes and the database confirms current editing permission. Generated images also finalize the generation credit charge in the same database transaction. Pending rows never appear in the library or file endpoint.
 - Retrying the same file reuses the reservation and object key, including after an ambiguous network or database response. The service never deletes a possibly committed file on an uncertain result.
-- Removing an attachment or deleting a node retains the file for other nodes and undo. Permanent asset deletion, orphan cleanup, and large-file multipart transfers are later work. Pending reservations count toward quotas until recovered or explicitly cleaned up; there is no automatic cleanup job yet.
+- Removing an attachment or deleting a node retains the file for other nodes and undo. Deletion claims serialize with upload reservations and attachment retention. Database triggers also protect media referenced by saved graphs and run/clip records.
+- Removal marks metadata `deleting`, deletes R2 bytes, then marks it `deleted`. Failed or ambiguous deletion retains the quota reservation until a retry confirms removal. Deleted metadata stays as a tombstone to reject stale completions; reuploading creates a new asset ID.
+- Library uploads record each in-flight storage write. A confirmed write clears its receipt; a failed or uncertain write remains protected. Pending reservations still count toward quotas. Multipart transfers and general interrupted-upload cleanup are later work.
+- Current clients retain a file before attaching it. A library list requested by an older client conservatively retains its ready files before exposing IDs, protecting clients that attach files synchronously.
 
 ## Validation
 
 `pnpm test` covers real Postgres migrations and store behavior in PGlite: permissions, cross-project isolation, quota concurrency, duplicate uploads, revoked editing access, interrupted writes, ambiguous completion, file validation, and private HTTP responses. Library tests cover mixed media listing, pending-file exclusion, private metadata filtering, revoked viewer access, and speech scripts after node deletion and deduplicated generation. Shared-document tests cover attachment synchronization, restore, and undo.
+
+Lifecycle tests cover shared-canvas outages, historical selections, retained inputs and clip/workflow plans, concurrent attachment/removal, unfinished duplicate writes, legacy clients, seven-day cleanup, deletion retries, quota release, and stale writes against deleted assets. The September 18, 2026 in-app browser check covers usage display, retained-file protection, library-only upload and removal, and retention after canvas use and undo.
 
 The September 17, 2026 in-app browser check verified existing image previews, filename search, media-type filters, empty search results, image reuse, synchronization to a second canvas session, and undo while retaining the stored file. MP3/MP4 delivery uses local fixtures in automated tests. Successful real speech/video provider generation and playback remain on the [deferred verification checklist](verification.md).

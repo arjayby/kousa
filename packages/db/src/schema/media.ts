@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
 	check,
+	foreignKey,
 	index,
 	integer,
 	pgTable,
@@ -30,17 +31,24 @@ export const mediaAsset = pgTable(
 		height: integer("height"),
 		durationMs: integer("duration_ms"),
 		status: text("status").notNull().default("pending"),
+		retentionReason: text("retention_reason").default("legacy"),
+		uploadedAt: timestamp("uploaded_at", { withTimezone: true }),
+		deletionRequestedAt: timestamp("deletion_requested_at", {
+			withTimezone: true,
+		}),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.notNull()
 			.defaultNow(),
 	},
 	(table) => [
-		uniqueIndex("media_asset_project_hash_uidx").on(
-			table.projectId,
-			table.sha256,
-		),
+		uniqueIndex("media_asset_project_hash_uidx")
+			.on(table.projectId, table.sha256)
+			.where(sql`${table.status} <> 'deleted'`),
 		index("media_asset_project_status_idx").on(table.projectId, table.status),
-		check("media_asset_status", sql`${table.status} in ('pending', 'ready')`),
+		check(
+			"media_asset_status",
+			sql`${table.status} in ('pending', 'ready', 'deleting', 'deleted')`,
+		),
 		check(
 			"media_asset_mime",
 			sql`${table.mimeType} in ('image/png', 'image/jpeg', 'image/webp', 'audio/mpeg', 'video/mp4')`,
@@ -54,5 +62,24 @@ export const mediaAsset = pgTable(
 			sql`(${table.mimeType} in ('image/png', 'image/jpeg', 'image/webp') and ${table.width} is not null and ${table.height} is not null and ${table.width} > 0 and ${table.height} > 0 and ${table.width}::bigint * ${table.height} <= 40000000 and ${table.durationMs} is null) or (${table.mimeType} = 'audio/mpeg' and ${table.width} is null and ${table.height} is null and ${table.durationMs} is not null and ${table.durationMs} between 1 and 180000) or (${table.mimeType} = 'video/mp4' and ${table.width} is not null and ${table.height} is not null and ${table.width} between 1 and 1920 and ${table.height} between 1 and 1920 and ${table.durationMs} is not null and ${table.durationMs} between 1 and 12000)`,
 		),
 		check("media_asset_hash", sql`${table.sha256} ~ '^[a-f0-9]{64}$'`),
+	],
+);
+
+export const mediaUploadWrite = pgTable(
+	"media_upload_write",
+	{
+		id: uuid("id").primaryKey(),
+		assetId: uuid("asset_id").notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(table) => [
+		index("media_upload_write_asset_idx").on(table.assetId),
+		foreignKey({
+			name: "media_upload_write_asset_id_fkey",
+			columns: [table.assetId],
+			foreignColumns: [mediaAsset.id],
+		}).onDelete("cascade"),
 	],
 );

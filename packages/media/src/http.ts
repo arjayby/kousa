@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { maxImageBytes, maxVideoBytes, mediaParams } from "./contracts";
+import type { MediaLifecycle } from "./lifecycle";
 import { MediaRangeError } from "./range";
 import { MediaError, type MediaService } from "./service";
 
@@ -46,22 +47,36 @@ async function readBody(request: Request) {
 export function createMediaHandler(deps: {
 	actor: (request: Request) => Promise<string | null>;
 	service: () => MediaService;
+	lifecycle?: () => MediaLifecycle;
 }) {
 	return async (request: Request, input: unknown) => {
 		try {
 			const { projectId, assetId } = mediaParams.parse(input);
-			if (!["GET", "HEAD", "POST"].includes(request.method))
+			if (!["GET", "HEAD", "POST", "DELETE"].includes(request.method))
 				throw new MediaError(405, "Method not allowed.");
 			if (
-				request.method === "POST" &&
-				(request.headers.get("origin") !== new URL(request.url).origin ||
-					assetId)
+				(request.method === "POST" || request.method === "DELETE") &&
+				request.headers.get("origin") !== new URL(request.url).origin
 			)
 				throw new MediaError(403, "Upload from the Kousa app.");
 			const actorId = await deps.actor(request);
 			if (!actorId)
 				throw new MediaError(401, "Sign in to access project media.");
 			const service = deps.service();
+			if (
+				assetId &&
+				(request.method === "POST" || request.method === "DELETE")
+			) {
+				const lifecycle = deps.lifecycle?.();
+				if (!lifecycle)
+					throw new MediaError(503, "Media management is unavailable.");
+				if (request.method === "POST")
+					await lifecycle.retain(actorId, projectId, assetId);
+				else await lifecycle.remove(actorId, projectId, assetId);
+				return Response.json({ ok: true }, { headers: privateHeaders });
+			}
+			if (request.method === "DELETE")
+				throw new MediaError(405, "Choose a file to remove.");
 			if (request.method === "POST") {
 				await service.authorize(actorId, projectId, true);
 				let name: string;
@@ -72,21 +87,38 @@ export function createMediaHandler(deps: {
 				} catch {
 					throw new MediaError(400, "Invalid filename.");
 				}
-				const asset = await service.upload(actorId, projectId, {
-					name,
-					mimeType: request.headers.get("content-type") ?? "",
-					bytes: await readBody(request),
-				});
+				const asset = await service.upload(
+					actorId,
+					projectId,
+					{
+						name,
+						mimeType: request.headers.get("content-type") ?? "",
+						bytes: await readBody(request),
+					},
+					request.headers.get("x-kousa-media-lifecycle") === "1" &&
+						request.headers.get("x-kousa-library-only") === "1",
+				);
 				return Response.json(
 					{ asset },
 					{ status: 201, headers: privateHeaders },
 				);
 			}
-			if (!assetId)
+			if (!assetId) {
+				if (new URL(request.url).searchParams.get("view") === "lifecycle") {
+					if (!deps.lifecycle)
+						throw new MediaError(503, "Media management is unavailable.");
+					return Response.json(
+						await deps.lifecycle().inspect(actorId, projectId),
+						{ headers: privateHeaders },
+					);
+				}
+				if (request.headers.get("x-kousa-media-lifecycle") !== "1")
+					await deps.lifecycle?.().protectLegacyList(actorId, projectId);
 				return Response.json(
 					{ assets: await service.list(actorId, projectId) },
 					{ headers: privateHeaders },
 				);
+			}
 			const { asset, object, range } = await service.read(
 				actorId,
 				projectId,
@@ -130,7 +162,7 @@ export function createMediaHandler(deps: {
 					? error.message
 					: status === 400
 						? "Invalid media request."
-						: "Media storage is unavailable. Please retry the same file.";
+						: "Media storage is unavailable. Refresh and retry the same action.";
 			return Response.json({ message }, { status, headers: privateHeaders });
 		}
 	};

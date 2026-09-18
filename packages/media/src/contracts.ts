@@ -32,6 +32,34 @@ export const mediaListSchema = z.object({
 	assets: z.array(projectAssetSchema),
 });
 export const mediaUploadSchema = z.object({ asset: publicAssetSchema });
+export const mediaLifecycleSchema = z.object({
+	storage: z.object({
+		files: z.number(),
+		bytes: z.number(),
+		pendingFiles: z.number(),
+		pendingBytes: z.number(),
+		removingFiles: z.number(),
+		maxFiles: z.number(),
+		maxBytes: z.number(),
+	}),
+	graphAvailable: z.boolean(),
+	usage: z.array(
+		z.object({
+			assetId: z.string(),
+			references: z.array(
+				z.object({
+					kind: z.string(),
+					label: z.string(),
+					nodeId: z.string().optional(),
+				}),
+			),
+			removable: z.boolean(),
+			reason: z.string().nullable(),
+			cleanupAt: z.string().nullable(),
+		}),
+	),
+});
+export const mediaLifecycleHeaders = { "X-Kousa-Media-Lifecycle": "1" };
 export function mediaUrl(projectId: string, assetId?: string) {
 	return `/api/projects/${encodeURIComponent(projectId)}/media${assetId ? `/${encodeURIComponent(assetId)}` : ""}`;
 }

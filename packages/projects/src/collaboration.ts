@@ -20,7 +20,7 @@ export interface CollaborationProvider {
 	): Promise<void>;
 	disconnect(roomId: string): Promise<void>;
 	identify(user: Collaborator): Promise<{ body: string; status: number }>;
-	read(roomId: string): Promise<CanvasDocument>;
+	read(roomId: string, strict?: boolean): Promise<CanvasDocument>;
 }
 
 export function createCollaborationService(

@@ -6,7 +6,7 @@
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
   "vars": {"CLIP_RENDERER_URL": "http://127.0.0.1:8790"},
-  "secrets": { "required": ["DATABASE_URL", "AI_GATEWAY_API_KEY"] },
+  "secrets": { "required": ["DATABASE_URL", "AI_GATEWAY_API_KEY", "LIVEBLOCKS_SECRET_KEY"] },
   "workflows": [{ "name": "kousa-generation-local", "binding": "GENERATION", "class_name": "GenerationWorkflow" }],
   "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "kousa-media-local" }],
   "triggers": { "crons": ["*/15 * * * *"] },

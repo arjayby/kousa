@@ -31,6 +31,7 @@ import { executeGraphWorkflow } from "@kousa/generation/graph-workflow";
 import { createGenerationImageAccess } from "@kousa/generation/image-access";
 import { createGenerationRunner } from "@kousa/generation/runner";
 import { executeGenerationWorkflow } from "@kousa/generation/workflow";
+import { mediaLifecycleRuntime } from "@kousa/media/lifecycle-runtime";
 import { createMediaService } from "@kousa/media/service";
 import { r2Storage } from "@kousa/media/storage";
 import { z } from "zod";
@@ -39,6 +40,7 @@ import { r2Artifacts } from "./artifacts";
 interface JobsEnv extends RendererEnv {
 	DATABASE_URL: string;
 	AI_GATEWAY_API_KEY: string;
+	LIVEBLOCKS_SECRET_KEY?: string;
 	MEDIA: R2Bucket;
 	GENERATION: Workflow<{ runId: string }>;
 }
@@ -178,6 +180,11 @@ export default {
 		return new Response(null, { status: 202 });
 	},
 	async scheduled(_event: ScheduledController, env: JobsEnv) {
-		await recover(env);
+		const results = await Promise.allSettled([
+			recover(env),
+			mediaLifecycleRuntime(env).cleanup(),
+		]);
+		for (const result of results)
+			if (result.status === "rejected") throw result.reason;
 	},
 } satisfies ExportedHandler<JobsEnv>;

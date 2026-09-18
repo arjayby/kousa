@@ -8,3 +8,5 @@ export async function GET(
 }
 
 export const HEAD = GET;
+export const POST = GET;
+export const DELETE = GET;

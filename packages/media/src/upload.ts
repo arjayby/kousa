@@ -3,6 +3,7 @@ import {
 	maxAudioBytes,
 	maxImageBytes,
 	maxVideoBytes,
+	mediaLifecycleHeaders,
 	mediaUploadSchema,
 	mediaUrl,
 } from "./contracts";
@@ -34,6 +35,7 @@ export async function uploadProjectMedia(
 	projectId: string,
 	file: File,
 	signal?: AbortSignal,
+	libraryOnly = false,
 ) {
 	const error = uploadFileError(file);
 	if (error) throw new Error(error);
@@ -42,6 +44,9 @@ export async function uploadProjectMedia(
 		response = await fetch(mediaUrl(projectId), {
 			method: "POST",
 			headers: {
+				...(libraryOnly
+					? { ...mediaLifecycleHeaders, "X-Kousa-Library-Only": "1" }
+					: {}),
 				"Content-Type": file.type,
 				"X-File-Name": encodeURIComponent(file.name),
 			},
@@ -74,4 +79,22 @@ export async function uploadProjectMedia(
 			"Could not confirm the upload. Retry the same file, or check Media library before uploading again.",
 		);
 	return parsed.data.asset;
+}
+
+export async function retainProjectMedia(projectId: string, assetId: string) {
+	const response = await fetch(mediaUrl(projectId, assetId), {
+		method: "POST",
+	});
+	if (!response.ok) {
+		const body = await response.json().catch(() => null);
+		throw new Error(
+			(body &&
+			typeof body === "object" &&
+			"message" in body &&
+			typeof body.message === "string"
+				? body.message
+				: null) ??
+				"Could not confirm this file is available. Refresh Media library and try again.",
+		);
+	}
 }
