@@ -25,12 +25,13 @@ export const generationRun = pgTable(
 		graphRunId: uuid("graph_run_id").references(() => graphRun.id, {
 			onDelete: "restrict",
 		}),
-		canvasId: uuid("canvas_id")
-			.notNull()
-			.references(() => projectCanvas.id, { onDelete: "restrict" }),
-		projectId: uuid("project_id")
-			.notNull()
-			.references(() => project.id, { onDelete: "restrict" }),
+		canvasId: uuid("canvas_id").references(() => projectCanvas.id, {
+			onDelete: "restrict",
+		}),
+		projectId: uuid("project_id").references(() => project.id, {
+			onDelete: "restrict",
+		}),
+		sourceRunId: uuid("source_run_id"),
 		nodeId: uuid("node_id").notNull(),
 		userId: text("user_id")
 			.notNull()
@@ -78,6 +79,16 @@ export const generationRun = pgTable(
 		completedAt: timestamp("completed_at", { withTimezone: true }),
 	},
 	(t) => [
+		check(
+			"generation_scope",
+			sql`(${t.projectId} is not null and ${t.canvasId} is not null) or (${t.projectId} is null and ${t.canvasId} is null and ${t.graphRunId} is null and ${t.sourceRunId} is null)`,
+		),
+		index("generation_personal_history_idx")
+			.on(t.userId, t.createdAt, t.id)
+			.where(sql`${t.projectId} is null`),
+		uniqueIndex("generation_import_uidx")
+			.on(t.sourceRunId, t.canvasId, t.userId)
+			.where(sql`${t.sourceRunId} is not null`),
 		index("generation_project_node_idx").on(t.projectId, t.nodeId, t.createdAt),
 		index("generation_project_history_idx")
 			.on(t.projectId, t.createdAt, t.id)
@@ -104,7 +115,10 @@ export const generationRun = pgTable(
 			"generation_video_settings",
 			sql`${t.kind} <> 'video' or (${t.duration} is not null and ${t.duration} in (5,10) and ${t.aspectRatio} is not null and ${t.aspectRatio} in ('1:1','16:9','9:16','4:3'))`,
 		),
-		check("generation_credits_positive", sql`${t.credits} > 0`),
+		check(
+			"generation_credits_positive",
+			sql`(${t.sourceRunId} is null and ${t.credits} > 0) or (${t.sourceRunId} is not null and ${t.credits} = 0 and ${t.status} = 'succeeded' and ${t.projectId} is not null)`,
+		),
 		check(
 			"generation_input_image_valid",
 			sql`(${t.inputImageAssetId} is null and ${t.inputImageOrigin} is null and ${t.inputImageTokenHash} is null) or (${t.kind} = 'video' and ${t.inputImageAssetId} is not null and ${t.inputImageOrigin} is not null and (${t.inputImageTokenHash} is null or ${t.inputImageTokenHash} ~ '^[a-f0-9]{64}$'))`,

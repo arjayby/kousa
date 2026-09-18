@@ -4,6 +4,8 @@ This project was created with [Better-T-Stack](https://github.com/AmanVarshney01
 
 ## Features
 
+- **Playground** - Generate without a project, switch models, revisit private history, and add saved results to a canvas without another charge
+
 - **TypeScript** - For type safety and improved developer experience
 - **Next.js** - Full-stack React framework
 - **TailwindCSS** - Utility-first CSS for rapid UI development
@@ -57,6 +59,8 @@ Open [http://localhost:3001](http://localhost:3001) in your browser to see the f
 Use **New canvas** in project settings or the canvas header to add a workspace, then switch between canvases in the header. See [multiple canvases](docs/multiple-canvases.md) for access, storage, and migration details.
 
 ## UI Customization
+
+Open **Playground** to generate text, images, video, or speech without setting up a project. See [Playground](docs/playground.md) for personal history, model switching, and canvas imports.
 
 Select nodes and use **Duplicate selection**, **Copy selection**, or **Paste nodes** in the canvas toolbar. Cmd/Ctrl+D duplicates, Cmd/Ctrl+C/V copies and pastes, and one undo removes the entire copy. See [branch copying](docs/canvas-copy-paste.md) for media rules and shortcuts.
 

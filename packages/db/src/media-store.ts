@@ -1,4 +1,4 @@
-import { and, desc, eq, getTableColumns, sql } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, isNull, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import { generationRun } from "./schema/generations";
@@ -17,11 +17,15 @@ export function createMediaStore(db: Database) {
 				"id" | "status" | "createdAt"
 			> & { uploaderId: string; writeId?: string },
 		) {
-			const result = await db.execute(sql`select reserve_media_asset_lifecycle(
+			const result = await db.execute(
+				input.projectId == null
+					? sql`select reserve_personal_media(${input.uploaderId}, ${input.sha256}, ${input.name}, ${input.mimeType}, ${input.bytes}::integer, ${input.width ?? null}::integer, ${input.height ?? null}::integer, ${input.durationMs ?? null}::integer) as id`
+					: sql`select reserve_media_asset_lifecycle(
 				${input.projectId}::uuid, ${input.uploaderId}, ${input.sha256}, ${input.name},
 				${input.mimeType}, ${input.bytes}, ${input.width ?? null}, ${input.height ?? null}, ${input.durationMs ?? null},
 				${input.retentionReason === undefined ? "generation" : input.retentionReason}, ${input.writeId ?? null}::uuid
-			) as id`);
+			) as id`,
+			);
 			const id = z
 				.object({ rows: z.array(z.object({ id: z.string() })) })
 				.parse(result).rows[0]?.id;
@@ -62,6 +66,20 @@ export function createMediaStore(db: Database) {
 				.where(
 					and(
 						eq(mediaAsset.projectId, projectId),
+						eq(mediaAsset.id, id),
+						eq(mediaAsset.status, "ready"),
+					),
+				);
+			return asset ?? null;
+		},
+		async getPersonal(actorId: string, id: string) {
+			const [asset] = await db
+				.select()
+				.from(mediaAsset)
+				.where(
+					and(
+						isNull(mediaAsset.projectId),
+						eq(mediaAsset.ownerId, actorId),
 						eq(mediaAsset.id, id),
 						eq(mediaAsset.status, "ready"),
 					),

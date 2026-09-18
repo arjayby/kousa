@@ -23,9 +23,10 @@ export class MediaError extends Error {
 	}
 }
 export const objectKey = (
-	asset: Pick<MediaAsset, "id" | "projectId" | "mimeType">,
+	asset: Pick<MediaAsset, "id" | "projectId" | "mimeType"> &
+		Partial<Pick<MediaAsset, "ownerId">>,
 ) =>
-	`projects/${asset.projectId}/${asset.mimeType === "video/mp4" ? "videos" : asset.mimeType === "audio/mpeg" ? "audio" : "images"}/${asset.id}`;
+	`${asset.projectId ? `projects/${asset.projectId}` : `personal/${encodeURIComponent(asset.ownerId ?? "")}`}/${asset.mimeType === "video/mp4" ? "videos" : asset.mimeType === "audio/mpeg" ? "audio" : "images"}/${asset.id}`;
 type MediaFile = {
 	bytes: Uint8Array<ArrayBuffer>;
 	name: string;
@@ -39,14 +40,23 @@ export function createMediaService(
 	projects: Pick<ProjectStore, "get">,
 	storage: MediaStorage,
 ) {
-	async function authorize(actorId: string, projectId: string, write = false) {
+	async function authorize(
+		actorId: string,
+		projectId: string | null,
+		write = false,
+	) {
+		if (projectId === null) return;
 		const project = await projects.get(actorId, projectId);
 		if (!project) throw new MediaError(404, "Project not found.");
 		if (write && project.role === "viewer")
 			throw new MediaError(403, "Only owners and editors can save media.");
 	}
 	// Generated files stay private until the generation ledger publishes them.
-	async function stage(actorId: string, projectId: string, file: MediaFile) {
+	async function stage(
+		actorId: string,
+		projectId: string | null,
+		file: MediaFile,
+	) {
 		await authorize(actorId, projectId, true);
 		if (!file.bytes.length || file.bytes.length > maxImageBytes)
 			throw new MediaError(413, "Choose an image up to 10 MB.");
@@ -80,7 +90,7 @@ export function createMediaService(
 	}
 	async function stageSpeech(
 		actorId: string,
-		projectId: string,
+		projectId: string | null,
 		file: MediaFile,
 	) {
 		await authorize(actorId, projectId, true);
@@ -118,7 +128,7 @@ export function createMediaService(
 	}
 	async function stageVideo(
 		actorId: string,
-		projectId: string,
+		projectId: string | null,
 		file: MediaFile,
 		audio: "none" | "optional" | "required" = "none",
 	) {
@@ -138,7 +148,7 @@ export function createMediaService(
 	}
 	async function save(
 		actorId: string,
-		projectId: string,
+		projectId: string | null,
 		file: MediaFile,
 		metadata: {
 			width: number | null;
@@ -175,7 +185,7 @@ export function createMediaService(
 		if (asset === "full")
 			throw new MediaError(
 				409,
-				"This project has reached its media limit (100 files or 100 MB).",
+				"Storage is full. The limit is 100 files or 100 MB.",
 			);
 		if (asset === "deleting")
 			throw new MediaError(
@@ -225,12 +235,15 @@ export function createMediaService(
 		},
 		async read(
 			actorId: string,
-			projectId: string,
+			projectId: string | null,
 			assetId: string,
 			rangeHeader?: string | null,
 		) {
 			await authorize(actorId, projectId);
-			const asset = await store.get(projectId, assetId);
+			const asset =
+				projectId === null
+					? await store.getPersonal(actorId, assetId)
+					: await store.get(projectId, assetId);
 			if (!asset) throw new MediaError(404, "Media not found.");
 			const range = parseMediaRange(rangeHeader, asset.bytes);
 			const object = await storage.get(objectKey(asset), range ?? undefined);

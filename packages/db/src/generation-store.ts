@@ -27,6 +27,111 @@ export const availableCredits = (userId: string) =>
 
 export function createGenerationStore(db: Database) {
 	return {
+		async expirePersonal(userId: string) {
+			await db
+				.update(generationRun)
+				.set({
+					status: "failed",
+					error: "The run timed out. Your credits were released.",
+					completedAt: new Date(),
+				})
+				.where(
+					and(
+						eq(generationRun.userId, userId),
+						isNull(generationRun.projectId),
+						inArray(generationRun.status, ["queued", "running"]),
+						sql`${generationRun.expiresAt} <= now()`,
+					),
+				);
+		},
+		async activeForUser(userId: string) {
+			const [row] = await db
+				.select({
+					active: sql<boolean>`exists(select 1 from generation_run where user_id=${userId} and status in ('queued','running') and expires_at>now()) or exists(select 1 from graph_run where user_id=${userId} and status='running' and expires_at>now())`,
+				})
+				.from(sql`(select 1) request`);
+			return row?.active ?? false;
+		},
+		async findImport(userId: string, sourceRunId: string, canvasId: string) {
+			const [row] = await db
+				.select()
+				.from(generationRun)
+				.where(
+					and(
+						eq(generationRun.userId, userId),
+						eq(generationRun.sourceRunId, sourceRunId),
+						eq(generationRun.canvasId, canvasId),
+					),
+				);
+			return row ?? null;
+		},
+		async personalHistory(
+			userId: string,
+			limit: number,
+			cursor?: { createdAt: string; id: string },
+		) {
+			return db
+				.select({
+					run: generationRun,
+					cursorTime: sql<string>`to_char(${generationRun.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+				})
+				.from(generationRun)
+				.where(
+					and(
+						eq(generationRun.userId, userId),
+						isNull(generationRun.projectId),
+						cursor
+							? sql`(${generationRun.createdAt}, ${generationRun.id}) < (${cursor.createdAt}::timestamptz, ${cursor.id}::uuid)`
+							: undefined,
+					),
+				)
+				.orderBy(desc(generationRun.createdAt), desc(generationRun.id))
+				.limit(limit + 1);
+		},
+		async claimPersonal(
+			input: Pick<
+				GenerationRun,
+				| "id"
+				| "userId"
+				| "modelId"
+				| "prompt"
+				| "inputHash"
+				| "credits"
+				| "kind"
+				| "size"
+				| "voiceId"
+				| "voiceDirection"
+				| "duration"
+				| "aspectRatio"
+				| "authoredSettings"
+			>,
+		) {
+			const [row] = await db
+				.select({
+					claim: sql<Claim>`kousa_claim_playground(${input.id}::uuid, ${input.userId}, ${input.modelId}, ${input.prompt}, ${input.inputHash}, ${input.credits}::integer, ${input.kind}, ${input.size}, ${input.voiceId}, ${input.voiceDirection}, ${input.duration}::integer, ${input.aspectRatio}, ${JSON.stringify(input.authoredSettings)}::jsonb)`,
+				})
+				.from(sql`(select 1) request`);
+			if (!row) throw new Error("Generation reservation unavailable");
+			return row.claim;
+		},
+		async importPersonal(input: {
+			id: string;
+			userId: string;
+			sourceRunId: string;
+			projectId: string;
+			canvasId: string;
+			assetId: string | null;
+			inputHash: string;
+		}) {
+			const [row] = await db
+				.select({
+					id: sql<
+						string | null
+					>`kousa_import_playground(${input.id}::uuid, ${input.userId}, ${input.sourceRunId}::uuid, ${input.projectId}::uuid, ${input.canvasId}::uuid, ${input.assetId}::uuid, ${input.inputHash})`,
+				})
+				.from(sql`(select 1) request`);
+			return row?.id ?? null;
+		},
 		async cancel(id: string, projectId: string, actorId: string) {
 			const [result] = await db
 				.select({
@@ -153,7 +258,7 @@ export function createGenerationStore(db: Database) {
 				| "inputHash"
 				| "credits"
 			> & {
-				canvasId?: string;
+				canvasId?: string | null;
 				kind?: GenerationRun["kind"];
 				size?: string | null;
 				duration?: number | null;
@@ -179,7 +284,7 @@ export function createGenerationStore(db: Database) {
 			if (!row) throw new Error("Generation reservation unavailable");
 			return row.claim;
 		},
-		async expire(projectId?: string) {
+		async expire(projectId?: string | null) {
 			await db
 				.update(generationRun)
 				.set({

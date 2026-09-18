@@ -48,10 +48,18 @@ export function createMediaHandler(deps: {
 	actor: (request: Request) => Promise<string | null>;
 	service: () => MediaService;
 	lifecycle?: () => MediaLifecycle;
+	personal?: boolean;
 }) {
 	return async (request: Request, input: unknown) => {
 		try {
-			const { projectId, assetId } = mediaParams.parse(input);
+			const { projectId, assetId } = deps.personal
+				? {
+						projectId: null,
+						assetId: z.object({ assetId: z.uuid() }).parse(input).assetId,
+					}
+				: mediaParams.parse(input);
+			if (deps.personal && !["GET", "HEAD"].includes(request.method))
+				throw new MediaError(405, "Method not allowed.");
 			if (!["GET", "HEAD", "POST", "DELETE"].includes(request.method))
 				throw new MediaError(405, "Method not allowed.");
 			if (
@@ -64,6 +72,7 @@ export function createMediaHandler(deps: {
 				throw new MediaError(401, "Sign in to access project media.");
 			const service = deps.service();
 			if (
+				projectId &&
 				assetId &&
 				(request.method === "POST" || request.method === "DELETE")
 			) {
@@ -77,7 +86,7 @@ export function createMediaHandler(deps: {
 			}
 			if (request.method === "DELETE")
 				throw new MediaError(405, "Choose a file to remove.");
-			if (request.method === "POST") {
+			if (request.method === "POST" && projectId) {
 				await service.authorize(actorId, projectId, true);
 				let name: string;
 				try {
@@ -103,7 +112,7 @@ export function createMediaHandler(deps: {
 					{ status: 201, headers: privateHeaders },
 				);
 			}
-			if (!assetId) {
+			if (!assetId && projectId) {
 				if (new URL(request.url).searchParams.get("view") === "lifecycle") {
 					if (!deps.lifecycle)
 						throw new MediaError(503, "Media management is unavailable.");
@@ -119,6 +128,7 @@ export function createMediaHandler(deps: {
 					{ headers: privateHeaders },
 				);
 			}
+			if (!assetId) throw new MediaError(400, "Choose a file.");
 			const { asset, object, range } = await service.read(
 				actorId,
 				projectId,

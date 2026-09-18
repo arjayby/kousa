@@ -17,9 +17,12 @@ export const mediaAsset = pgTable(
 	"media_asset",
 	{
 		id: uuid("id").defaultRandom().primaryKey(),
-		projectId: uuid("project_id")
-			.notNull()
-			.references(() => project.id, { onDelete: "restrict" }),
+		projectId: uuid("project_id").references(() => project.id, {
+			onDelete: "restrict",
+		}),
+		ownerId: text("owner_id").references(() => user.id, {
+			onDelete: "restrict",
+		}),
 		uploaderId: text("uploader_id").references(() => user.id, {
 			onDelete: "set null",
 		}),
@@ -41,6 +44,13 @@ export const mediaAsset = pgTable(
 			.defaultNow(),
 	},
 	(table) => [
+		check(
+			"media_asset_scope",
+			sql`(${table.projectId} is not null and ${table.ownerId} is null) or (${table.projectId} is null and ${table.ownerId} is not null)`,
+		),
+		uniqueIndex("media_asset_personal_hash_uidx")
+			.on(table.ownerId, table.sha256)
+			.where(sql`${table.projectId} is null and ${table.status} <> 'deleted'`),
 		uniqueIndex("media_asset_project_hash_uidx")
 			.on(table.projectId, table.sha256)
 			.where(sql`${table.status} <> 'deleted'`),

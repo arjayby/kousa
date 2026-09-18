@@ -68,6 +68,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PlaygroundCanvasImport } from "@/components/playground/canvas-import";
 import { SaveTemplate } from "@/components/templates/save-template";
 import { ClipContext, ClipMonitor, useCanvasClips } from "./canvas-clips";
 import { GenerationContext, useCanvasGeneration } from "./canvas-generation";
@@ -698,8 +699,54 @@ function Editor({
 		return !!example;
 	}
 
+	const importPlaygroundNode = useCallback(
+		(node: CanvasNode) => {
+			if (!canRun) return false;
+			if (graph.nodes.some((n) => n.id === node.id)) return true;
+			if (graph.nodes.length >= 200) {
+				setMessage("This canvas has reached its 200-node limit.");
+				return false;
+			}
+			const position = {
+				x: 0,
+				y: graph.nodes.length
+					? Math.min(
+							97_000,
+							Math.max(...graph.nodes.map((n) => n.position.y)) + 420,
+						)
+					: 0,
+			};
+			fitAfterAdd.current = true;
+			dispatch({
+				type: "edit",
+				update: (current) =>
+					current.nodes.some((n) => n.id === node.id) ||
+					current.nodes.length >= 200
+						? current
+						: {
+								...clearSelection(current),
+								nodes: [
+									...clearSelection(current).nodes,
+									{ ...node, position, selected: true },
+								],
+							},
+			});
+			setMessage("Generation added from Playground. No credits used.");
+			void generation.refresh();
+			return true;
+		},
+		[canRun, graph.nodes, dispatch, generation.refresh],
+	);
+
 	const content = (
 		<div className="studio-editor" ref={root}>
+			<PlaygroundCanvasImport
+				userId={userId}
+				projectId={projectId}
+				canvasId={canvasId}
+				ready={canRun}
+				onImport={importPlaygroundNode}
+			/>
 			<div className="studio-toolbar">
 				<section
 					className="flex flex-wrap items-center gap-1"
