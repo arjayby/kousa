@@ -487,3 +487,40 @@ it("syncs clip settings and project media selection while preserving a concurren
 	b.destroy();
 	restored.destroy();
 });
+
+it("shares historical selections, preserves concurrent prompts, and supports undo and portable recovery", () => {
+	const { a, b, text, first, second } = fixture();
+	const selectedRunId = crypto.randomUUID();
+	const before = first.read().document;
+	first.apply(before, {
+		...before,
+		nodes: before.nodes.map((node) =>
+			node.id === text.id
+				? { ...node, data: { ...node.data, selectedRunId } }
+				: node,
+		),
+	});
+	second.editText(text.id, "content", (value) => value.insert(0, "New "));
+	merge(a, b);
+	expect(
+		second.read().document.nodes.find((node) => node.id === text.id)?.data,
+	).toMatchObject({ selectedRunId, content: "New Hello world" });
+	const restored = new Y.Doc();
+	Y.applyUpdate(restored, seedCanvasDocument(first.read().document));
+	expect(
+		readCanvasDocument(restored).document.nodes.find(
+			(node) => node.id === text.id,
+		)?.data.selectedRunId,
+	).toBe(selectedRunId);
+	first.history.undo();
+	merge(a, b);
+	expect(
+		second.read().document.nodes.find((node) => node.id === text.id)?.data
+			.selectedRunId,
+	).toBeUndefined();
+	expect(
+		second.read().document.nodes.find((node) => node.id === text.id)?.data
+			.content,
+	).toBe("New Hello world");
+	restored.destroy();
+});

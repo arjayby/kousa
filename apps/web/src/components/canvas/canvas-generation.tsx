@@ -88,9 +88,18 @@ export function useCanvasGeneration({
 		)
 		.map((n) => n.id)
 		.sort();
+	const selections = graph.nodes
+		.flatMap((node) =>
+			node.data.selectedRunId
+				? [{ nodeId: node.id, runId: node.data.selectedRunId }]
+				: [],
+		)
+		.sort((a, b) => a.nodeId.localeCompare(b.nodeId));
 	const query = useQuery({
-		...orpc.generation.list.queryOptions({ input: { projectId, nodeIds } }),
-		queryKey: ["generation", userId, projectId, nodeIds],
+		...orpc.generation.list.queryOptions({
+			input: { projectId, nodeIds, selections },
+		}),
+		queryKey: ["generation", userId, projectId, nodeIds, selections],
 		enabled: loaded,
 		refetchInterval: 3_000,
 		retry: false,
@@ -109,6 +118,21 @@ export function useCanvasGeneration({
 	const runs = new Map(
 		(query.data?.runs ?? []).map((run) => [run.nodeId, run]),
 	);
+	const selected = new Map(
+		(query.data?.selectedResults ?? []).map((run) => [run.id, run]),
+	);
+	function outputs(kind: PublicRun["kind"], latest: PublicRun[] = []) {
+		const results = new Map(latest.map((run) => [run.nodeId, run]));
+		for (const node of graph.nodes) {
+			if (node.type !== kind || !node.data.selectedRunId) continue;
+			results.delete(node.id);
+			const run = selected.get(node.data.selectedRunId);
+			if (run?.nodeId === node.id && run.kind === kind)
+				results.set(node.id, run);
+		}
+		return results;
+	}
+	const imageResults = outputs("image", query.data?.imageResults);
 	async function run(nodeId: string) {
 		if (!canRun || busy.current) return;
 		busy.current = true;
@@ -126,9 +150,7 @@ export function useCanvasGeneration({
 				const inputImageAssetId = videoInput
 					? videoInputImageAssetId(
 							videoInput,
-							query.data?.imageResults.find(
-								(run) => run.nodeId === videoInput.image?.nodeId,
-							)?.assetId,
+							imageResults.get(videoInput.image?.nodeId ?? "")?.assetId,
 						)
 					: null;
 				request = {
@@ -183,20 +205,17 @@ export function useCanvasGeneration({
 	}
 	return {
 		workflow,
+		userId,
+		projectId,
 		runs,
-		imageResults: new Map(
-			(query.data?.imageResults ?? []).map((run) => [run.nodeId, run]),
-		),
+		imageResults,
+		textResults: outputs("text", query.data?.textResults),
 		imageConfigured: query.data?.imageConfigured,
-		speechResults: new Map(
-			(query.data?.speechResults ?? []).map((run) => [run.nodeId, run]),
-		),
+		speechResults: outputs("speech", query.data?.speechResults),
 		speechConfigured: query.data?.speechConfigured,
 		videoConfigured: query.data?.videoConfigured,
 		imageToVideoConfigured: query.data?.imageToVideoConfigured,
-		videoResults: new Map(
-			(query.data?.videoResults ?? []).map((run) => [run.nodeId, run]),
-		),
+		videoResults: outputs("video", query.data?.videoResults),
 		run,
 		balance: query.data?.balance,
 		configured: query.data?.configured,
@@ -229,6 +248,9 @@ export function useWorkflowStep(id: string) {
 	return run?.steps.find((step) => step.nodeId === id);
 }
 
+export function useNodeText(id: string): PublicRun | undefined {
+	return useContext(GenerationContext)?.textResults.get(id);
+}
 export function useNodeImage(id: string): PublicRun | undefined {
 	return useContext(GenerationContext)?.imageResults.get(id);
 }
@@ -299,6 +321,7 @@ export function GenerationPanel({
 	const speechResult = generation.speechResults.get(node.id);
 	const videoResult = generation.videoResults.get(node.id);
 	const imageResult = generation.imageResults.get(node.id);
+	const textResult = generation.textResults.get(node.id);
 	const run = generation.runs.get(node.id);
 	const pending = generation.pendingNode === node.id || isRunActive(run);
 	const checking = generation.uncertain?.nodeId === node.id;
@@ -528,7 +551,7 @@ export function GenerationPanel({
 					</p>
 					{imageResult?.assetId ? (
 						<>
-							<h3 className="font-medium text-xs">Last generated image</h3>
+							<h3 className="font-medium text-xs">Selected image output</h3>
 							<AssetPreview
 								key={imageResult.assetId}
 								assetId={imageResult.assetId}
@@ -551,7 +574,7 @@ export function GenerationPanel({
 					</p>
 					{speechResult?.assetId ? (
 						<>
-							<h3 className="font-medium text-xs">Last generated speech</h3>
+							<h3 className="font-medium text-xs">Selected speech output</h3>
 							<AudioPreview
 								key={speechResult.assetId}
 								assetId={speechResult.assetId}
@@ -577,7 +600,7 @@ export function GenerationPanel({
 					</p>
 					{videoResult?.assetId ? (
 						<>
-							<h3 className="font-medium text-xs">Last generated video</h3>
+							<h3 className="font-medium text-xs">Selected video output</h3>
 							<VideoPreview
 								key={videoResult.assetId}
 								assetId={videoResult.assetId}
@@ -591,17 +614,17 @@ export function GenerationPanel({
 					) : null}
 				</div>
 			) : null}
-			{run?.output ? (
+			{textResult?.output ? (
 				<div className="flex flex-col gap-2">
 					<div className="flex items-center justify-between gap-2">
-						<h3 className="font-medium text-xs">Generated output</h3>
+						<h3 className="font-medium text-xs">Selected text output</h3>
 						<Button
 							size="icon-sm"
 							variant="ghost"
 							aria-label="Copy generated text"
 							onClick={async () => {
 								try {
-									await navigator.clipboard.writeText(run.output ?? "");
+									await navigator.clipboard.writeText(textResult.output ?? "");
 									toast.success("Text copied");
 								} catch {
 									toast.error(
@@ -615,7 +638,7 @@ export function GenerationPanel({
 					</div>
 					<Textarea
 						readOnly
-						value={run.output}
+						value={textResult.output}
 						className="max-h-80 min-h-48 resize-y bg-muted/30 text-xs leading-relaxed"
 						aria-label="Generated text"
 					/>

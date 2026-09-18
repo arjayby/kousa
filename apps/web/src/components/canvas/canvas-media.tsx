@@ -206,7 +206,12 @@ export function ImageMediaPanel({
 	const asset = media.assets.find((asset) => asset.id === selectedId);
 	const items = [
 		{ value: "none", label: "No image" },
-		{ value: "generated", label: "Latest generation" },
+		{
+			value: "generated",
+			label: node.data.selectedRunId
+				? "Historical output selected"
+				: "Latest generation",
+		},
 		...media.assets
 			.filter((asset) => asset.mimeType.startsWith("image/"))
 			.map((asset) => ({ value: asset.id, label: asset.name })),
@@ -240,7 +245,10 @@ export function ImageMediaPanel({
 			});
 			const { asset } = mediaUploadSchema.parse(await responseBody(response));
 			media.retryPreview(asset.id);
-			update({ assetId: asset.id, imageSource: "project" }, "assetId");
+			update(
+				{ selectedRunId: null, assetId: asset.id, imageSource: "project" },
+				"assetId",
+			);
 			await media.refresh();
 			toast.success("Image saved to project");
 		} catch (cause) {
@@ -303,9 +311,10 @@ export function ImageMediaPanel({
 								if (value)
 									update(
 										value === "generated"
-											? { imageSource: "generated" }
+											? { selectedRunId: null, imageSource: "generated" }
 											: {
 													assetId: value === "none" ? null : value,
+													selectedRunId: null,
 													imageSource: "project",
 												},
 										"assetId",

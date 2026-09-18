@@ -62,6 +62,10 @@ export const maxOutputTokens = 2_048;
 export const generationProjectInput = z.object({ projectId: z.uuid() });
 export const listGenerationsInput = generationProjectInput.extend({
 	nodeIds: z.array(z.uuid()).max(200).optional(),
+	selections: z
+		.array(z.object({ nodeId: z.uuid(), runId: z.uuid() }))
+		.max(200)
+		.optional(),
 });
 export const generateInput = generationProjectInput.extend({
 	id: z.uuid(),
@@ -100,3 +104,16 @@ export function runProgress(
 		return run.stage === "saving" ? "Saving result…" : "Generating…";
 	return null;
 }
+
+export const generationHistoryInput = generationProjectInput.extend({
+	nodeId: z.uuid(),
+	cursor: z
+		.object({ createdAt: z.iso.datetime({ offset: true }), id: z.uuid() })
+		.optional(),
+	limit: z.number().int().min(1).max(50).default(10),
+});
+export const generationHistoryActionInput = generationProjectInput.extend({
+	nodeId: z.uuid(),
+	runId: z.uuid(),
+	action: z.enum(["select", "restore"]),
+});

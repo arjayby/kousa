@@ -36,7 +36,14 @@ function contextFor(id: string | null): Context {
 
 const generate = vi.fn();
 const list = vi.fn();
-const router = createGenerationRouter(() => ({ generate, list }));
+const history = vi.fn();
+const historyAction = vi.fn();
+const router = createGenerationRouter(() => ({
+	generate,
+	list,
+	history,
+	historyAction,
+}));
 const client = (id: string | null) =>
 	createRouterClient(router, { context: contextFor(id) });
 const request = {
@@ -73,4 +80,50 @@ it("rejects malformed run IDs before reaching the service", async () => {
 		client("editor").generate({ ...request, id: "invalid" }),
 	).rejects.toMatchObject({ code: "BAD_REQUEST" });
 	expect(generate).toHaveBeenCalledTimes(count);
+});
+
+it("protects history routes and validates pagination and actions", async () => {
+	const input = {
+		projectId: request.projectId,
+		nodeId: request.nodeId,
+		limit: 10,
+	};
+	await expect(client(null).history(input)).rejects.toMatchObject({
+		code: "UNAUTHORIZED",
+	});
+	await expect(
+		client(null).historyAction({
+			...input,
+			runId: request.id,
+			action: "select",
+		}),
+	).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+	await expect(
+		client("viewer").history({ ...input, limit: 1000 }),
+	).rejects.toMatchObject({ code: "BAD_REQUEST" });
+	await expect(
+		client("viewer").history({
+			...input,
+			cursor: { createdAt: "not-a-date", id: request.id },
+		}),
+	).rejects.toMatchObject({ code: "BAD_REQUEST" });
+	history.mockResolvedValueOnce({ runs: [], nextCursor: null });
+	await client("viewer").history(input);
+	expect(history).toHaveBeenLastCalledWith("viewer", input);
+	historyAction.mockRejectedValueOnce(
+		new GenerationError("FORBIDDEN", "View only"),
+	);
+	await expect(
+		client("viewer").historyAction({
+			...request,
+			runId: request.id,
+			action: "select",
+		}),
+	).rejects.toMatchObject({ code: "FORBIDDEN" });
+	expect(historyAction).toHaveBeenLastCalledWith("viewer", {
+		projectId: request.projectId,
+		nodeId: request.nodeId,
+		runId: request.id,
+		action: "select",
+	});
 });

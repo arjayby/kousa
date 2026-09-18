@@ -64,6 +64,19 @@ This verifies local server composition with real FFmpeg. The production Docker/C
 
 See [workflow templates](workflow-templates.md) for usage, copied fields, permissions, and storage behavior. The deferred provider and hosted-renderer checks below remain unchanged.
 
+## Node generation history
+
+- `pnpm test`: **357 application tests passed**. New coverage includes history for all four node kinds, workflow child snapshots, cursor pagination while attempts arrive, owner/editor/viewer permissions, cross-project and cross-node isolation, access revocation, deleted nodes, unavailable media, active/failed attempts, zero-cost selection/restoration, legacy snapshots, and shared selection undo/redo. Template snapshots exclude history selections.
+- Workflow checks verify an older image feeds video without regenerating its ancestors, pinned text remains fixed even if its source is explicitly regenerated, edited/empty source prompts do not replace saved text, and oversized saved narration fails before reservation. Clip checks use the selected historical video and speech, including its exact transcript. Queued work retains its frozen inputs after the shared selection changes.
+- All **10 workspace type-check tasks** passed. Changed files pass Biome and `git diff --check`. Jobs Worker dry-run and OpenNext Cloudflare web bundles succeeded, with the existing middleware and dependency warnings. No deployment was made.
+- Alchemy applied `0019_node_generation_history` to development Neon. No new environment variables or services are needed.
+- In the in-app browser, **Coffee scene** displayed its existing individual and workflow successes/failures, credit outcomes, model/settings, and private image previews/download links. A failed attempt disabled output selection; a legacy individual attempt disabled restoration with an explanation.
+- Selecting the older image survived reload and appeared in a second tab. **Coffee video → Run to this node** showed exactly one video step, the selected historical image, and 10 credits, with no image-generation charge. The existing missing-HTTPS-origin guard still disabled starting.
+- Restoring a workflow attempt changed an edited 16:9 ratio back to 1:1 while preserving the selected old image. Undo returned to 16:9; redo restored 1:1. **Use latest generation** restored the original latest image in both tabs. The project ended with its original eleven nodes, nine connections, empty Coffee scene prompt, and 1:1 ratio.
+- The final browser diagnostics reported no runtime or compilation errors. No AI generation or rendering was started, and the balance stayed at **458 credits**. Successful speech/video history is covered with fake providers and media fixtures; no new live provider verification is claimed.
+
+See [node generation history](node-generation-history.md) for usage, exact-output behavior, and legacy restoration limits.
+
 ## Deferred provider checks
 
 | Feature | What is needed | Remaining checks |

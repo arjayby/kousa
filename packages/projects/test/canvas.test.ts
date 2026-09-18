@@ -6,6 +6,7 @@ import {
 	connectionError,
 	createCanvasNode,
 	emptyCanvas,
+	imageOutputAssetId,
 	inputPorts,
 	type NodeKind,
 	nodeKinds,
@@ -26,6 +27,19 @@ const edge = (
 });
 
 describe("canvas graph rules", () => {
+	it("does not replace a missing historical image with an old attachment", () => {
+		const data = {
+			imageSource: "generated" as const,
+			assetId: crypto.randomUUID(),
+			selectedRunId: crypto.randomUUID(),
+		};
+		expect(imageOutputAssetId(data, null)).toBeNull();
+		const historicalAssetId = crypto.randomUUID();
+		expect(imageOutputAssetId(data, historicalAssetId)).toBe(historicalAssetId);
+		expect(imageOutputAssetId({ ...data, imageSource: "project" }, null)).toBe(
+			data.assetId,
+		);
+	});
 	it("allows each advertised input type and rejects every incompatible type", () => {
 		for (const targetType of nodeKinds)
 			for (const port of inputPorts[targetType])

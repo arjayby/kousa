@@ -30,6 +30,7 @@ export const inputPorts: Record<NodeKind, readonly InputPort[]> = {
 };
 
 const nodeDataSchema = z.object({
+	selectedRunId: z.uuid().nullable().optional(),
 	label: z.string().max(80),
 	textModel: z.string().max(120).optional(),
 	imageModel: z.string().max(120).optional(),
@@ -197,10 +198,12 @@ export function canvasDraftKey(userId: string, projectId: string) {
 }
 
 export function imageOutputAssetId(
-	data: Pick<CanvasNode["data"], "imageSource" | "assetId">,
+	data: Pick<CanvasNode["data"], "imageSource" | "assetId" | "selectedRunId">,
 	generatedAssetId?: string | null,
 ) {
 	const source = data.imageSource ?? (data.assetId ? "project" : "generated");
+	if (source === "generated" && data.selectedRunId)
+		return generatedAssetId ?? null;
 	return source === "generated"
 		? (generatedAssetId ?? data.assetId)
 		: data.assetId;

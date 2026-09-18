@@ -15,6 +15,7 @@ import {
 	useNodeImage,
 	useNodeRun,
 	useNodeSpeech,
+	useNodeText,
 	useNodeVideo,
 	useWorkflowStep,
 } from "./canvas-generation";
@@ -54,6 +55,7 @@ export const MediaNode = memo(function MediaNode({
 }: NodeProps<StudioNode>) {
 	const kind = type ?? "text";
 	const run = useNodeRun(id);
+	const textResult = useNodeText(id);
 	const workflowStep = useWorkflowStep(id);
 	const imageResult = useNodeImage(id);
 	const speechResult = useNodeSpeech(id);
@@ -63,7 +65,7 @@ export const MediaNode = memo(function MediaNode({
 	const sourceVideoAssetId =
 		data.mediaSource === "project" ? data.assetId : videoResult?.assetId;
 	const videoAssetId =
-		clip.result?.plan.videoAssetId === sourceVideoAssetId
+		!data.selectedRunId && clip.result?.plan.videoAssetId === sourceVideoAssetId
 			? (clip.result?.assetId ?? sourceVideoAssetId)
 			: sourceVideoAssetId;
 	const speechAssetId =
@@ -89,6 +91,11 @@ export const MediaNode = memo(function MediaNode({
 				</div>
 			</div>
 			<div className="studio-node-body">
+				{data.selectedRunId ? (
+					<p className="mb-2 text-muted-foreground text-xs">
+						Historical output selected
+					</p>
+				) : null}
 				{kind === "video" && clip.run ? (
 					<p className="mb-2 text-muted-foreground text-xs">
 						Clip · {clipStatusLabels[clip.run.status]}
@@ -139,9 +146,9 @@ export const MediaNode = memo(function MediaNode({
 								: "Generation failed · Credits released")}
 					</p>
 				) : null}
-				{run?.output || data.content ? (
+				{textResult?.output || data.content ? (
 					<p className="line-clamp-4 whitespace-pre-wrap text-xs leading-relaxed">
-						{run?.output ?? data.content}
+						{textResult?.output ?? data.content}
 					</p>
 				) : (kind === "image" && assetId) ||
 					(kind === "video" && videoAssetId) ||

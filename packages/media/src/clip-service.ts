@@ -36,7 +36,7 @@ export function publicClip(run: ClipRun) {
 }
 export function createClipService(
 	store: ClipStore,
-	generations: Pick<GenerationStore, "outputs">,
+	generations: Pick<GenerationStore, "outputs" | "get">,
 	media: Pick<MediaStore, "get" | "list">,
 	projects: Pick<ProjectService, "get" | "getCanvas">,
 	jobs: {
@@ -74,14 +74,32 @@ export function createClipService(
 			generations.outputs(projectId, [node.id], "video"),
 			generations.outputs(projectId, [audioNode.id], "speech"),
 		]);
+		const pinned = await Promise.all(
+			[node, audioNode].map(async (source) => {
+				if (!source.data.selectedRunId) return null;
+				const run = await generations.get(source.data.selectedRunId);
+				if (
+					!run ||
+					run.projectId !== projectId ||
+					run.nodeId !== source.id ||
+					run.kind !== source.type ||
+					run.status !== "succeeded"
+				)
+					throw new ClipError(
+						"BAD_REQUEST",
+						"The selected historical output is unavailable. Choose another output in History.",
+					);
+				return run;
+			}),
+		);
 		const videoId =
 			node.data.mediaSource === "project"
 				? node.data.assetId
-				: videos[0]?.assetId;
+				: (pinned[0] ?? videos[0])?.assetId;
 		const audioId =
 			audioNode.data.mediaSource === "project"
 				? audioNode.data.assetId
-				: audio[0]?.assetId;
+				: (pinned[1] ?? audio[0])?.assetId;
 		const [videoAsset, audioAsset] = await Promise.all([
 			videoId ? media.get(projectId, videoId) : null,
 			audioId ? media.get(projectId, audioId) : null,
@@ -113,7 +131,7 @@ export function createClipService(
 				audioNode.data.mediaSource === "project"
 					? ((await media.list(projectId)).find((a) => a.id === audioAsset.id)
 							?.transcript ?? null)
-					: (audio[0]?.prompt ?? null),
+					: ((pinned[1] ?? audio[0])?.prompt ?? null),
 		};
 		const hash = new Uint8Array(
 			await crypto.subtle.digest(

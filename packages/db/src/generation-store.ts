@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
+import { user } from "./schema/auth";
 import { creditGrant } from "./schema/credits";
 import { generationRun } from "./schema/generations";
 import { graphRun } from "./schema/graph-runs";
@@ -33,6 +34,62 @@ export function createGenerationStore(db: Database) {
 				.where(eq(generationRun.id, id));
 			return run ?? null;
 		},
+
+		async history(
+			projectId: string,
+			nodeId: string,
+			limit: number,
+			cursor?: { createdAt: string; id: string },
+		) {
+			return db
+				.select({
+					run: generationRun,
+					userName: user.name,
+					plan: graphRun.plan,
+					// Preserve database microseconds in cursors; JS Date rounds them.
+					cursorTime: sql<string>`to_char(${generationRun.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+				})
+				.from(generationRun)
+				.innerJoin(user, eq(user.id, generationRun.userId))
+				.leftJoin(graphRun, eq(graphRun.id, generationRun.graphRunId))
+				.where(
+					and(
+						eq(generationRun.projectId, projectId),
+						eq(generationRun.nodeId, nodeId),
+						cursor
+							? sql`(${generationRun.createdAt}, ${generationRun.id}) < (${cursor.createdAt}::timestamptz, ${cursor.id}::uuid)`
+							: undefined,
+					),
+				)
+				.orderBy(desc(generationRun.createdAt), desc(generationRun.id))
+				.limit(limit + 1);
+		},
+		async getMany(projectId: string, ids: string[]) {
+			if (!ids.length) return [];
+			return db
+				.select()
+				.from(generationRun)
+				.where(
+					and(
+						eq(generationRun.projectId, projectId),
+						inArray(generationRun.id, ids),
+					),
+				);
+		},
+		async historyDetail(projectId: string, nodeId: string, runId: string) {
+			const [row] = await db
+				.select({ run: generationRun, plan: graphRun.plan })
+				.from(generationRun)
+				.leftJoin(graphRun, eq(graphRun.id, generationRun.graphRunId))
+				.where(
+					and(
+						eq(generationRun.projectId, projectId),
+						eq(generationRun.nodeId, nodeId),
+						eq(generationRun.id, runId),
+					),
+				);
+			return row ?? null;
+		},
 		async claim(
 			input: Pick<
 				GenerationRun,
@@ -53,6 +110,7 @@ export function createGenerationStore(db: Database) {
 				voiceDirection?: string | null;
 				inputImageAssetId?: string | null;
 				inputImageOrigin?: string | null;
+				authoredSettings?: unknown;
 			},
 		) {
 			// This Postgres function locks the payer and project before checking balance
@@ -61,7 +119,7 @@ export function createGenerationStore(db: Database) {
 				.select({
 					claim: sql<Claim>`kousa_claim_generation(
 				${input.id}::uuid, ${input.userId}, ${input.projectId}::uuid, ${input.nodeId}::uuid,
-				${input.modelId}, ${input.prompt}, ${input.inputHash}, ${input.credits}::integer, ${input.kind ?? "text"}, ${input.size ?? null}, ${input.voiceId ?? null}, ${input.voiceDirection ?? null}, ${input.duration ?? null}::integer, ${input.aspectRatio ?? null}, ${input.inputImageAssetId ?? null}::uuid, ${input.inputImageOrigin ?? null}
+				${input.modelId}, ${input.prompt}, ${input.inputHash}, ${input.credits}::integer, ${input.kind ?? "text"}, ${input.size ?? null}, ${input.voiceId ?? null}, ${input.voiceDirection ?? null}, ${input.duration ?? null}::integer, ${input.aspectRatio ?? null}, ${input.inputImageAssetId ?? null}::uuid, ${input.inputImageOrigin ?? null}, ${input.authoredSettings ? JSON.stringify(input.authoredSettings) : null}::jsonb
 			)`,
 				})
 				.from(sql`(select 1) as request`);

@@ -23,7 +23,8 @@ type GraphStepBase = {
 	label: string;
 	modelId: string;
 	content: string;
-	sources: { id: string; content: string }[];
+	sources: { id: string; content: string; runId?: string }[];
+	authoredSettings?: unknown;
 	size: string | null;
 	inputHash: string;
 	credits: number;
@@ -39,7 +40,8 @@ export type GraphStep = GraphStepBase &
 				aspectRatio: "1:1" | "16:9" | "9:16" | "4:3";
 				image: {
 					nodeId: string;
-					imageSource: "generated" | "project";
+					imageSource: "generated" | "project" | "history";
+					runId?: string;
 					assetId?: string | null;
 				} | null;
 				inputImageOrigin?: string | null;

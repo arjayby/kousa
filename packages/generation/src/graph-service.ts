@@ -12,8 +12,15 @@ import {
 	graphTargetIds,
 	planGraph,
 } from "./graph-plan";
+import { selectedRun } from "./history";
 import { generationImageOrigin } from "./image-origin";
-import { GenerationError } from "./input";
+import {
+	buildImagePrompt,
+	buildPrompt,
+	buildSpeechScript,
+	buildVideoPrompt,
+	GenerationError,
+} from "./input";
 
 export function createGraphService(
 	store: GraphStore,
@@ -29,9 +36,49 @@ export function createGraphService(
 	const imageOrigin = generationImageOrigin(jobs.imageInputOrigin);
 	async function prepareInputs(projectId: string, plan: GraphStep[]) {
 		for (const step of plan) {
-			if (step.reused || step.kind !== "video" || !step.image) continue;
+			if (step.reused) continue;
+			const pinned = await Promise.all(
+				step.sources.flatMap((source) =>
+					source.runId
+						? [
+								selectedRun(
+									generations,
+									projectId,
+									source.id,
+									"text",
+									source.runId,
+								),
+							]
+						: [],
+				),
+			);
+			if (pinned.length) {
+				if (step.kind === "speech") buildSpeechScript(step, pinned);
+				else if (step.kind === "video") buildVideoPrompt(step, pinned);
+				else if (step.kind === "image") buildImagePrompt(step, pinned);
+				else buildPrompt(step, pinned);
+			}
+			if (step.kind !== "video" || !step.image) continue;
+			if (step.image.imageSource === "history") {
+				if (!step.image.runId)
+					throw new GenerationError(
+						"BAD_REQUEST",
+						"Choose an available historical image.",
+					);
+				const run = await selectedRun(
+					generations,
+					projectId,
+					step.image.nodeId,
+					"image",
+					step.image.runId,
+				);
+				step.image.assetId = run.assetId;
+			}
 			step.inputImageOrigin = imageOrigin;
-			if (step.image.imageSource === "project") {
+			if (
+				step.image.imageSource === "project" ||
+				step.image.imageSource === "history"
+			) {
 				const asset =
 					step.image.assetId && media
 						? await media.get(projectId, step.image.assetId)

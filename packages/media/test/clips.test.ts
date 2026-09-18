@@ -258,3 +258,53 @@ it("rejects truncated audio samples and keeps failed rendered files private", as
 	expect((await db.clips.get(input.id))?.status).toBe("failed");
 	expect(await media().list("owner", projectId)).toHaveLength(2);
 });
+
+it("composes the selected historical speech and video without using a newer transcript", async () => {
+	await db.grant("owner", 100);
+	async function save(kind: "speech" | "video", content: string) {
+		const node = kind === "video" ? video : speech;
+		const id = crypto.randomUUID();
+		await db.store.claim({
+			id,
+			projectId,
+			nodeId: node.id,
+			userId: "owner",
+			kind,
+			modelId: "test",
+			prompt: content,
+			inputHash: "a".repeat(64),
+			credits: 2,
+			duration: kind === "video" ? 5 : null,
+			aspectRatio: kind === "video" ? "16:9" : null,
+		});
+		await db.store.start(id);
+		await db.store.finishMedia(id, required(node.data.assetId));
+		return id;
+	}
+	const oldSpeech = await save("speech", "Original narration");
+	await save("speech", "Newer narration");
+	const oldVideo = await save("video", "Original video");
+	speech.data.selectedRunId = oldSpeech;
+	speech.data.mediaSource = "generated";
+	video.data.selectedRunId = oldVideo;
+	video.data.mediaSource = "generated";
+	await db.setGraph(projectId, graph);
+	const preview = await service().preview("owner", {
+		projectId,
+		nodeId: video.id,
+	});
+	expect(preview.plan.transcript).toBe("Original narration");
+	const balance = await db.store.balance("owner");
+	await service().start("owner", {
+		id: crypto.randomUUID(),
+		projectId,
+		nodeId: video.id,
+		inputHash: preview.inputHash,
+	});
+	expect(await db.store.balance("owner")).toBe(balance);
+	speech.data.selectedRunId = crypto.randomUUID();
+	await db.setGraph(projectId, graph);
+	await expect(
+		service().preview("owner", { projectId, nodeId: video.id }),
+	).rejects.toThrow("historical output is unavailable");
+});

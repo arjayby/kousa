@@ -32,6 +32,7 @@ it("copies all authoring settings with fresh IDs and excludes assets and runtime
 			},
 			output: "DO NOT COPY",
 			runId: crypto.randomUUID(),
+			selectedRunId: crypto.randomUUID(),
 		});
 	const connect = (source: number, target: number, targetHandle: string) => ({
 		id: crypto.randomUUID(),
@@ -72,6 +73,7 @@ it("copies all authoring settings with fresh IDs and excludes assets and runtime
 			expect(node.data.assetId).toBeUndefined();
 			expect("output" in node.data).toBe(false);
 			expect("runId" in node.data).toBe(false);
+			expect(node.data.selectedRunId).toBeUndefined();
 		}
 		expect(copy.nodes[1]?.data.imageSource).toBe("generated");
 		expect(copy.nodes[2]?.data.mediaSource).toBe("generated");

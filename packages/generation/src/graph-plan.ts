@@ -15,6 +15,7 @@ import {
 	videoModels,
 } from "./contracts";
 import { graphDependencies } from "./graph-selection";
+import { captureSettings } from "./history";
 import {
 	buildImagePrompt,
 	buildPrompt,
@@ -154,9 +155,11 @@ export async function planGraph(
 						"BAD_REQUEST",
 						"Choose an available speech model and voice.",
 					);
-				buildSpeechScript(snapshot, []);
+				if (!snapshot.sources.some((source) => source.runId))
+					buildSpeechScript(snapshot, []);
 				return {
 					...snapshot,
+					authoredSettings: captureSettings(node, snapshot.modelId),
 					kind: "speech",
 					target: targets.includes(nodeId),
 					label: node.data.label,
@@ -186,9 +189,11 @@ export async function planGraph(
 						"BAD_REQUEST",
 						"Choose an available image on the connected image node first.",
 					);
-				buildVideoPrompt(snapshot, []);
+				if (!snapshot.sources.some((source) => source.runId))
+					buildVideoPrompt(snapshot, []);
 				return {
 					...snapshot,
+					authoredSettings: captureSettings(node, snapshot.modelId),
 					kind: "video",
 					target: targets.includes(nodeId),
 					label: node.data.label,
@@ -213,12 +218,15 @@ export async function planGraph(
 					"BAD_REQUEST",
 					"Choose an available model before running the workflow.",
 				);
-			// Validate written prompts before reserving. Generated context is validated
-			// again when each step starts, since its length is not known in advance.
-			if (kind === "image") buildImagePrompt(snapshot, []);
-			else buildPrompt(snapshot, []);
+			// Historical context is validated by prepareInputs after resolving the
+			// exact saved output. New context is checked again when each step starts.
+			if (!snapshot.sources.some((source) => source.runId)) {
+				if (kind === "image") buildImagePrompt(snapshot, []);
+				else buildPrompt(snapshot, []);
+			}
 			return {
 				...snapshot,
+				authoredSettings: captureSettings(node, snapshot.modelId),
 				kind,
 				target: targets.includes(nodeId),
 				label: node.data.label,

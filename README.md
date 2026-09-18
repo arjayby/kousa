@@ -16,6 +16,7 @@ This project was created with [Better-T-Stack](https://github.com/AmanVarshney01
 - **Projects and permissions** - Private projects with owner, editor, and viewer access through email invitations
 - **Background generation** - Durable Cloudflare Workflows for text/image/video/speech jobs, shared progress, recovery, and protected credit reservations
 - **Node canvas** - Text, image, video, and speech nodes with connections, undo/redo, and shared project saving with editor/viewer permissions
+- **Node generation history** - Browse attempts, reuse saved outputs, and restore authored settings without starting a generation
 - **Project media library** - Search and filter saved media, preview and download files, and reuse images, videos, and speech on the canvas
 - **Narrated clips** - Combine video and speech with timing/volume controls and durable server exports
 - **Workflow templates** - Save private workflow snapshots and create fresh projects with the same prompts, models, settings, and connections
@@ -62,6 +63,8 @@ Connect Speech to a Video node’s Audio input and use **Narrated clip** to expo
 Choose **Save template** on a canvas, then open **My templates** on the dashboard to reuse, rename, or delete it. New projects keep the workflow setup and start without media files, run history, or collaborators. See [workflow templates](docs/workflow-templates.md).
 
 Generation setup and billing behavior are documented in [Text generation](docs/text-generation.md), [Image generation](docs/image-generation.md), [Speech generation](docs/speech-generation.md), and [Video generation](docs/video-generation.md).
+
+Open **Generation history** in a node's settings to inspect attempts, select a saved output for future work, or restore its authored settings. See [node generation history](docs/node-generation-history.md).
 
 Completed checks and deferred speech/video provider tests are tracked in the [verification summary](docs/verification.md).
 

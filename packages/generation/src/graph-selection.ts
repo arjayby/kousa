@@ -29,6 +29,9 @@ export function graphDependencies(graph: Graph) {
 				(source.data.assetId ? "project" : "generated")) === "project"
 		)
 			continue;
+		// A chosen historical output is fixed input, even when its node is also
+		// explicitly selected for a new generation elsewhere in this workflow.
+		if (source?.data.selectedRunId) continue;
 		dependencies.get(edge.target)?.push(edge.source);
 	}
 	return dependencies;

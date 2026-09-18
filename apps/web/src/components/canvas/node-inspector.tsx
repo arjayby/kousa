@@ -22,6 +22,7 @@ import { CopyIcon, Trash2Icon, UnplugIcon, XIcon } from "lucide-react";
 import { ClipPanel } from "./canvas-clips";
 import { GenerationPanel, useNodeImage } from "./canvas-generation";
 import { ImageMediaPanel } from "./canvas-media";
+import { type ApplyHistory, GenerationHistory } from "./generation-history";
 import { nodeIcons } from "./media-node";
 import { SharedTextField } from "./shared-text-field";
 import { StoredMediaPanel } from "./stored-media-panel";
@@ -37,6 +38,7 @@ export function NodeInspector({
 	endEdit,
 	remove,
 	duplicate,
+	applyHistory,
 	disconnect,
 	close,
 }: {
@@ -49,6 +51,7 @@ export function NodeInspector({
 	endEdit: () => void;
 	remove: () => void;
 	duplicate: () => void;
+	applyHistory: ApplyHistory;
 	disconnect: (id: string) => void;
 	close: () => void;
 }) {
@@ -75,6 +78,11 @@ export function NodeInspector({
 				</Button>
 			</header>
 			<div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-4">
+				<GenerationHistory
+					key={`history:${node.id}`}
+					node={node}
+					apply={applyHistory}
+				/>
 				<FieldGroup>
 					<Field>
 						<FieldLabel htmlFor="node-label">Name</FieldLabel>

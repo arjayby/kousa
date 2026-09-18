@@ -41,7 +41,13 @@ export function textInputSnapshot(graph: CanvasDocument, nodeId: string) {
 					"BAD_REQUEST",
 					"Text generation currently accepts connected text nodes only.",
 				);
-			return { id: source.id, content: source.data.content };
+			return {
+				id: source.id,
+				content: source.data.content,
+				...(source.data.selectedRunId
+					? { runId: source.data.selectedRunId }
+					: {}),
+			};
 		});
 	return {
 		nodeId,
@@ -104,7 +110,13 @@ export function imageInputSnapshot(graph: CanvasDocument, nodeId: string) {
 					"BAD_REQUEST",
 					"Image generation accepts text prompts only. Disconnect reference images before generating.",
 				);
-			return { id: source.id, content: source.data.content };
+			return {
+				id: source.id,
+				content: source.data.content,
+				...(source.data.selectedRunId
+					? { runId: source.data.selectedRunId }
+					: {}),
+			};
 		});
 	return {
 		nodeId,
@@ -183,7 +195,13 @@ export function speechInputSnapshot(graph: CanvasDocument, nodeId: string) {
 					"BAD_REQUEST",
 					"Speech generation accepts connected text scripts only.",
 				);
-			return { id: source.id, content: source.data.content };
+			return {
+				id: source.id,
+				content: source.data.content,
+				...(source.data.selectedRunId
+					? { runId: source.data.selectedRunId }
+					: {}),
+			};
 		});
 	return {
 		nodeId,
@@ -230,7 +248,8 @@ export function videoInputSnapshot(graph: CanvasDocument, nodeId: string) {
 		);
 	const images: Array<{
 		nodeId: string;
-		imageSource: "generated" | "project";
+		imageSource: "generated" | "project" | "history";
+		runId?: string;
 		assetId?: string | null;
 	}> = [];
 	const sources = graph.edges
@@ -248,9 +267,11 @@ export function videoInputSnapshot(graph: CanvasDocument, nodeId: string) {
 					);
 				images.push({
 					nodeId: source.id,
-					imageSource:
-						source.data.imageSource ??
-						(source.data.assetId ? "project" : "generated"),
+					runId: source.data.selectedRunId ?? undefined,
+					imageSource: source.data.selectedRunId
+						? "history"
+						: (source.data.imageSource ??
+							(source.data.assetId ? "project" : "generated")),
 					assetId: source.data.assetId,
 				});
 				return [];
@@ -260,7 +281,15 @@ export function videoInputSnapshot(graph: CanvasDocument, nodeId: string) {
 					"BAD_REQUEST",
 					"Video generation accepts text prompts and one image. Disconnect video inputs before generating. Audio is used by Create clip.",
 				);
-			return [{ id: source.id, content: source.data.content }];
+			return [
+				{
+					id: source.id,
+					content: source.data.content,
+					...(source.data.selectedRunId
+						? { runId: source.data.selectedRunId }
+						: {}),
+				},
+			];
 		});
 	return {
 		nodeId,
@@ -269,7 +298,7 @@ export function videoInputSnapshot(graph: CanvasDocument, nodeId: string) {
 		sources,
 		aspectRatio: node.data.aspectRatio,
 		duration: Number(node.data.duration),
-		image: images[0] ?? null,
+		image: images.at(0) ?? null,
 	};
 }
 
@@ -278,7 +307,12 @@ export function videoInputImageAssetId(
 	generatedAssetId?: string | null,
 ) {
 	return snapshot.image
-		? (imageOutputAssetId(snapshot.image, generatedAssetId) ?? null)
+		? snapshot.image.imageSource === "history"
+			? (generatedAssetId ?? null)
+			: (imageOutputAssetId(
+					{ ...snapshot.image, imageSource: snapshot.image.imageSource },
+					generatedAssetId,
+				) ?? null)
 		: null;
 }
 

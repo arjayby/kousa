@@ -11,6 +11,7 @@ import { executeGraphWorkflow } from "../src/graph-workflow";
 import { createGenerationImageAccess } from "../src/image-access";
 import type { SpeechProvider, VideoProvider } from "../src/providers";
 import { createGenerationRunner } from "../src/runner";
+import { createGenerationService } from "../src/service";
 import { inlineSteps, memoryArtifacts } from "./helpers";
 
 const png = new Uint8Array(
@@ -431,4 +432,152 @@ it("resumes historical single-output plans without markers and refuses a changed
 	});
 	await execute(resumed.id);
 	expect((await db.graphs.get(resumed.id))?.status).toBe("succeeded");
+});
+
+it("includes workflow children in history with restorable authored settings", async () => {
+	const input = await request();
+	await service().start("owner", input);
+	await execute(input.id);
+	const history = createGenerationService(
+		db.store,
+		createProjectService(db.projects, {
+			appUrl: "https://kousa.app",
+			email: {
+				isConfigured: () => false,
+				send: async () => ({ messageId: null }),
+			},
+		}),
+		{ textConfigured: true, imageConfigured: true, dispatch },
+		db.media,
+	);
+	for (const node of graph.nodes) {
+		const page = await history.history("viewer", {
+			projectId,
+			nodeId: node.id,
+		});
+		expect(page.runs[0]).toMatchObject({
+			graphRunId: input.id,
+			status: "succeeded",
+			creditState: "charged",
+			settings: { kind: node.type, content: node.data.content },
+		});
+	}
+});
+
+it("freezes a historical image for a video workflow without regenerating its ancestors", async () => {
+	const original = await request();
+	await service().start("owner", original);
+	await execute(original.id);
+	const first = (await db.store.outputs(projectId, [picture.id], "image"))[0];
+	if (!first) throw new Error("Missing image run");
+	image.mockResolvedValueOnce({
+		bytes: new Uint8Array([...png, 0]),
+		mimeType: "image/png",
+	});
+	const replacement = await request([picture.id]);
+	await service().start("owner", replacement);
+	await execute(replacement.id);
+	expect(
+		(await db.store.outputs(projectId, [picture.id], "image"))[0]?.assetId,
+	).not.toBe(first.assetId);
+	picture.data.selectedRunId = first.id;
+	await db.setGraph(projectId, graph);
+	const selected = await request([clip.id]);
+	const preview = await service().preview("owner", selected);
+	expect(preview).toMatchObject({
+		credits: 10,
+		steps: [{ nodeId: clip.id, imageInput: "history" }],
+	});
+	const imageCalls = image.mock.calls.length;
+	const textCalls = text.mock.calls.length;
+	await service().start("owner", selected);
+	picture.data.selectedRunId = null;
+	await db.setGraph(projectId, graph);
+	await execute(selected.id);
+	const flow = await db.graphs.get(selected.id);
+	expect(flow?.status).toBe("succeeded");
+	if (!flow?.plan[0]) throw new Error("Missing video step");
+	expect((await db.store.get(flow.plan[0].runId))?.inputImageAssetId).toBe(
+		first.assetId,
+	);
+	expect(image).toHaveBeenCalledTimes(imageCalls);
+	expect(text).toHaveBeenCalledTimes(textCalls);
+});
+
+it("keeps pinned text fixed even when that same node is explicitly regenerated", async () => {
+	const original = await request([idea.id]);
+	await service().start("owner", original);
+	await execute(original.id);
+	const first = (await db.store.outputs(projectId, [idea.id]))[0];
+	if (!first) throw new Error("Missing text run");
+	idea.data.selectedRunId = first.id;
+	await db.setGraph(projectId, graph);
+	text.mockResolvedValueOnce({
+		output: "A different street.",
+		inputTokens: 1,
+		outputTokens: 1,
+	});
+	const next = await request([idea.id, narration.id]);
+	await service().start("owner", next);
+	await execute(next.id);
+	expect((await db.graphs.get(next.id))?.status).toBe("succeeded");
+	expect(speech).toHaveBeenLastCalledWith(
+		expect.objectContaining({ text: "A quiet street." }),
+	);
+	const onlyNarration = await service().preview(
+		"owner",
+		await request([narration.id]),
+	);
+	expect(onlyNarration).toMatchObject({
+		credits: 2,
+		steps: [{ nodeId: narration.id }],
+	});
+});
+
+it.each(["", "Changed authored text. ".repeat(100)])(
+	"validates pinned text instead of its edited authored prompt (%#)",
+	async (content) => {
+		const original = await request([idea.id]);
+		await service().start("owner", original);
+		await execute(original.id);
+		const first = (await db.store.outputs(projectId, [idea.id]))[0];
+		if (!first) throw new Error("Missing text run");
+		idea.data.selectedRunId = first.id;
+		idea.data.content = content;
+		await db.setGraph(projectId, graph);
+		const next = await request([picture.id, narration.id]);
+		expect(await service().preview("owner", next)).toMatchObject({
+			credits: 5,
+		});
+		await service().start("owner", next);
+		await execute(next.id);
+		expect((await db.graphs.get(next.id))?.status).toBe("succeeded");
+		expect(text).toHaveBeenCalledTimes(1);
+		expect(speech).toHaveBeenLastCalledWith(
+			expect.objectContaining({ text: first.output }),
+		);
+	},
+);
+
+it("rejects oversized historical narration before reserving workflow credits", async () => {
+	text.mockResolvedValueOnce({
+		output: "a".repeat(1_001),
+		inputTokens: 1,
+		outputTokens: 1,
+	});
+	const original = await request([idea.id]);
+	await service().start("owner", original);
+	await execute(original.id);
+	const first = (await db.store.outputs(projectId, [idea.id]))[0];
+	if (!first) throw new Error("Missing text run");
+	idea.data.selectedRunId = first.id;
+	await db.setGraph(projectId, graph);
+	const balance = await db.store.balance("owner");
+	const next = await request([narration.id]);
+	await expect(service().start("owner", next)).rejects.toMatchObject({
+		code: "BAD_REQUEST",
+	});
+	expect(await db.graphs.get(next.id)).toBeNull();
+	expect(await db.store.balance("owner")).toBe(balance);
+	expect(speech).not.toHaveBeenCalled();
 });

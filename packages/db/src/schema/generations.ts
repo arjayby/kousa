@@ -45,6 +45,7 @@ export const generationRun = pgTable(
 		inputImageOrigin: text("input_image_origin"),
 		inputImageTokenHash: text("input_image_token_hash"),
 		prompt: text("prompt").notNull(),
+		authoredSettings: jsonb("authored_settings"),
 		size: text("size"),
 		duration: integer("duration"),
 		aspectRatio: text("aspect_ratio"),

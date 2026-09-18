@@ -1,5 +1,7 @@
 import {
 	generateInput,
+	generationHistoryActionInput,
+	generationHistoryInput,
 	listGenerationsInput,
 } from "@kousa/generation/contracts";
 import { GenerationError } from "@kousa/generation/input";
@@ -27,6 +29,16 @@ export function createGenerationRouter(
 		}
 	});
 	return {
+		history: procedure
+			.input(generationHistoryInput)
+			.handler(({ context, input }) =>
+				service().history(context.session.user.id, input),
+			),
+		historyAction: procedure
+			.input(generationHistoryActionInput)
+			.handler(({ context, input }) =>
+				service().historyAction(context.session.user.id, input),
+			),
 		list: procedure
 			.input(listGenerationsInput)
 			.handler(({ context, input }) =>

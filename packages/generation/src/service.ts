@@ -4,9 +4,12 @@ import type {
 } from "@kousa/db/generation-store";
 import type { MediaStore } from "@kousa/db/media-store";
 import { imageMimeTypes } from "@kousa/media/contracts";
+import type { CanvasNode } from "@kousa/projects/canvas";
 import type { ProjectService } from "@kousa/projects/service";
 import {
 	generateInput,
+	generationHistoryActionInput,
+	generationHistoryInput,
 	imageCreditCost,
 	imageModels,
 	listGenerationsInput,
@@ -21,6 +24,13 @@ import {
 	videoDurations,
 	videoModels,
 } from "./contracts";
+import {
+	captureSettings,
+	historicalSettings,
+	resolveTextOutputs,
+	selectedRun,
+	settingsPatch,
+} from "./history";
 import { generationImageOrigin } from "./image-origin";
 import {
 	buildImagePrompt,
@@ -99,20 +109,152 @@ export function createGenerationService(
 		return run;
 	}
 	return {
-		async list(actorId: string, raw: unknown) {
-			const { projectId, nodeIds } = listGenerationsInput.parse(raw);
+		async history(actorId: string, raw: unknown) {
+			const { projectId, nodeId, limit, cursor } =
+				generationHistoryInput.parse(raw);
 			await projects.get(actorId, { projectId });
 			await store.expire(projectId);
-			const [runs, balance, imageResults, speechResults, videoResults] =
-				await Promise.all([
-					store.latest(projectId, nodeIds),
-					store.balance(actorId),
-					store.outputs(projectId, nodeIds, "image"),
-					store.outputs(projectId, nodeIds, "speech"),
-					store.outputs(projectId, nodeIds, "video"),
-				]);
+			const rows = await store.history(projectId, nodeId, limit, cursor);
+			const page = rows.slice(0, limit);
+			const runs = await Promise.all(
+				page.map(async ({ run, userName, plan }) => ({
+					...publicRun(run),
+					userName,
+					graphRunId: run.graphRunId,
+					completedAt: run.completedAt?.toISOString() ?? null,
+					prompt: run.prompt,
+					size: run.size,
+					duration: run.duration,
+					aspectRatio: run.aspectRatio,
+					voiceDirection: run.voiceDirection,
+					settings: historicalSettings(run, plan),
+					mediaAvailable: run.assetId
+						? Boolean(media && (await media.get(projectId, run.assetId)))
+						: run.kind === "text",
+					creditState:
+						run.status === "succeeded"
+							? ("charged" as const)
+							: run.status === "failed"
+								? ("released" as const)
+								: ("reserved" as const),
+				})),
+			);
+			const last = page.at(-1);
+			return {
+				runs,
+				nextCursor:
+					rows.length > limit && last
+						? { createdAt: last.cursorTime, id: last.run.id }
+						: null,
+			};
+		},
+		// Authorize and validate a shared-document edit. The client applies only
+		// this patch through the existing permission-enforced Yjs transport/undo.
+		async historyAction(actorId: string, raw: unknown) {
+			const { projectId, nodeId, runId, action } =
+				generationHistoryActionInput.parse(raw);
+			const project = await projects.get(actorId, { projectId });
+			if (!project.permissions.canEdit)
+				throw new GenerationError(
+					"FORBIDDEN",
+					"Only owners and editors can change shared outputs or settings.",
+				);
+			const { document } = await projects.getCanvas(actorId, { projectId });
+			const node = document.nodes.find((n) => n.id === nodeId);
+			const detail = await store.historyDetail(projectId, nodeId, runId);
+			if (!node || !detail || detail.run.kind !== node.type)
+				throw new GenerationError(
+					"BAD_REQUEST",
+					"This generation is unavailable for this node.",
+				);
+			let patch: Partial<CanvasNode["data"]>;
+			if (action === "select") {
+				const run = await selectedRun(
+					store,
+					projectId,
+					nodeId,
+					node.type,
+					runId,
+				);
+				if (
+					run.assetId &&
+					(!media || !(await media.get(projectId, run.assetId)))
+				)
+					throw new GenerationError(
+						"BAD_REQUEST",
+						"The saved media is unavailable. Choose another output.",
+					);
+				patch = {
+					selectedRunId: run.id,
+					...(node.type === "image"
+						? { imageSource: "generated" as const }
+						: {}),
+					...(node.type === "video" || node.type === "speech"
+						? { mediaSource: "generated" as const }
+						: {}),
+				};
+			} else {
+				const latest = (await store.latest(projectId, [nodeId]))[0];
+				if (latest?.status === "queued" || latest?.status === "running")
+					throw new GenerationError(
+						"CONFLICT",
+						"Wait for this node's active generation before restoring settings.",
+					);
+				const settings = historicalSettings(detail.run, detail.plan);
+				if (!settings)
+					throw new GenerationError(
+						"BAD_REQUEST",
+						"This older run has no authored settings snapshot. You can still copy its frozen prompt.",
+					);
+				patch = settingsPatch(settings);
+			}
+			const current = await projects.get(actorId, { projectId });
+			if (!current.permissions.canEdit)
+				throw new GenerationError("FORBIDDEN", "Your editing access changed.");
+			return { patch };
+		},
+
+		async list(actorId: string, raw: unknown) {
+			const {
+				projectId,
+				nodeIds,
+				selections = [],
+			} = listGenerationsInput.parse(raw);
+			await projects.get(actorId, { projectId });
+			await store.expire(projectId);
+			const [
+				runs,
+				balance,
+				imageResults,
+				speechResults,
+				videoResults,
+				textResults,
+				selectedResults,
+			] = await Promise.all([
+				store.latest(projectId, nodeIds),
+				store.balance(actorId),
+				store.outputs(projectId, nodeIds, "image"),
+				store.outputs(projectId, nodeIds, "speech"),
+				store.outputs(projectId, nodeIds, "video"),
+				store.outputs(projectId, nodeIds, "text"),
+				store.getMany(
+					projectId,
+					selections.map((selection) => selection.runId),
+				),
+			]);
 			return {
 				runs: runs.map(publicRun),
+				textResults: textResults.map(publicRun),
+				selectedResults: selectedResults
+					.filter(
+						(run) =>
+							run.status === "succeeded" &&
+							selections.some(
+								(selection) =>
+									selection.nodeId === run.nodeId && selection.runId === run.id,
+							),
+					)
+					.map(publicRun),
 				balance,
 				imageResults: imageResults.map(publicRun),
 				speechResults: speechResults.map(publicRun),
@@ -141,14 +283,14 @@ export function createGenerationService(
 				return publicRun(previous);
 			}
 			const { document } = await projects.getCanvas(actorId, input);
-			const kind = document.nodes.find(
-				(node) => node.id === input.nodeId,
-			)?.type;
+			const node = document.nodes.find((node) => node.id === input.nodeId);
+			const kind = node?.type;
 			if (
-				kind !== "text" &&
-				kind !== "image" &&
-				kind !== "speech" &&
-				kind !== "video"
+				!node ||
+				(kind !== "text" &&
+					kind !== "image" &&
+					kind !== "speech" &&
+					kind !== "video")
 			)
 				throw new GenerationError(
 					"BAD_REQUEST",
@@ -219,11 +361,21 @@ export function createGenerationService(
 				);
 			let inputImageAssetId: string | null = null;
 			if (snapshot.kind === "video" && snapshot.image) {
-				const [generated] = await store.outputs(
-					input.projectId,
-					[snapshot.image.nodeId],
-					"image",
-				);
+				const generated = snapshot.image.runId
+					? await selectedRun(
+							store,
+							input.projectId,
+							snapshot.image.nodeId,
+							"image",
+							snapshot.image.runId,
+						)
+					: (
+							await store.outputs(
+								input.projectId,
+								[snapshot.image.nodeId],
+								"image",
+							)
+						)[0];
 				inputImageAssetId = videoInputImageAssetId(
 					snapshot,
 					generated?.assetId,
@@ -255,9 +407,10 @@ export function createGenerationService(
 					"The connected image changed. Review it, then try again.",
 				);
 			}
-			const outputs = await store.outputs(
+			const outputs = await resolveTextOutputs(
+				store,
 				input.projectId,
-				snapshot.sources.map((s) => s.id),
+				snapshot.sources,
 			);
 			const prompt =
 				snapshot.kind === "speech"
@@ -278,6 +431,7 @@ export function createGenerationService(
 				...input,
 				userId: actorId,
 				modelId: snapshot.modelId,
+				authoredSettings: captureSettings(node, snapshot.modelId),
 				prompt,
 				credits,
 				kind,

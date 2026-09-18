@@ -38,13 +38,21 @@ export async function executeGraphWorkflow(
 				databaseRetry,
 				async () => {
 					const dependencies = flow.plan.filter((source) =>
-						item.sources.some((dependency) => dependency.id === source.nodeId),
+						item.sources.some(
+							(dependency) =>
+								!dependency.runId && dependency.id === source.nodeId,
+						),
 					);
-					const outputs = await store.results(
-						dependencies.map((source) => source.runId),
-					);
+					const outputs = await store.results([
+						...dependencies.map((source) => source.runId),
+						...item.sources.flatMap((source) =>
+							source.runId ? [source.runId] : [],
+						),
+					]);
 					if (
-						outputs.length !== dependencies.length ||
+						outputs.length !==
+							dependencies.length +
+								item.sources.filter((source) => source.runId).length ||
 						outputs.some(
 							(output) => output.status !== "succeeded" || !output.output,
 						)

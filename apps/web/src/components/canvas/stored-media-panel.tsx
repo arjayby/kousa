@@ -58,7 +58,12 @@ export function StoredMediaPanel({
 				? null
 				: selected;
 	const items = [
-		{ value: "generated", label: "Latest generation" },
+		{
+			value: "generated",
+			label: node.data.selectedRunId
+				? "Historical output selected"
+				: "Latest generation",
+		},
 		{ value: "none", label: "No project file" },
 		...media.assets
 			.filter((a) => a.mimeType === mime)
@@ -102,7 +107,10 @@ export function StoredMediaPanel({
 						: "Upload failed",
 				);
 			const { asset } = mediaUploadSchema.parse(body);
-			update({ assetId: asset.id, mediaSource: "project" }, "assetId");
+			update(
+				{ selectedRunId: null, assetId: asset.id, mediaSource: "project" },
+				"assetId",
+			);
 			await media.refresh();
 		} catch (e) {
 			setError(
@@ -134,8 +142,9 @@ export function StoredMediaPanel({
 							if (value)
 								update(
 									value === "generated"
-										? { mediaSource: "generated" }
+										? { selectedRunId: null, mediaSource: "generated" }
 										: {
+												selectedRunId: null,
 												mediaSource: "project",
 												assetId: value === "none" ? null : value,
 											},

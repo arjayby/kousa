@@ -273,6 +273,7 @@ function Editor({
 			},
 			data: {
 				...selectedNode.data,
+				selectedRunId: null,
 				label:
 					`${selectedNode.data.label || nodeLabels[selectedNode.type ?? "text"]} copy`.slice(
 						0,
@@ -769,6 +770,33 @@ function Editor({
 						update={update}
 						endEdit={() => dispatch({ type: "end" })}
 						remove={removeSelected}
+						applyHistory={(before, patch) => {
+							let applied = false;
+							dispatch({
+								type: "edit",
+								update: (current) => {
+									const node = current.nodes.find(
+										(node) => node.id === before.id,
+									);
+									if (
+										!node ||
+										node.type !== before.type ||
+										JSON.stringify(node.data) !== JSON.stringify(before.data)
+									)
+										return current;
+									applied = true;
+									return {
+										...current,
+										nodes: current.nodes.map((item) =>
+											item.id === before.id
+												? { ...item, data: { ...item.data, ...patch } }
+												: item,
+										),
+									};
+								},
+							});
+							return applied;
+						}}
 						duplicate={duplicate}
 						disconnect={(id) => {
 							if (canEdit)
