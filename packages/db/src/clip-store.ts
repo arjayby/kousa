@@ -18,23 +18,24 @@ export function createClipStore(db: Database) {
 			input: Pick<
 				ClipRun,
 				"id" | "projectId" | "userId" | "nodeId" | "inputHash" | "plan"
-			>,
+			> & { canvasId?: string },
 		) {
 			const [result] = await db
 				.select({
-					result: sql<string>`kousa_claim_clip(${input.id}::uuid, ${input.userId}, ${input.projectId}::uuid, ${input.nodeId}::uuid, ${input.inputHash}, ${JSON.stringify(input.plan)}::jsonb)`,
+					result: sql<string>`kousa_claim_clip(${input.id}::uuid, ${input.userId}, ${input.projectId}::uuid, ${input.nodeId}::uuid, ${input.inputHash}, ${JSON.stringify(input.plan)}::jsonb, ${input.canvasId ?? input.projectId}::uuid)`,
 				})
 				.from(sql`(select 1) request`);
 			if (!result) throw new Error("Clip storage unavailable");
 			return result.result;
 		},
-		latest(projectId: string, succeeded = false) {
+		latest(projectId: string, succeeded = false, canvasId = projectId) {
 			return db
 				.selectDistinctOn([clipRun.nodeId])
 				.from(clipRun)
 				.where(
 					and(
 						eq(clipRun.projectId, projectId),
+						eq(clipRun.canvasId, canvasId),
 						succeeded ? eq(clipRun.status, "succeeded") : undefined,
 					),
 				)

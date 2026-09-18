@@ -189,21 +189,30 @@ function ViewportControls({ selection }: { selection: { id: string }[] }) {
 function Editor({
 	userId,
 	projectId,
+	canvasId,
 	canEdit: allowedToEdit,
 }: {
 	userId: string;
 	projectId: string;
+	canvasId: string;
 	canEdit: boolean;
 }) {
-	const persistence = useCanvas(userId, projectId, allowedToEdit);
+	const persistence = useCanvas(userId, projectId, canvasId, allowedToEdit);
 	const { graph, dispatch, canUndo, canRedo, sync, canEdit, session } =
 		persistence;
 	const canRun =
 		canEdit && sync.connection === "connected" && sync.sync === "synchronized";
-	const clips = useCanvasClips(userId, projectId, sync.loaded, canRun);
+	const clips = useCanvasClips(
+		userId,
+		projectId,
+		canvasId,
+		sync.loaded,
+		canRun,
+	);
 	const generation = useCanvasGeneration({
 		userId,
 		projectId,
+		canvasId,
 		graph,
 		loaded: sync.loaded,
 		canRun,
@@ -760,6 +769,7 @@ function Editor({
 						<SaveTemplate
 							userId={userId}
 							projectId={projectId}
+							canvasId={canvasId}
 							ready={canRun}
 							hasNodes={graph.nodes.length > 0}
 						/>
@@ -789,7 +799,7 @@ function Editor({
 						canEdit={canEdit}
 					/>
 					<CanvasRunHistory
-						key={`${userId}:${projectId}`}
+						key={`${userId}:${projectId}:${canvasId}`}
 						generation={generation}
 						canEdit={canEdit}
 						onFocus={focusNode}
@@ -1253,9 +1263,7 @@ function Editor({
 						saveError && "text-destructive",
 					)}
 					role="status"
-					title={
-						saveError ?? "Changes sync live with everyone in this project."
-					}
+					title={saveError ?? "Changes sync live with everyone on this canvas."}
 				>
 					{saveError ? (
 						<CircleAlertIcon className="size-3" />
@@ -1293,6 +1301,7 @@ function Editor({
 export default function CanvasEditor(props: {
 	userId: string;
 	projectId: string;
+	canvasId: string;
 	canEdit: boolean;
 }) {
 	return (

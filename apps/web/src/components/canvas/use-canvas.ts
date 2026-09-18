@@ -79,6 +79,7 @@ type Instance = {
 export function useCanvas(
 	userId: string,
 	projectId: string,
+	canvasId: string,
 	allowedToEdit: boolean,
 ) {
 	const [instance, setInstance] = useState<Instance | null>(null);
@@ -101,7 +102,7 @@ export function useCanvas(
 		setGraph(next);
 	}, []);
 	useEffect(() => {
-		const session = createLiveblocksSession(userId, projectId);
+		const session = createLiveblocksSession(userId, projectId, canvasId);
 		const model = createCanvasDocumentModel(session.doc);
 		const current = { session, model };
 		instanceRef.current = current;
@@ -152,7 +153,7 @@ export function useCanvas(
 			session.destroy();
 			if (instanceRef.current === current) instanceRef.current = null;
 		};
-	}, [userId, projectId, assign]);
+	}, [userId, projectId, canvasId, assign]);
 	const dispatch = useCallback(
 		(action: Action) => {
 			const current = instanceRef.current;
@@ -226,7 +227,7 @@ export function useCanvas(
 		key: string;
 	} | null>(null);
 	useEffect(() => {
-		const key = canvasDraftKey(userId, projectId);
+		const key = canvasDraftKey(userId, canvasId);
 		for (const candidate of [`${key}:recovery`, key]) {
 			try {
 				const raw = localStorage.getItem(candidate);
@@ -241,7 +242,7 @@ export function useCanvas(
 				/* Preserve unreadable legacy drafts without merging them. */
 			}
 		}
-	}, [userId, projectId]);
+	}, [userId, canvasId]);
 	function download(
 		document: CanvasDocument = documentFromGraph(graphRef.current),
 	) {
@@ -252,7 +253,7 @@ export function useCanvas(
 		);
 		const anchor = window.document.createElement("a");
 		anchor.href = url;
-		anchor.download = `kousa-${projectId}.json`;
+		anchor.download = `kousa-${canvasId}.json`;
 		anchor.click();
 		URL.revokeObjectURL(url);
 	}

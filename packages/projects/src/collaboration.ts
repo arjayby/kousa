@@ -2,12 +2,12 @@ import { Buffer } from "node:buffer";
 import type { ProjectStore } from "@kousa/db/project-store";
 import type { CanvasDocument } from "./canvas";
 import { seedCanvasDocument } from "./canvas-document";
-import { projectIdInput } from "./contracts";
+import { canvasIdInput } from "./contracts";
 import { ProjectError } from "./service";
 
 export type Collaborator = { id: string; name: string; image?: string | null };
 export type CollaborationRole = "owner" | "editor" | "viewer";
-export const canvasRoomId = (projectId: string) => `kousa-${projectId}`;
+export const canvasRoomId = (canvasId: string) => `kousa-${canvasId}`;
 
 // Provider-specific room APIs stay behind this interface. The graph itself is Yjs.
 export interface CollaborationProvider {
@@ -63,13 +63,15 @@ export function createCollaborationService(
 	}
 	return {
 		async join(user: Collaborator, input: unknown) {
-			const { projectId } = projectIdInput.parse(input);
+			const { projectId, canvasId = projectId } = canvasIdInput.parse(input);
 			// The lock query itself checks membership before any provider operations.
-			await withLock(user.id, projectId, async (state, lockId) => {
+			await withLock(user.id, projectId, async (_lease, lockId) => {
+				const state = await store.collaborationState(projectId, canvasId);
+				if (!state) throw new ProjectError("NOT_FOUND");
 				const access = await store.get(user.id, projectId);
 				if (!access) throw new ProjectError("NOT_FOUND");
 				const backend = configured();
-				const roomId = state.roomId ?? canvasRoomId(projectId);
+				const roomId = state.roomId ?? canvasRoomId(canvasId);
 				let seed = state.seed;
 				if (!state.roomId) {
 					const encoded = Buffer.from(
@@ -83,6 +85,7 @@ export function createCollaborationService(
 							state.revision,
 							roomId,
 							encoded,
+							canvasId,
 						))
 					)
 						throw new ProjectError(
@@ -96,7 +99,7 @@ export function createCollaborationService(
 					// Reusing the exact persisted update makes retries idempotent, including a
 					// lost provider response. Never reseed from a newly constructed Y.Doc.
 					await backend.seed(roomId, Buffer.from(seed, "base64"));
-					if (!(await store.finishCollaboration(projectId, lockId)))
+					if (!(await store.finishCollaboration(projectId, lockId, canvasId)))
 						throw new ProjectError(
 							"CONFLICT",
 							"Collaboration setup timed out. Please retry.",
@@ -118,19 +121,35 @@ export function createCollaborationService(
 			role: CollaborationRole | null,
 			change: () => Promise<T>,
 		) {
-			return withLock(actorId, projectId, async (state) => {
+			return withLock(actorId, projectId, async (_lease, lockId) => {
+				async function renew() {
+					if (!(await store.renewCollaboration(projectId, lockId)))
+						throw new ProjectError(
+							"CONFLICT",
+							"Project access is being updated. Please retry.",
+						);
+				}
 				const actor = await store.get(actorId, projectId);
 				if (actor?.role !== "owner") throw new ProjectError("FORBIDDEN");
-				if (state.ready && state.roomId) {
-					const backend = configured();
-					// Provider permission changes and socket invalidation must succeed before
-					// reporting the database role change as complete. Fail closed on outages.
-					await backend.setAccess(state.roomId, userId, null);
-					await backend.disconnect(state.roomId);
+				const rooms = await store.collaborationRooms(projectId);
+				// Revoke every room before committing the membership change. The project
+				// lease prevents a concurrent join from restoring any room grant.
+				for (const { roomId } of rooms) {
+					if (!roomId) continue;
+					await renew();
+					await configured().setAccess(roomId, userId, null);
+					await configured().disconnect(roomId);
 				}
+				await renew();
 				const result = await change();
-				if (result && role && state.ready && state.roomId)
-					await configured().setAccess(state.roomId, userId, role);
+				if (result && role) {
+					for (const { roomId } of rooms) {
+						if (roomId) {
+							await renew();
+							await configured().setAccess(roomId, userId, role);
+						}
+					}
+				}
 				return result;
 			});
 		},

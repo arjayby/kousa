@@ -36,7 +36,11 @@ export function createGraphService(
 	media?: Pick<MediaStore, "get">,
 ) {
 	const imageOrigin = generationImageOrigin(jobs.imageInputOrigin);
-	async function prepareInputs(projectId: string, plan: GraphStep[]) {
+	async function prepareInputs(
+		projectId: string,
+		plan: GraphStep[],
+		canvasId = projectId,
+	) {
 		for (const step of plan) {
 			if (step.reused) continue;
 			const pinned = await Promise.all(
@@ -46,7 +50,16 @@ export function createGraphService(
 						plan.find((item) => item.nodeId === source.id && item.reused)
 							?.runId;
 					return runId
-						? [selectedRun(generations, projectId, source.id, "text", runId)]
+						? [
+								selectedRun(
+									generations,
+									projectId,
+									source.id,
+									"text",
+									runId,
+									canvasId,
+								),
+							]
 						: [];
 				}),
 			);
@@ -69,6 +82,7 @@ export function createGraphService(
 					step.image.nodeId,
 					"image",
 					step.image.runId,
+					canvasId,
 				);
 				step.image.assetId = run.assetId;
 			}
@@ -171,6 +185,7 @@ export function createGraphService(
 		actorId: string,
 		input: {
 			projectId: string;
+			canvasId?: string;
 			nodeId?: string;
 			nodeIds?: string[];
 			resumeOf?: string;
@@ -185,13 +200,14 @@ export function createGraphService(
 			const results = (
 				await Promise.all([
 					...(["text", "image", "speech", "video"] as const).map((kind) =>
-						generations.outputs(input.projectId, nodeIds, kind),
+						generations.outputs(input.projectId, nodeIds, kind, input.canvasId),
 					),
 					generations.getMany(
 						input.projectId,
 						graph.nodes.flatMap((node) =>
 							node.data.selectedRunId ? [node.data.selectedRunId] : [],
 						),
+						input.canvasId,
 					),
 				])
 			)
@@ -230,6 +246,7 @@ export function createGraphService(
 		if (
 			!previous ||
 			previous.projectId !== input.projectId ||
+			previous.canvasId !== (input.canvasId ?? input.projectId) ||
 			previous.userId !== actorId ||
 			JSON.stringify(graphRunTargetIds(previous)) !== JSON.stringify(targets)
 		)
@@ -280,10 +297,10 @@ export function createGraphService(
 	}
 	return {
 		async list(actorId: string, raw: unknown) {
-			const { projectId } = graphProjectInput.parse(raw);
+			const { projectId, canvasId } = graphProjectInput.parse(raw);
 			await access(actorId, projectId);
 			await store.expire(projectId);
-			const runs = await store.list(projectId);
+			const runs = await store.list(projectId, canvasId);
 			const resumed = new Set(runs.map((run) => run.resumeOf));
 			const results = await store.results([
 				...new Set(runs.flatMap((run) => run.plan.map((step) => step.runId))),
@@ -300,7 +317,11 @@ export function createGraphService(
 			const targets = graphTargetIds(input);
 			await access(actorId, input.projectId, true);
 			const { plan, canvasHash } = await makePlan(actorId, input);
-			const blockers = await prepareInputs(input.projectId, plan);
+			const blockers = await prepareInputs(
+				input.projectId,
+				plan,
+				input.canvasId,
+			);
 			const inputHash = await reviewHash(input, canvasHash, plan);
 			if (
 				input.inputHash &&
@@ -354,6 +375,7 @@ export function createGraphService(
 				if (
 					previous.userId !== actorId ||
 					previous.projectId !== input.projectId ||
+					previous.canvasId !== (input.canvasId ?? input.projectId) ||
 					previous.inputHash !== input.inputHash ||
 					JSON.stringify(graphRunTargetIds(previous)) !==
 						JSON.stringify(targets) ||
@@ -373,7 +395,11 @@ export function createGraphService(
 				);
 			await store.expire();
 			const { plan, canvasHash } = await makePlan(actorId, input);
-			const blockers = await prepareInputs(input.projectId, plan);
+			const blockers = await prepareInputs(
+				input.projectId,
+				plan,
+				input.canvasId,
+			);
 			const inputHash = await reviewHash(input, canvasHash, plan);
 			if (inputHash !== input.inputHash)
 				throw new GenerationError(

@@ -22,10 +22,15 @@ export function createMediaLifecycle(
 	}
 	async function graph(projectId: string) {
 		const saved = await store.canvas(projectId);
-		if (!saved) throw new MediaError(404, "Project not found.");
-		return saved.room
-			? readRoom(saved.room)
-			: canvasDocumentSchema.parse(saved.canvas);
+		if (!saved.length) throw new MediaError(404, "Project not found.");
+		const documents = await Promise.all(
+			saved.map((canvas) =>
+				canvas.room
+					? readRoom(canvas.room)
+					: canvasDocumentSchema.parse(canvas.canvas),
+			),
+		);
+		return { nodes: documents.flatMap((document) => document.nodes) };
 	}
 	async function inspect(projectId: string) {
 		const [assets, records, snapshot] = await Promise.all([

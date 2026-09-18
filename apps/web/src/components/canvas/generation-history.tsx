@@ -72,11 +72,19 @@ export function GenerationHistory({
 	const [error, setError] = useState<string | null>(null);
 	const busy = useRef(false);
 	const projectId = generation?.projectId ?? "";
+	const canvasId = generation?.canvasId;
 	const query = useInfiniteQuery({
-		queryKey: ["generation-history", generation?.userId, projectId, node.id],
+		queryKey: [
+			"generation-history",
+			generation?.userId,
+			projectId,
+			canvasId,
+			node.id,
+		],
 		queryFn: ({ pageParam }) =>
 			client.generation.history({
 				projectId,
+				canvasId,
 				nodeId: node.id,
 				limit: 10,
 				cursor: pageParam,
@@ -114,6 +122,7 @@ export function GenerationHistory({
 		try {
 			const result = await client.generation.historyAction({
 				projectId,
+				canvasId,
 				nodeId: node.id,
 				runId: run.id,
 				action,

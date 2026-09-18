@@ -31,13 +31,14 @@ type Preview = Awaited<ReturnType<typeof client.clips.preview>>;
 export function useCanvasClips(
 	userId: string,
 	projectId: string,
+	canvasId: string,
 	loaded: boolean,
 	canRun: boolean,
 ) {
 	const cache = useQueryClient();
 	const query = useQuery({
-		...orpc.clips.list.queryOptions({ input: { projectId } }),
-		queryKey: ["clips", userId, projectId],
+		...orpc.clips.list.queryOptions({ input: { projectId, canvasId } }),
+		queryKey: ["clips", userId, projectId, canvasId],
 		enabled: loaded,
 		refetchInterval: 3000,
 		retry: false,
@@ -58,7 +59,7 @@ export function useCanvasClips(
 		try {
 			setReview({
 				nodeId,
-				value: await client.clips.preview({ projectId, nodeId }),
+				value: await client.clips.preview({ projectId, canvasId, nodeId }),
 			});
 		} catch (e) {
 			setError(e instanceof Error ? e.message : "Could not review clip.");
@@ -75,6 +76,7 @@ export function useCanvasClips(
 				? {
 						id: crypto.randomUUID(),
 						projectId,
+						canvasId,
 						nodeId: review.nodeId,
 						inputHash: review.value.inputHash,
 					}
@@ -109,7 +111,9 @@ export function useCanvasClips(
 		} finally {
 			busy.current = false;
 			setPending(false);
-			await cache.invalidateQueries({ queryKey: ["clips", userId, projectId] });
+			await cache.invalidateQueries({
+				queryKey: ["clips", userId, projectId, canvasId],
+			});
 		}
 	}
 	return {

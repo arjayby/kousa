@@ -60,7 +60,10 @@ export const videoCreditCost = (duration: number) =>
 	duration === 10 ? 20 : 10;
 export const maxInputBytes = 12_000;
 export const maxOutputTokens = 2_048;
-export const generationProjectInput = z.object({ projectId: z.uuid() });
+export const generationProjectInput = z.object({
+	projectId: z.uuid(),
+	canvasId: z.uuid().optional(),
+});
 export const listGenerationsInput = generationProjectInput.extend({
 	nodeIds: z.array(z.uuid()).max(200).optional(),
 	selections: z

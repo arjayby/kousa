@@ -1,6 +1,6 @@
 # Canvas editor
 
-Open a project, then choose **Open canvas**. The editor lives at `/projects/[projectId]/canvas` and uses [React Flow](https://reactflow.dev/learn/customization/custom-nodes) for viewport, selection, dragging, and connection gestures.
+Open a project, then choose **Open canvas**. The first canvas lives at `/projects/[projectId]/canvas`; named canvases use `?canvas=[canvasId]`. Use **New canvas** or the header selector to create and switch between canvases. See [multiple canvases](../../docs/multiple-canvases.md). The editor uses [React Flow](https://reactflow.dev/learn/customization/custom-nodes) for viewport, selection, dragging, and connection gestures.
 
 ## Current milestone
 
@@ -14,9 +14,9 @@ Open a project, then choose **Open canvas**. The editor lives at `/projects/[pro
 
 ## Project storage and access
 
-Liveblocks persists a Yjs document per project and shares updates as they happen. Neon remains authoritative for projects, memberships, invitations, and billing. On the first authorized connection, the existing Neon graph is imported once; subsequent whole-graph saves are blocked. The original JSON and its revision remain as the pre-collaboration snapshot. `0005_canvas_collaboration.sql` adds the import and coordination fields. Alchemy applies it before starting the app.
+Liveblocks persists a Yjs document per canvas and shares updates as they happen. Neon remains authoritative for projects, memberships, invitations, and billing. On the first authorized connection, the existing Neon graph is imported once; subsequent whole-graph saves are blocked. The original JSON and its revision remain as the pre-collaboration snapshot. `0023_multiple_canvases.sql` moves canvas data into `project_canvas` and preserves existing rooms. Alchemy applies migrations before starting the app.
 
-The server authenticates each connection using Better Auth and derives room access from current database membership. Owners and editors can edit; viewers can navigate, select, inspect, and share presence. Private room permissions also enforce viewer restrictions at the transport level. Role changes revoke existing sockets before reporting success. `projects.getCanvas` reads the current Yjs graph for migrated projects after checking membership.
+The server authenticates each connection using Better Auth and derives room access from current database membership. Owners and editors can edit; viewers can navigate, select, inspect, and share presence. Private room permissions also enforce viewer restrictions at the transport level. Role changes revoke existing sockets in every project canvas before reporting success. `projects.getCanvas` reads the current Yjs graph for the selected canvas after checking project membership.
 
 Shared changes include node creation, positions, prompt text, generation settings, deletion, and connections. Text fields use character-level Yjs operations. Presence shows active sessions, names, selection counts, and cursors in canvas coordinates. Selection and viewport position stay local. The footer distinguishes connecting, reconnecting, saving, and acknowledged changes.
 
@@ -24,7 +24,7 @@ Set the server-only `LIVEBLOCKS_SECRET_KEY` in `apps/web/.env` and restart devel
 
 ## Browser recovery
 
-IndexedDB keeps a best-effort Yjs recovery copy per account and project. It is opened only after the server has authorized an editor and synchronized the room. Viewers do not merge former editor drafts. Reconnecting merges pending Yjs operations; browser storage does not bypass room permissions. Liveblocks warns before closing a page with pending writes.
+IndexedDB keeps a best-effort Yjs recovery copy per account and canvas. It is opened only after the server has authorized an editor and synchronized the room. Viewers do not merge former editor drafts. Reconnecting merges pending Yjs operations; browser storage does not bypass room permissions. Liveblocks warns before closing a page with pending writes.
 
 Older localStorage JSON drafts remain available for download or explicit discard. They are never automatically written over the shared graph. Connection failures offer **Retry connection** and a JSON download of the current graph.
 

@@ -140,12 +140,17 @@ export function createRunService(
 		let steps: RunStep[];
 		if (input.kind === "workflow") {
 			const flow = await graphs.get(input.id);
-			if (!flow || flow.projectId !== input.projectId)
+			if (
+				!flow ||
+				flow.projectId !== input.projectId ||
+				flow.canvasId !== (input.canvasId ?? input.projectId)
+			)
 				throw new GenerationError("NOT_FOUND", "Run is unavailable.");
 			const [results, userName, resumed] = await Promise.all([
 				generations.getMany(
 					input.projectId,
 					flow.plan.map((s) => s.runId),
+					input.canvasId,
 				),
 				generations.actorName(flow.userId),
 				graphs.hasResume(flow.id),
@@ -154,7 +159,11 @@ export function createRunService(
 			summary = workflow(flow, userName, resumed, steps);
 		} else {
 			const run = await generations.get(input.id);
-			if (!run || run.projectId !== input.projectId)
+			if (
+				!run ||
+				run.projectId !== input.projectId ||
+				run.canvasId !== (input.canvasId ?? input.projectId)
+			)
 				throw new GenerationError("NOT_FOUND", "Run is unavailable.");
 			summary = single(run, await generations.actorName(run.userId));
 			steps = [
@@ -187,12 +196,12 @@ export function createRunService(
 	return {
 		detail,
 		async history(actorId: string, raw: unknown) {
-			const { projectId, limit, cursor } = runHistoryInput.parse(raw);
+			const { projectId, canvasId, limit, cursor } = runHistoryInput.parse(raw);
 			await access(actorId, projectId);
 			await refresh(projectId);
 			const [flows, singles] = await Promise.all([
-				graphs.history(projectId, limit, cursor),
-				generations.projectHistory(projectId, limit, cursor),
+				graphs.history(projectId, limit, cursor, canvasId),
+				generations.projectHistory(projectId, limit, cursor, canvasId),
 			]);
 			const rows = [
 				...flows.map((row) => ({ ...row, kind: "workflow" as const })),
@@ -210,6 +219,7 @@ export function createRunService(
 						page.flatMap((row) =>
 							row.kind === "workflow" ? row.run.plan.map((s) => s.runId) : [],
 						),
+						canvasId,
 					)
 				).map((r) => [r.id, r]),
 			);
@@ -235,6 +245,15 @@ export function createRunService(
 		async cancel(actorId: string, raw: unknown) {
 			const input = runReferenceInput.parse(raw);
 			await access(actorId, input.projectId, true);
+			const run = await (input.kind === "workflow" ? graphs : generations).get(
+				input.id,
+			);
+			if (
+				!run ||
+				run.projectId !== input.projectId ||
+				run.canvasId !== (input.canvasId ?? input.projectId)
+			)
+				throw new GenerationError("NOT_FOUND", "Run is unavailable.");
 			const result = await (input.kind === "workflow"
 				? graphs
 				: generations

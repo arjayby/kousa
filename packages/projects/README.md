@@ -6,11 +6,12 @@ Projects are private by default. `/dashboard` lists the current account's owned 
 | --- | --- | --- | --- |
 | Open project | Yes | Yes | Yes |
 | Rename project | Yes | Yes | No |
+| Create, rename, and edit canvases | Yes | Yes | No |
 | Save a private workflow template | Yes | Yes | No |
 | Send, resend, or revoke invitations | Yes | No | No |
 | List and manage collaborators | Yes | No | No |
 
-Ownership lives on the project row. It cannot be removed or reassigned through collaborator operations. Memberships contain only editor and viewer roles. Ownership transfer, project deletion, teams, and canvas editing are outside this milestone.
+Ownership lives on the project row. It cannot be removed or reassigned through collaborator operations. Memberships contain only editor and viewer roles. Ownership transfer, project deletion, and teams are not supported.
 
 ## Invitation flow
 
@@ -37,10 +38,10 @@ The oRPC router authenticates every operation, including invitation preview and 
 
 See [Resend email setup](../email/README.md) for the sending domain and environment variables. Alchemy applies `0003_wet_bromley.sql` on development startup. This migration revokes old unclaimed invitations without a recipient email and preserves accepted memberships. A dedicated migration test checks both cases.
 
-Canvas reads and writes check project access on the server. Future live collaboration connections must also handle permission changes. These project permissions do not grant access to another account's billing balance.
+Canvas reads and writes check project access on the server. Live collaboration revokes access across every canvas when membership changes. These project permissions do not grant access to another account's billing balance.
 
 ## Canvas editor
 
-The project's **Open canvas** action opens the text, image, video, and speech editor. See [CANVAS.md](CANVAS.md) for interactions, graph rules, shared storage, conflict handling, and browser recovery copies.
+The project's **Open canvas** action opens its first canvas. Create and rename canvases from project settings or the canvas header, then use the header selector to switch. See [multiple canvases](../../docs/multiple-canvases.md) for data migration and sharing rules. See [CANVAS.md](CANVAS.md) for interactions, graph rules, shared storage, conflict handling, and browser recovery copies.
 
 Owners and editors can save private workflow templates and reuse them as new projects. See [workflow templates](../../docs/workflow-templates.md) for snapshot contents, ownership, limits, and retry behavior.

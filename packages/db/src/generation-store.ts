@@ -39,6 +39,7 @@ export function createGenerationStore(db: Database) {
 			projectId: string,
 			limit: number,
 			cursor?: { createdAt: string; id: string },
+			canvasId = projectId,
 		) {
 			return db
 				.select({
@@ -51,6 +52,7 @@ export function createGenerationStore(db: Database) {
 				.where(
 					and(
 						eq(generationRun.projectId, projectId),
+						eq(generationRun.canvasId, canvasId),
 						isNull(generationRun.graphRunId),
 						cursor
 							? sql`(${generationRun.createdAt}, ${generationRun.id}) < (${cursor.createdAt}::timestamptz, ${cursor.id}::uuid)`
@@ -80,6 +82,7 @@ export function createGenerationStore(db: Database) {
 			nodeId: string,
 			limit: number,
 			cursor?: { createdAt: string; id: string },
+			canvasId = projectId,
 		) {
 			return db
 				.select({
@@ -95,6 +98,7 @@ export function createGenerationStore(db: Database) {
 				.where(
 					and(
 						eq(generationRun.projectId, projectId),
+						eq(generationRun.canvasId, canvasId),
 						eq(generationRun.nodeId, nodeId),
 						cursor
 							? sql`(${generationRun.createdAt}, ${generationRun.id}) < (${cursor.createdAt}::timestamptz, ${cursor.id}::uuid)`
@@ -104,7 +108,7 @@ export function createGenerationStore(db: Database) {
 				.orderBy(desc(generationRun.createdAt), desc(generationRun.id))
 				.limit(limit + 1);
 		},
-		async getMany(projectId: string, ids: string[]) {
+		async getMany(projectId: string, ids: string[], canvasId = projectId) {
 			if (!ids.length) return [];
 			return db
 				.select()
@@ -112,11 +116,17 @@ export function createGenerationStore(db: Database) {
 				.where(
 					and(
 						eq(generationRun.projectId, projectId),
+						eq(generationRun.canvasId, canvasId),
 						inArray(generationRun.id, ids),
 					),
 				);
 		},
-		async historyDetail(projectId: string, nodeId: string, runId: string) {
+		async historyDetail(
+			projectId: string,
+			nodeId: string,
+			runId: string,
+			canvasId = projectId,
+		) {
 			const [row] = await db
 				.select({ run: generationRun, plan: graphRun.plan })
 				.from(generationRun)
@@ -124,6 +134,7 @@ export function createGenerationStore(db: Database) {
 				.where(
 					and(
 						eq(generationRun.projectId, projectId),
+						eq(generationRun.canvasId, canvasId),
 						eq(generationRun.nodeId, nodeId),
 						eq(generationRun.id, runId),
 					),
@@ -142,6 +153,7 @@ export function createGenerationStore(db: Database) {
 				| "inputHash"
 				| "credits"
 			> & {
+				canvasId?: string;
 				kind?: GenerationRun["kind"];
 				size?: string | null;
 				duration?: number | null;
@@ -160,7 +172,7 @@ export function createGenerationStore(db: Database) {
 				.select({
 					claim: sql<Claim>`kousa_claim_generation(
 				${input.id}::uuid, ${input.userId}, ${input.projectId}::uuid, ${input.nodeId}::uuid,
-				${input.modelId}, ${input.prompt}, ${input.inputHash}, ${input.credits}::integer, ${input.kind ?? "text"}, ${input.size ?? null}, ${input.voiceId ?? null}, ${input.voiceDirection ?? null}, ${input.duration ?? null}::integer, ${input.aspectRatio ?? null}, ${input.inputImageAssetId ?? null}::uuid, ${input.inputImageOrigin ?? null}, ${input.authoredSettings ? JSON.stringify(input.authoredSettings) : null}::jsonb, ${input.resolvedInputs ? JSON.stringify(input.resolvedInputs) : null}::jsonb
+				${input.modelId}, ${input.prompt}, ${input.inputHash}, ${input.credits}::integer, ${input.kind ?? "text"}, ${input.size ?? null}, ${input.voiceId ?? null}, ${input.voiceDirection ?? null}, ${input.duration ?? null}::integer, ${input.aspectRatio ?? null}, ${input.inputImageAssetId ?? null}::uuid, ${input.inputImageOrigin ?? null}, ${input.authoredSettings ? JSON.stringify(input.authoredSettings) : null}::jsonb, ${input.resolvedInputs ? JSON.stringify(input.resolvedInputs) : null}::jsonb, ${input.canvasId ?? input.projectId}::uuid
 			)`,
 				})
 				.from(sql`(select 1) as request`);
@@ -244,7 +256,7 @@ export function createGenerationStore(db: Database) {
 				.orderBy(generationRun.createdAt)
 				.limit(100);
 		},
-		async latest(projectId: string, nodeIds?: string[]) {
+		async latest(projectId: string, nodeIds?: string[], canvasId = projectId) {
 			if (nodeIds?.length === 0) return [];
 			return db
 				.selectDistinctOn([generationRun.nodeId])
@@ -252,6 +264,7 @@ export function createGenerationStore(db: Database) {
 				.where(
 					and(
 						eq(generationRun.projectId, projectId),
+						eq(generationRun.canvasId, canvasId),
 						nodeIds ? inArray(generationRun.nodeId, nodeIds) : undefined,
 					),
 				)
@@ -266,6 +279,7 @@ export function createGenerationStore(db: Database) {
 			projectId: string,
 			nodeIds?: string[],
 			kind: GenerationRun["kind"] = "text",
+			canvasId = projectId,
 		) {
 			if (nodeIds?.length === 0) return [];
 			return db
@@ -274,6 +288,7 @@ export function createGenerationStore(db: Database) {
 				.where(
 					and(
 						eq(generationRun.projectId, projectId),
+						eq(generationRun.canvasId, canvasId),
 						nodeIds ? inArray(generationRun.nodeId, nodeIds) : undefined,
 						eq(generationRun.kind, kind),
 						eq(generationRun.status, "succeeded"),

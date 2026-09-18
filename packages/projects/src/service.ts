@@ -4,7 +4,9 @@ import { projectInvitationEmail } from "@kousa/email/templates";
 import { canvasDocumentSchema } from "./canvas";
 import type { CollaborationService } from "./collaboration";
 import {
+	canvasIdInput,
 	changeMemberInput,
+	createCanvasInput,
 	createInviteInput,
 	createProjectInput,
 	inviteTokenInput,
@@ -13,6 +15,7 @@ import {
 	permissionsFor,
 	projectAccessInput,
 	projectIdInput,
+	renameCanvasInput,
 	renameProjectInput,
 	resendInviteInput,
 	revokeInviteInput,
@@ -117,11 +120,36 @@ export function createProjectService(
 	}
 	return {
 		get,
-		async getCanvas(actorId: string, input: unknown) {
+		async listCanvases(actorId: string, input: unknown) {
 			const { projectId } = projectIdInput.parse(input);
-			const found = await store.getCanvas(actorId, projectId);
+			await get(actorId, { projectId });
+			return store.listCanvases(actorId, projectId);
+		},
+		async createCanvas(actorId: string, input: unknown) {
+			const { projectId, name } = createCanvasInput.parse(input);
+			const saved = await store.createCanvas(actorId, projectId, name);
+			if (saved) return saved;
+			await get(actorId, { projectId });
+			throw new ProjectError("FORBIDDEN");
+		},
+		async renameCanvas(actorId: string, input: unknown) {
+			const { projectId, canvasId, name } = renameCanvasInput.parse(input);
+			const saved = await store.renameCanvas(
+				actorId,
+				projectId,
+				canvasId,
+				name,
+			);
+			if (saved) return saved;
+			const canvas = await store.getCanvas(actorId, projectId, canvasId);
+			if (!canvas) throw new ProjectError("NOT_FOUND");
+			throw new ProjectError("FORBIDDEN");
+		},
+		async getCanvas(actorId: string, input: unknown) {
+			const { projectId, canvasId } = canvasIdInput.parse(input);
+			const found = await store.getCanvas(actorId, projectId, canvasId);
 			if (!found) throw new ProjectError("NOT_FOUND");
-			const { roomId, ...saved } = found;
+			const { roomId, id: _id, name: _name, ...saved } = found;
 			if (roomId) {
 				if (!options.collaboration)
 					throw new ProjectError(
@@ -133,17 +161,20 @@ export function createProjectService(
 			return { ...saved, document: canvasDocumentSchema.parse(found.document) };
 		},
 		async saveCanvas(actorId: string, input: unknown) {
-			const { projectId, expectedRevision, document } =
+			const { projectId, canvasId, expectedRevision, document } =
 				saveCanvasInput.parse(input);
 			const saved = await store.saveCanvas(
 				actorId,
 				projectId,
 				expectedRevision,
 				document,
+				canvasId,
 			);
 			if (saved) return { ...saved, document };
 			const access = await get(actorId, { projectId });
 			if (!access.permissions.canEdit) throw new ProjectError("FORBIDDEN");
+			if (!(await store.getCanvas(actorId, projectId, canvasId)))
+				throw new ProjectError("NOT_FOUND");
 			throw new ProjectError(
 				"CONFLICT",
 				"The canvas changed since you opened it. Load the saved version before editing again.",

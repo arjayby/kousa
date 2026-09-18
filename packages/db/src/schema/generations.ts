@@ -14,7 +14,7 @@ import { user } from "./auth";
 import type { ResolvedInputs } from "./generation-inputs";
 import { graphRun } from "./graph-runs";
 import { mediaAsset } from "./media";
-import { project } from "./projects";
+import { project, projectCanvas } from "./projects";
 
 // Server-owned runs form the debit ledger: queued/running reserve, succeeded spends,
 // failed/cancelled releases. No client-written canvas field can create or finalize a charge.
@@ -25,6 +25,9 @@ export const generationRun = pgTable(
 		graphRunId: uuid("graph_run_id").references(() => graphRun.id, {
 			onDelete: "restrict",
 		}),
+		canvasId: uuid("canvas_id")
+			.notNull()
+			.references(() => projectCanvas.id, { onDelete: "restrict" }),
 		projectId: uuid("project_id")
 			.notNull()
 			.references(() => project.id, { onDelete: "restrict" }),

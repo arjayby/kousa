@@ -4,7 +4,10 @@ import { ProjectError } from "@kousa/projects/service";
 import { z } from "zod";
 
 const inputSchema = z
-	.object({ room: z.string().regex(/^kousa-[0-9a-f-]{36}$/) })
+	.object({
+		room: z.string().regex(/^kousa-[0-9a-f-]{36}$/),
+		projectId: z.uuid().optional(),
+	})
 	.strict();
 const responseHeaders = {
 	"Cache-Control": "no-store",
@@ -26,9 +29,10 @@ export async function POST(request: Request) {
 			{ status: 401, headers: responseHeaders },
 		);
 	try {
-		const { room } = inputSchema.parse(await request.json());
+		const { room, projectId } = inputSchema.parse(await request.json());
 		const result = await createCollaboration().join(session.user, {
-			projectId: room.slice(6),
+			projectId: projectId ?? room.slice(6),
+			canvasId: room.slice(6),
 		});
 		return Response.json(
 			{ ...JSON.parse(result.body), userId: session.user.id },

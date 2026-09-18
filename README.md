@@ -15,7 +15,7 @@ This project was created with [Better-T-Stack](https://github.com/AmanVarshney01
 - **Polar sandbox billing** - Verified payments grant credits once per order
 - **Projects and permissions** - Private projects with owner, editor, and viewer access through email invitations
 - **Background generation** - Durable Cloudflare Workflows for text/image/video/speech jobs, shared progress, recovery, and protected credit reservations
-- **Node canvas** - Text, image, video, and speech nodes with connections, undo/redo, and shared project saving with editor/viewer permissions
+- **Multiple canvases** - Named canvases per project with separate graphs, collaboration, recovery, and run history; shared members and media
 - **Branch copying** - Duplicate selections or copy/paste nodes with their settings and internal connections, including between projects
 - **Node generation history** - Browse attempts, reuse saved outputs, and restore authored settings without starting a generation
 - **Run management** - Browse canvas runs, inspect credit usage, stop unfinished work, and resume cancelled workflows
@@ -54,6 +54,8 @@ Alchemy starts Next.js, the local generation Worker, and the clip renderer, appl
 
 Open [http://localhost:3001](http://localhost:3001) in your browser to see the fullstack application.
 
+Use **New canvas** in project settings or the canvas header to add a workspace, then switch between canvases in the header. See [multiple canvases](docs/multiple-canvases.md) for access, storage, and migration details.
+
 ## UI Customization
 
 Select nodes and use **Duplicate selection**, **Copy selection**, or **Paste nodes** in the canvas toolbar. Cmd/Ctrl+D duplicates, Cmd/Ctrl+C/V copies and pastes, and one undo removes the entire copy. See [branch copying](docs/canvas-copy-paste.md) for media rules and shortcuts.
@@ -70,7 +72,7 @@ Generation setup and billing behavior are documented in [Text generation](docs/t
 
 Open **Generation history** in a node's settings to inspect attempts, select a saved output for future work, or restore its authored settings. See [node generation history](docs/node-generation-history.md).
 
-Open **Runs** in the canvas toolbar for project run history, saved outputs, credit breakdowns, and stop controls. Queued work releases its reservation immediately; submitted requests retain theirs until they settle. See [run management](docs/run-management.md).
+Open **Runs** in the canvas toolbar for the selected canvas’s run history, saved outputs, credit breakdowns, and stop controls. Queued work releases its reservation immediately; submitted requests retain theirs until they settle. See [run management](docs/run-management.md).
 
 Completed checks and deferred speech/video provider tests are tracked in the [verification summary](docs/verification.md).
 

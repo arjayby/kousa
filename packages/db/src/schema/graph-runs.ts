@@ -11,7 +11,7 @@ import {
 	uuid,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
-import { project } from "./projects";
+import { project, projectCanvas } from "./projects";
 
 // Immutable server-built execution plan. Dependencies refer to steps in this plan,
 // never to whichever output happens to be latest when the worker wakes up.
@@ -54,6 +54,9 @@ export const graphRun = pgTable(
 	"graph_run",
 	{
 		id: uuid("id").primaryKey(),
+		canvasId: uuid("canvas_id")
+			.notNull()
+			.references(() => projectCanvas.id, { onDelete: "restrict" }),
 		projectId: uuid("project_id")
 			.notNull()
 			.references(() => project.id, { onDelete: "restrict" }),

@@ -7,7 +7,20 @@ export const projectName = z
 	.min(1, "Enter a project name.")
 	.max(120, "Use 120 characters or fewer.");
 export const projectIdInput = z.object({ projectId: z.uuid() });
-export const saveCanvasInput = projectIdInput.extend({
+export const canvasIdInput = projectIdInput.extend({
+	canvasId: z.uuid().optional(),
+});
+export const canvasName = z
+	.string()
+	.trim()
+	.min(1, "Enter a canvas name.")
+	.max(120, "Use 120 characters or fewer.");
+export const createCanvasInput = projectIdInput.extend({ name: canvasName });
+export const renameCanvasInput = projectIdInput.extend({
+	canvasId: z.uuid(),
+	name: canvasName,
+});
+export const saveCanvasInput = canvasIdInput.extend({
 	expectedRevision: z.number().int().min(0).max(2_147_483_646),
 	document: canvasDocumentSchema,
 });

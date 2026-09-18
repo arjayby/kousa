@@ -96,13 +96,14 @@ export function createGenerationService(
 	}
 	async function getOwnedRun(
 		actorId: string,
-		input: { id: string; projectId: string; nodeId: string },
+		input: { id: string; projectId: string; canvasId?: string; nodeId: string },
 	) {
 		const run = await store.get(input.id);
 		if (
 			run &&
 			(run.userId !== actorId ||
 				run.projectId !== input.projectId ||
+				run.canvasId !== (input.canvasId ?? input.projectId) ||
 				run.nodeId !== input.nodeId)
 		)
 			throw new GenerationError(
@@ -113,11 +114,17 @@ export function createGenerationService(
 	}
 	return {
 		async history(actorId: string, raw: unknown) {
-			const { projectId, nodeId, limit, cursor } =
+			const { projectId, canvasId, nodeId, limit, cursor } =
 				generationHistoryInput.parse(raw);
 			await projects.get(actorId, { projectId });
 			await store.expire(projectId);
-			const rows = await store.history(projectId, nodeId, limit, cursor);
+			const rows = await store.history(
+				projectId,
+				nodeId,
+				limit,
+				cursor,
+				canvasId,
+			);
 			const page = rows.slice(0, limit);
 			const runs = await Promise.all(
 				page.map(async ({ run, userName, plan }) => ({
@@ -154,7 +161,7 @@ export function createGenerationService(
 		// Authorize and validate a shared-document edit. The client applies only
 		// this patch through the existing permission-enforced Yjs transport/undo.
 		async historyAction(actorId: string, raw: unknown) {
-			const { projectId, nodeId, runId, action } =
+			const { projectId, canvasId, nodeId, runId, action } =
 				generationHistoryActionInput.parse(raw);
 			const project = await projects.get(actorId, { projectId });
 			if (!project.permissions.canEdit)
@@ -162,9 +169,17 @@ export function createGenerationService(
 					"FORBIDDEN",
 					"Only owners and editors can change shared outputs or settings.",
 				);
-			const { document } = await projects.getCanvas(actorId, { projectId });
+			const { document } = await projects.getCanvas(actorId, {
+				projectId,
+				canvasId,
+			});
 			const node = document.nodes.find((n) => n.id === nodeId);
-			const detail = await store.historyDetail(projectId, nodeId, runId);
+			const detail = await store.historyDetail(
+				projectId,
+				nodeId,
+				runId,
+				canvasId,
+			);
 			if (!node || !detail || detail.run.kind !== node.type)
 				throw new GenerationError(
 					"BAD_REQUEST",
@@ -178,6 +193,7 @@ export function createGenerationService(
 					nodeId,
 					node.type,
 					runId,
+					canvasId,
 				);
 				if (
 					run.assetId &&
@@ -197,7 +213,7 @@ export function createGenerationService(
 						: {}),
 				};
 			} else {
-				const latest = (await store.latest(projectId, [nodeId]))[0];
+				const latest = (await store.latest(projectId, [nodeId], canvasId))[0];
 				if (latest?.status === "queued" || latest?.status === "running")
 					throw new GenerationError(
 						"CONFLICT",
@@ -220,6 +236,7 @@ export function createGenerationService(
 		async list(actorId: string, raw: unknown) {
 			const {
 				projectId,
+				canvasId,
 				nodeIds,
 				selections = [],
 			} = listGenerationsInput.parse(raw);
@@ -234,15 +251,16 @@ export function createGenerationService(
 				textResults,
 				selectedResults,
 			] = await Promise.all([
-				store.latest(projectId, nodeIds),
+				store.latest(projectId, nodeIds, canvasId),
 				store.balance(actorId),
-				store.outputs(projectId, nodeIds, "image"),
-				store.outputs(projectId, nodeIds, "speech"),
-				store.outputs(projectId, nodeIds, "video"),
-				store.outputs(projectId, nodeIds, "text"),
+				store.outputs(projectId, nodeIds, "image", canvasId),
+				store.outputs(projectId, nodeIds, "speech", canvasId),
+				store.outputs(projectId, nodeIds, "video", canvasId),
+				store.outputs(projectId, nodeIds, "text", canvasId),
 				store.getMany(
 					projectId,
 					selections.map((selection) => selection.runId),
+					canvasId,
 				),
 			]);
 			return {
@@ -372,12 +390,14 @@ export function createGenerationService(
 							snapshot.image.nodeId,
 							"image",
 							snapshot.image.runId,
+							input.canvasId,
 						)
 					: (
 							await store.outputs(
 								input.projectId,
 								[snapshot.image.nodeId],
 								"image",
+								input.canvasId,
 							)
 						)[0];
 				resolvedImage = generated;
@@ -416,6 +436,7 @@ export function createGenerationService(
 				store,
 				input.projectId,
 				snapshot.sources,
+				input.canvasId,
 			);
 			const prompt =
 				snapshot.kind === "speech"

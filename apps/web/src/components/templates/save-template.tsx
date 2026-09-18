@@ -11,11 +11,13 @@ import { TemplateNameDialog } from "./template-name-dialog";
 export function SaveTemplate({
 	userId,
 	projectId,
+	canvasId,
 	ready,
 	hasNodes,
 }: {
 	userId: string;
 	projectId: string;
+	canvasId: string;
 	ready: boolean;
 	hasNodes: boolean;
 }) {
@@ -46,7 +48,7 @@ export function SaveTemplate({
 					canSubmit={ready && hasNodes}
 					onClose={() => setOpen(false)}
 					onSave={async (name, id) => {
-						await client.templates.save({ id, projectId, name });
+						await client.templates.save({ id, projectId, canvasId, name });
 						void cache.invalidateQueries({ queryKey: ["templates", userId] });
 						toast.success("Template saved to your private library");
 					}}

@@ -115,9 +115,10 @@ it("retains canvas imports and pins library reuse before insertion, including su
 });
 it("uses the authoritative shared graph, including disconnected attachments, and fails closed on outages", async () => {
 	const asset = await upload();
-	await db.query("update project set canvas_room_id='room' where id=$1", [
-		projectId,
-	]);
+	await db.query(
+		"update project_canvas set canvas_room_id='room' where id=$1",
+		[projectId],
+	);
 	const node = createCanvasNode("image", { x: 0, y: 0 });
 	node.data.assetId = asset.id;
 	node.data.label = "Disconnected image";
@@ -159,9 +160,10 @@ it("sweeps after seven days, never touches recent uploads or uncertain writers, 
 });
 it("cannot remove an otherwise-unused file when the shared canvas cannot be verified", async () => {
 	const asset = await upload();
-	await db.query("update project set canvas_room_id='room' where id=$1", [
-		projectId,
-	]);
+	await db.query(
+		"update project_canvas set canvas_room_id='room' where id=$1",
+		[projectId],
+	);
 	readRoom.mockRejectedValue(new Error("shared canvas unavailable"));
 	const state = await lifecycle.inspect("owner", projectId);
 	expect(state.graphAvailable).toBe(false);
@@ -193,9 +195,10 @@ it("keeps stored generation inputs, selected historical outputs, graph plans and
 		`insert into generation_run(id,project_id,user_id,node_id,model_id,prompt,input_hash,status,credits,expires_at,kind,asset_id,completed_at) values($1,$2,'owner',$3,'image','prompt','hash','succeeded',1,now()+interval '1 hour','image',$4,now())`,
 		[runId, projectId, nodeId, asset.id],
 	);
-	await db.query("update project set canvas_room_id='room' where id=$1", [
-		projectId,
-	]);
+	await db.query(
+		"update project_canvas set canvas_room_id='room' where id=$1",
+		[projectId],
+	);
 	const node = createCanvasNode("image", { x: 0, y: 0 });
 	node.data.selectedRunId = runId;
 	document.nodes = [node];
@@ -358,4 +361,35 @@ it("migration defaults retain old assets and old reservations while new candidat
 	await expect(lifecycle.remove("owner", projectId, id)).rejects.toMatchObject({
 		status: 409,
 	});
+});
+
+it("checks media references in every canvas and fails closed if any room is unavailable", async () => {
+	const asset = await upload();
+	const second = await db.projects.createCanvas("owner", projectId, "Second");
+	await db.query(
+		"update project_canvas set canvas_room_id='second-room' where id=$1",
+		[second?.id],
+	);
+	const node = createCanvasNode("image", { x: 0, y: 0 });
+	node.data.assetId = asset.id;
+	document = { version: 1, nodes: [node], edges: [] };
+	expect((await lifecycle.inspect("owner", projectId)).usage[0]).toMatchObject({
+		removable: false,
+	});
+	await expect(
+		lifecycle.remove("owner", projectId, asset.id),
+	).rejects.toMatchObject({ status: 409 });
+	const unused = await media.upload(
+		"owner",
+		projectId,
+		{ bytes: png(), mimeType: "image/png", name: "unused.png" },
+		true,
+	);
+	readRoom.mockRejectedValue(new Error("second room offline"));
+	expect((await lifecycle.inspect("owner", projectId)).graphAvailable).toBe(
+		false,
+	);
+	await expect(
+		lifecycle.remove("owner", projectId, unused.id),
+	).rejects.toThrow();
 });

@@ -12,6 +12,7 @@ import type {
 export function createLiveblocksSession(
 	userId: string,
 	projectId: string,
+	canvasId: string,
 ): CanvasSession {
 	const listeners = new Set<() => void>();
 	const peerListeners = new Set<() => void>();
@@ -43,7 +44,7 @@ export function createLiveblocksSession(
 				fetch("/api/collaboration/auth", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ room }),
+					body: JSON.stringify({ room, projectId }),
 					signal: AbortSignal.timeout(60_000),
 				});
 			let response = await request();
@@ -85,7 +86,7 @@ export function createLiveblocksSession(
 		},
 	});
 	const { room, leave } = client.enterRoom<CanvasPresence>(
-		`kousa-${projectId}`,
+		`kousa-${canvasId}`,
 		{ initialPresence: { cursor: null, selection: [] }, autoConnect: false },
 	);
 	const provider = getYjsProviderForRoom(room);
@@ -106,7 +107,7 @@ export function createLiveblocksSession(
 			cacheStarted = true;
 			try {
 				cache = new IndexeddbPersistence(
-					`kousa:yjs:v1:${userId}:${projectId}`,
+					`kousa:yjs:v1:${userId}:${canvasId}`,
 					doc,
 				);
 				void cache.whenSynced.catch(() =>
@@ -154,7 +155,11 @@ export function createLiveblocksSession(
 	];
 	provider.on("sync", update);
 	provider.on("status", update);
-	room.connect();
+	// React's development effect probe immediately destroys its first session.
+	// Defer the connection so that discarded session never takes the project lease.
+	queueMicrotask(() => {
+		if (!destroyed) room.connect();
+	});
 	return {
 		doc,
 		subscribe(listener) {

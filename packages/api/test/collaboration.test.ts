@@ -213,3 +213,48 @@ describe("collaboration authorization and migration with real project queries", 
 		).rejects.toMatchObject({ code: "SERVICE_UNAVAILABLE" });
 	});
 });
+
+it("seeds distinct rooms and revokes membership in every canvas", async () => {
+	const second = await projects().createCanvas("owner", {
+		projectId,
+		name: "Second",
+	});
+	const document = {
+		...emptyCanvas(),
+		nodes: [createCanvasNode("text", { x: 10, y: 20 })],
+	};
+	await projects().saveCanvas("owner", {
+		projectId,
+		canvasId: second.id,
+		document,
+		expectedRevision: 0,
+	});
+	await collab().join(person("editor"), { projectId });
+	await collab().join(person("editor"), { projectId, canvasId: second.id });
+	expect(seed.mock.calls.map(([room]) => room)).toEqual([
+		`kousa-${projectId}`,
+		`kousa-${second.id}`,
+	]);
+	const secondDoc = new Y.Doc();
+	const update = seed.mock.calls[1]?.[1];
+	if (!update) throw new Error("Missing second canvas seed");
+	Y.applyUpdate(secondDoc, update);
+	expect(readCanvasDocument(secondDoc).document).toEqual(document);
+	secondDoc.destroy();
+	setAccess.mockClear();
+	await projects().removeMember("owner", { projectId, userId: "editor" });
+	expect(setAccess).toHaveBeenCalledWith(`kousa-${projectId}`, "editor", null);
+	expect(setAccess).toHaveBeenCalledWith(`kousa-${second.id}`, "editor", null);
+	expect(disconnect).toHaveBeenCalledTimes(2);
+	await expect(
+		collab().join(person("editor"), { projectId, canvasId: second.id }),
+	).rejects.toMatchObject({ code: "NOT_FOUND" });
+});
+it("rejects a canvas from another project before contacting the provider", async () => {
+	const foreign = await projects().create("owner", { name: "Other" });
+	await expect(
+		collab().join(person("owner"), { projectId, canvasId: foreign.id }),
+	).rejects.toMatchObject({ code: "NOT_FOUND" });
+	expect(seed).not.toHaveBeenCalled();
+	expect(identify).not.toHaveBeenCalled();
+});

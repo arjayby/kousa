@@ -16,6 +16,44 @@ import {
 import { user } from "./auth";
 import { workflowTemplate } from "./workflow-templates";
 
+// Canvas IDs are independent of the project. The first canvas reuses the project
+// ID so existing links, collaboration rooms, and browser drafts keep working.
+export const projectCanvas = pgTable(
+	"project_canvas",
+	{
+		id: uuid("id").defaultRandom().primaryKey(),
+		projectId: uuid("project_id")
+			.notNull()
+			.references(() => project.id, { onDelete: "cascade" }),
+		name: text("name").notNull(),
+		canvas: jsonb("canvas")
+			.notNull()
+			.default({ version: 1, nodes: [], edges: [] }),
+		canvasRevision: integer("canvas_revision").notNull().default(0),
+		canvasUpdatedAt: timestamp("canvas_updated_at", { withTimezone: true }),
+		canvasRoomId: text("canvas_room_id"),
+		canvasSeed: text("canvas_seed"),
+		canvasReady: boolean("canvas_ready").notNull().default(false),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.defaultNow()
+			.notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true })
+			.defaultNow()
+			.notNull(),
+	},
+	(table) => [
+		index("project_canvas_project_idx").on(table.projectId, table.createdAt),
+		check(
+			"project_canvas_revision_nonnegative",
+			sql`${table.canvasRevision} >= 0`,
+		),
+		check(
+			"project_canvas_name_length",
+			sql`char_length(btrim(${table.name})) between 1 and 120`,
+		),
+	],
+);
+
 export const projectMemberRole = pgEnum("project_member_role", [
 	"editor",
 	"viewer",
@@ -32,14 +70,6 @@ export const project = pgTable(
 			{ onDelete: "set null" },
 		),
 		templateRequestHash: text("template_request_hash"),
-		canvas: jsonb("canvas")
-			.notNull()
-			.default({ version: 1, nodes: [], edges: [] }),
-		canvasRevision: integer("canvas_revision").notNull().default(0),
-		canvasUpdatedAt: timestamp("canvas_updated_at", { withTimezone: true }),
-		canvasRoomId: text("canvas_room_id"),
-		canvasSeed: text("canvas_seed"),
-		canvasReady: boolean("canvas_ready").notNull().default(false),
 		collaborationLockId: uuid("collaboration_lock_id"),
 		collaborationLockUntil: timestamp("collaboration_lock_until", {
 			withTimezone: true,
@@ -56,10 +86,6 @@ export const project = pgTable(
 	},
 	(table) => [
 		index("project_owner_id_idx").on(table.ownerId),
-		check(
-			"project_canvas_revision_nonnegative",
-			sql`${table.canvasRevision} >= 0`,
-		),
 		check(
 			"project_name_length",
 			sql`char_length(btrim(${table.name})) between 1 and 120`,

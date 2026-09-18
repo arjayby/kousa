@@ -10,16 +10,11 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@kousa/ui/components/card";
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyTitle,
-} from "@kousa/ui/components/empty";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { client, orpc } from "@/utils/orpc";
 import { ProjectAccessPanel } from "./project-access";
+import { ProjectCanvases } from "./project-canvases";
 import { ProjectNameForm } from "./project-name-form";
 
 export function ProjectDetailsPanel({
@@ -132,21 +127,11 @@ export function ProjectDetailsPanel({
 					</Card>
 				)}
 			</div>
-			<Empty>
-				<EmptyHeader>
-					<EmptyTitle>Your creative workspace</EmptyTitle>
-					<EmptyDescription>
-						Build a workflow with text, image, video, and speech nodes. Canvas
-						changes are saved to this project and shared with its members.
-					</EmptyDescription>
-				</EmptyHeader>
-				<Link
-					href={`/projects/${project.id}/canvas`}
-					className={buttonVariants({ variant: "outline" })}
-				>
-					Open canvas
-				</Link>
-			</Empty>
+			<ProjectCanvases
+				userId={userId}
+				projectId={project.id}
+				canEdit={project.permissions.canEdit}
+			/>
 		</main>
 	);
 }

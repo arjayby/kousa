@@ -308,3 +308,35 @@ it("composes the selected historical speech and video without using a newer tran
 		service().preview("owner", { projectId, nodeId: video.id }),
 	).rejects.toThrow("historical output is unavailable");
 });
+
+it("renders and lists clips for the selected canvas while sharing project media", async () => {
+	const second = await projects().createCanvas("owner", {
+		projectId,
+		name: "Second",
+	});
+	await projects().saveCanvas("owner", {
+		projectId,
+		canvasId: second.id,
+		document: graph,
+		expectedRevision: 0,
+	});
+	const scope = { projectId, canvasId: second.id, nodeId: video.id };
+	const preview = await service().preview("owner", scope);
+	const input = {
+		...scope,
+		id: crypto.randomUUID(),
+		inputHash: preview.inputHash,
+	};
+	await service().start("owner", input);
+	await executeClipWorkflow(input.id, runner(), steps);
+	expect(await db.clips.get(input.id)).toMatchObject({
+		canvasId: second.id,
+		status: "succeeded",
+	});
+	expect((await service().list("viewer", { projectId })).results).toEqual([]);
+	expect((await service().list("viewer", scope)).results).toHaveLength(1);
+	expect(await media().list("viewer", projectId)).toHaveLength(3);
+	await expect(
+		service().start("owner", { ...input, canvasId: projectId }),
+	).rejects.toMatchObject({ code: "CONFLICT" });
+});

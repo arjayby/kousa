@@ -12,7 +12,12 @@ import {
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import { user } from "./schema/auth";
-import { project, projectInvite, projectMember } from "./schema/projects";
+import {
+	project,
+	projectCanvas,
+	projectInvite,
+	projectMember,
+} from "./schema/projects";
 
 type ProjectDatabase = Pick<
 	PgDatabase<PgQueryResultHKT>,
@@ -121,14 +126,22 @@ export function createProjectStore(db: ProjectDatabase) {
 						sql`(${project.collaborationLockId} is null or ${project.collaborationLockUntil} < now())`,
 					),
 				)
-				.returning({
-					roomId: project.canvasRoomId,
-					seed: project.canvasSeed,
-					ready: project.canvasReady,
-					document: project.canvas,
-					revision: project.canvasRevision,
-				});
+				.returning({ id: project.id });
 			return locked ?? null;
+		},
+		async renewCollaboration(projectId: string, lockId: string) {
+			const [renewed] = await db
+				.update(project)
+				.set({ collaborationLockUntil: sql`now() + interval '2 minutes'` })
+				.where(
+					and(
+						eq(project.id, projectId),
+						eq(project.collaborationLockId, lockId),
+						gt(project.collaborationLockUntil, sql`now()`),
+					),
+				)
+				.returning({ id: project.id });
+			return !!renewed;
 		},
 		async unlockCollaboration(projectId: string, lockId: string) {
 			await db
@@ -141,51 +154,108 @@ export function createProjectStore(db: ProjectDatabase) {
 					),
 				);
 		},
+
+		async collaborationState(projectId: string, canvasId: string) {
+			const [found] = await db
+				.select({
+					roomId: projectCanvas.canvasRoomId,
+					seed: projectCanvas.canvasSeed,
+					ready: projectCanvas.canvasReady,
+					document: projectCanvas.canvas,
+					revision: projectCanvas.canvasRevision,
+				})
+				.from(projectCanvas)
+				.where(
+					and(
+						eq(projectCanvas.projectId, projectId),
+						eq(projectCanvas.id, canvasId),
+					),
+				);
+			return found ?? null;
+		},
+		async collaborationRooms(projectId: string) {
+			return db
+				.select({ roomId: projectCanvas.canvasRoomId })
+				.from(projectCanvas)
+				.where(
+					and(
+						eq(projectCanvas.projectId, projectId),
+						isNotNull(projectCanvas.canvasRoomId),
+					),
+				);
+		},
 		async prepareCollaboration(
 			projectId: string,
 			lockId: string,
 			revision: number,
 			roomId: string,
 			seed: string,
+			canvasId = projectId,
 		) {
 			const [saved] = await db
-				.update(project)
+				.update(projectCanvas)
 				.set({ canvasRoomId: roomId, canvasSeed: seed })
 				.where(
 					and(
-						eq(project.id, projectId),
-						eq(project.collaborationLockId, lockId),
-						gt(project.collaborationLockUntil, new Date()),
-						isNull(project.canvasRoomId),
-						eq(project.canvasRevision, revision),
+						eq(projectCanvas.projectId, projectId),
+						eq(projectCanvas.id, canvasId),
+						exists(
+							db
+								.select({ id: project.id })
+								.from(project)
+								.where(
+									and(
+										eq(project.id, projectId),
+										eq(project.collaborationLockId, lockId),
+										gt(project.collaborationLockUntil, new Date()),
+									),
+								),
+						),
+						isNull(projectCanvas.canvasRoomId),
+						eq(projectCanvas.canvasRevision, revision),
 					),
 				)
-				.returning({ id: project.id });
+				.returning({ id: projectCanvas.id });
 			return saved ?? null;
 		},
-		async finishCollaboration(projectId: string, lockId: string) {
+		async finishCollaboration(
+			projectId: string,
+			lockId: string,
+			canvasId = projectId,
+		) {
 			const [saved] = await db
-				.update(project)
+				.update(projectCanvas)
 				.set({ canvasReady: true })
 				.where(
 					and(
-						eq(project.id, projectId),
-						eq(project.collaborationLockId, lockId),
-						gt(project.collaborationLockUntil, new Date()),
+						eq(projectCanvas.projectId, projectId),
+						eq(projectCanvas.id, canvasId),
+						exists(
+							db
+								.select({ id: project.id })
+								.from(project)
+								.where(
+									and(
+										eq(project.id, projectId),
+										eq(project.collaborationLockId, lockId),
+										gt(project.collaborationLockUntil, new Date()),
+									),
+								),
+						),
 					),
 				)
-				.returning({ id: project.id });
+				.returning({ id: projectCanvas.id });
 			return saved ?? null;
 		},
-		async getCanvas(actorId: string, projectId: string) {
-			const [found] = await db
+		async listCanvases(actorId: string, projectId: string) {
+			return db
 				.select({
-					document: project.canvas,
-					revision: project.canvasRevision,
-					updatedAt: project.canvasUpdatedAt,
-					roomId: project.canvasRoomId,
+					id: projectCanvas.id,
+					name: projectCanvas.name,
+					createdAt: projectCanvas.createdAt,
 				})
-				.from(project)
+				.from(projectCanvas)
+				.innerJoin(project, eq(project.id, projectCanvas.projectId))
 				.leftJoin(
 					projectMember,
 					and(
@@ -194,6 +264,67 @@ export function createProjectStore(db: ProjectDatabase) {
 					),
 				)
 				.where(and(eq(project.id, projectId), visibleTo(actorId)))
+				.orderBy(projectCanvas.createdAt, projectCanvas.id);
+		},
+		async createCanvas(actorId: string, projectId: string, name: string) {
+			const result = await db.execute(
+				sql`insert into project_canvas(project_id, name) select ${projectId}::uuid, ${name} from project where id=${projectId}::uuid and ${editable(actorId)} returning id`,
+			);
+			return (
+				z.object({ rows: z.array(z.object({ id: z.string() })) }).parse(result)
+					.rows[0] ?? null
+			);
+		},
+		async renameCanvas(
+			actorId: string,
+			projectId: string,
+			canvasId: string,
+			name: string,
+		) {
+			const [saved] = await db
+				.update(projectCanvas)
+				.set({ name, updatedAt: new Date() })
+				.where(
+					and(
+						eq(projectCanvas.projectId, projectId),
+						eq(projectCanvas.id, canvasId),
+						exists(
+							db
+								.select({ id: project.id })
+								.from(project)
+								.where(and(eq(project.id, projectId), editable(actorId))),
+						),
+					),
+				)
+				.returning({ id: projectCanvas.id });
+			return saved ?? null;
+		},
+		async getCanvas(actorId: string, projectId: string, canvasId = projectId) {
+			const [found] = await db
+				.select({
+					id: projectCanvas.id,
+					name: projectCanvas.name,
+					document: projectCanvas.canvas,
+					revision: projectCanvas.canvasRevision,
+					updatedAt: projectCanvas.canvasUpdatedAt,
+					roomId: projectCanvas.canvasRoomId,
+				})
+				.from(projectCanvas)
+				.innerJoin(project, eq(project.id, projectCanvas.projectId))
+				.leftJoin(
+					projectMember,
+					and(
+						eq(projectMember.projectId, project.id),
+						eq(projectMember.userId, actorId),
+					),
+				)
+				.where(
+					and(
+						eq(project.id, projectId),
+						eq(projectCanvas.id, canvasId),
+						visibleTo(actorId),
+					),
+				)
 				.limit(1);
 			return found ?? null;
 		},
@@ -202,27 +333,33 @@ export function createProjectStore(db: ProjectDatabase) {
 			projectId: string,
 			expectedRevision: number,
 			document: unknown,
+			canvasId = projectId,
 		) {
-			// Permission and revision checks are part of the same atomic write.
 			const [saved] = await db
-				.update(project)
+				.update(projectCanvas)
 				.set({
 					canvas: document,
-					canvasRevision: sql`${project.canvasRevision} + 1`,
+					canvasRevision: sql`${projectCanvas.canvasRevision} + 1`,
 					canvasUpdatedAt: sql`now()`,
 					updatedAt: sql`now()`,
 				})
 				.where(
 					and(
-						eq(project.id, projectId),
-						editable(actorId),
-						eq(project.canvasRevision, expectedRevision),
-						isNull(project.canvasRoomId),
+						eq(projectCanvas.projectId, projectId),
+						eq(projectCanvas.id, canvasId),
+						exists(
+							db
+								.select({ id: project.id })
+								.from(project)
+								.where(and(eq(project.id, projectId), editable(actorId))),
+						),
+						eq(projectCanvas.canvasRevision, expectedRevision),
+						isNull(projectCanvas.canvasRoomId),
 					),
 				)
 				.returning({
-					revision: project.canvasRevision,
-					updatedAt: project.canvasUpdatedAt,
+					revision: projectCanvas.canvasRevision,
+					updatedAt: projectCanvas.canvasUpdatedAt,
 				});
 			return saved ?? null;
 		},

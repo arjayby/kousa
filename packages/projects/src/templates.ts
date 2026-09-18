@@ -58,6 +58,9 @@ export function createTemplateService(
 			const input = saveTemplateInput.parse(raw);
 			const hash = await requestHash({
 				projectId: input.projectId,
+				...(input.canvasId && input.canvasId !== input.projectId
+					? { canvasId: input.canvasId }
+					: {}),
 				name: input.name,
 			});
 			const existing = await store.get(actorId, input.id);
@@ -70,9 +73,7 @@ export function createTemplateService(
 				projectId: input.projectId,
 			});
 			if (!access.permissions.canEdit) outcome("FORBIDDEN");
-			const saved = await projects.getCanvas(actorId, {
-				projectId: input.projectId,
-			});
+			const saved = await projects.getCanvas(actorId, input);
 			const document = copyTemplateDocument(saved.document);
 			if (!document.nodes.length)
 				throw new TemplateError(

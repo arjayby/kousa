@@ -403,3 +403,38 @@ it("captures the live shared graph and seeds copies into separate collaboration 
 	expect(access).toHaveBeenLastCalledWith(`kousa-${copy.id}`, "owner", "owner");
 	for (const doc of rooms.values()) doc.destroy();
 });
+
+it("saves the selected canvas and distinguishes retry IDs across canvases", async () => {
+	const second = await projects.createCanvas("owner", {
+		projectId,
+		name: "Second",
+	});
+	const document = {
+		version: 1,
+		nodes: [createCanvasNode("text", { x: 0, y: 0 })],
+		edges: [],
+	};
+	const node = document.nodes[0];
+	if (!node) throw new Error("Missing test node");
+	node.data.content = "Only on the second canvas";
+	await projects.saveCanvas("owner", {
+		projectId,
+		canvasId: second.id,
+		expectedRevision: 0,
+		document,
+	});
+	const id = crypto.randomUUID();
+	await actor("owner").save({
+		id,
+		projectId,
+		canvasId: second.id,
+		name: "Second template",
+	});
+	const saved = await db.templates.get("owner", id);
+	expect(saved?.document).toMatchObject({
+		nodes: [{ data: { content: "Only on the second canvas" } }],
+	});
+	await expect(
+		actor("owner").save({ id, projectId, name: "Second template" }),
+	).rejects.toMatchObject({ code: "CONFLICT" });
+});

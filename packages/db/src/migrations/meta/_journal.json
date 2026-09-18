@@ -162,6 +162,20 @@
 			"when": 1789726000000,
 			"tag": "0022_media_lifecycle",
 			"breakpoints": true
+		},
+		{
+			"idx": 23,
+			"version": "7",
+			"when": 1789733938886,
+			"tag": "0023_multiple_canvases",
+			"breakpoints": true
+		},
+		{
+			"idx": 24,
+			"version": "7",
+			"when": 1789734085823,
+			"tag": "0024_canvas_runs",
+			"breakpoints": true
 		}
 	]
 }

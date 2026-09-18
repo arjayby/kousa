@@ -5,7 +5,12 @@ import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { createProjectStore } from "./src/project-store";
 import { user } from "./src/schema/auth";
-import { project, projectInvite, projectMember } from "./src/schema/projects";
+import {
+	project,
+	projectCanvas,
+	projectInvite,
+	projectMember,
+} from "./src/schema/projects";
 import { workflowTemplate } from "./src/schema/workflow-templates";
 import { createTemplateStore } from "./src/template-store";
 
@@ -20,7 +25,18 @@ export async function createProjectTestDatabase() {
 		store: createProjectStore(db),
 		templates: createTemplateStore(db),
 		clearTemplates: () => db.delete(workflowTemplate),
-		templateProjects: () => db.select().from(project),
+		templateProjects: () =>
+			db
+				.select({
+					id: project.id,
+					ownerId: project.ownerId,
+					canvasRoomId: projectCanvas.canvasRoomId,
+					canvasReady: projectCanvas.canvasReady,
+					canvasSeed: projectCanvas.canvasSeed,
+					canvasRevision: projectCanvas.canvasRevision,
+				})
+				.from(project)
+				.innerJoin(projectCanvas, eq(project.id, projectCanvas.id)),
 		addUsers: (
 			users: Array<{
 				id: string;
@@ -98,13 +114,58 @@ export async function testLegacyInvitationMigration() {
 					id: project.id,
 					name: project.name,
 					ownerId: project.ownerId,
-					canvas: project.canvas,
-					canvasRevision: project.canvasRevision,
-					canvasUpdatedAt: project.canvasUpdatedAt,
+					canvas: sql`canvas`,
+					canvasRevision: sql`canvas_revision`,
+					canvasUpdatedAt: sql`canvas_updated_at`,
 				})
 				.from(project),
 			invites: await db.select().from(projectInvite),
 			members: await db.select().from(projectMember),
+		};
+	} finally {
+		await db.$client.close();
+	}
+}
+
+// Exercise the upgrade against populated pre-multicanvas tables, not just an empty database.
+export async function testMultipleCanvasMigration(document: unknown) {
+	const db = drizzle();
+	const journal = JSON.parse(
+		await readFile(
+			new URL("./src/migrations/meta/_journal.json", import.meta.url),
+			"utf8",
+		),
+	) as { entries: { idx: number; tag: string }[] };
+	async function apply(tag: string) {
+		const source = await readFile(
+			new URL(`./src/migrations/${tag}.sql`, import.meta.url),
+			"utf8",
+		);
+		for (const statement of source.split("--> statement-breakpoint"))
+			if (statement.trim()) await db.execute(sql.raw(statement));
+	}
+	try {
+		for (const migration of journal.entries.filter((entry) => entry.idx < 23))
+			await apply(migration.tag);
+		await db.insert(user).values({
+			id: "legacy-owner",
+			name: "Owner",
+			email: "legacy@example.test",
+		});
+		const id = crypto.randomUUID();
+		await db.execute(
+			sql`insert into project (id, name, owner_id, canvas, canvas_revision, canvas_updated_at, canvas_room_id, canvas_seed, canvas_ready) values (${id}::uuid, 'Existing project', 'legacy-owner', ${JSON.stringify(document)}::jsonb, 7, now(), ${`kousa-${id}`}, 'persisted-seed', true)`,
+		);
+		await db.execute(
+			sql`insert into generation_run (id, project_id, node_id, user_id, model_id, prompt, input_hash, credits, status, expires_at) values (${crypto.randomUUID()}::uuid, ${id}::uuid, ${crypto.randomUUID()}::uuid, 'legacy-owner', 'amazon/nova-micro', 'Existing prompt', ${"a".repeat(64)}, 1, 'queued', now()+interval '30 minutes')`,
+		);
+		for (const migration of journal.entries.filter((entry) => entry.idx >= 23))
+			await apply(migration.tag);
+		return {
+			id,
+			canvases: await db.select().from(projectCanvas),
+			runs: (await db.execute(sql`select canvas_id from generation_run`)).rows,
+			project: await createProjectStore(db).get("legacy-owner", id),
 		};
 	} finally {
 		await db.$client.close();

@@ -24,20 +24,22 @@ type Request = Parameters<typeof client.graph.start>[0];
 export function useGraphRuns({
 	userId,
 	projectId,
+	canvasId,
 	graph,
 	canRun,
 	loaded,
 }: {
 	userId: string;
 	projectId: string;
+	canvasId: string;
 	graph: StudioGraph;
 	canRun: boolean;
 	loaded: boolean;
 }) {
 	const cache = useQueryClient();
 	const query = useQuery({
-		...orpc.graph.list.queryOptions({ input: { projectId } }),
-		queryKey: ["graph-runs", userId, projectId, "multiple-outputs"],
+		...orpc.graph.list.queryOptions({ input: { projectId, canvasId } }),
+		queryKey: ["graph-runs", userId, projectId, canvasId, "multiple-outputs"],
 		enabled: loaded,
 		refetchInterval: 3_000,
 		retry: false,
@@ -70,6 +72,7 @@ export function useGraphRuns({
 				: (await planGraph(documentFromGraph(graph), target)).inputHash;
 			const estimate = await client.graph.preview({
 				projectId,
+				canvasId,
 				...targets,
 				mode,
 				resumeOf,
@@ -81,6 +84,7 @@ export function useGraphRuns({
 				request: {
 					id: crypto.randomUUID(),
 					projectId,
+					canvasId,
 					...targets,
 					mode,
 					resumeOf,

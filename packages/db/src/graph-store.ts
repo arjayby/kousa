@@ -32,6 +32,7 @@ export function createGraphStore(db: Database) {
 			projectId: string,
 			limit: number,
 			cursor?: { createdAt: string; id: string },
+			canvasId = projectId,
 		) {
 			return db
 				.select({
@@ -45,6 +46,7 @@ export function createGraphStore(db: Database) {
 				.where(
 					and(
 						eq(graphRun.projectId, projectId),
+						eq(graphRun.canvasId, canvasId),
 						cursor
 							? sql`(${graphRun.createdAt}, ${graphRun.id}) < (${cursor.createdAt}::timestamptz, ${cursor.id}::uuid)`
 							: undefined,
@@ -75,11 +77,11 @@ export function createGraphStore(db: Database) {
 				| "inputHash"
 				| "plan"
 				| "resumeOf"
-			>,
+			> & { canvasId?: string },
 		) {
 			const [result] = await db
 				.select({
-					claim: sql<Claim>`kousa_claim_graph(${input.id}::uuid, ${input.userId}, ${input.projectId}::uuid, ${input.nodeId}::uuid, ${input.inputHash}, ${JSON.stringify(input.plan)}::jsonb, ${input.resumeOf}::uuid)`,
+					claim: sql<Claim>`kousa_claim_graph(${input.id}::uuid, ${input.userId}, ${input.projectId}::uuid, ${input.nodeId}::uuid, ${input.inputHash}, ${JSON.stringify(input.plan)}::jsonb, ${input.resumeOf}::uuid, ${input.canvasId ?? input.projectId}::uuid)`,
 				})
 				.from(sql`(select 1) request`);
 			if (!result) throw new Error("Workflow reservation unavailable");
@@ -132,11 +134,16 @@ export function createGraphStore(db: Database) {
 				.orderBy(graphRun.createdAt)
 				.limit(100);
 		},
-		async list(projectId: string) {
+		async list(projectId: string, canvasId = projectId) {
 			return db
 				.select()
 				.from(graphRun)
-				.where(eq(graphRun.projectId, projectId))
+				.where(
+					and(
+						eq(graphRun.projectId, projectId),
+						eq(graphRun.canvasId, canvasId),
+					),
+				)
 				.orderBy(desc(graphRun.createdAt), desc(graphRun.id))
 				.limit(20);
 		},

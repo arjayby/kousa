@@ -182,15 +182,20 @@ export function CanvasRunHistory({
 	canEdit: boolean;
 	onFocus: (id: string) => void;
 }) {
-	const { userId, projectId, workflow, graph } = generation;
+	const { userId, projectId, canvasId, workflow, graph } = generation;
 	const cache = useQueryClient();
 	const [open, setOpen] = useState(false);
 	const [selected, setSelected] = useState<Reference | null>(null);
 	const history = useInfiniteQuery({
-		queryKey: ["canvas-runs", userId, projectId],
+		queryKey: ["canvas-runs", userId, projectId, canvasId],
 		initialPageParam: undefined as Cursor,
 		queryFn: ({ pageParam }) =>
-			client.runs.history({ projectId, cursor: pageParam, limit: 15 }),
+			client.runs.history({
+				projectId,
+				canvasId,
+				cursor: pageParam,
+				limit: 15,
+			}),
 		getNextPageParam: (page) => page.nextCursor ?? undefined,
 		enabled: open,
 		refetchInterval: open ? 3_000 : false,
@@ -201,11 +206,19 @@ export function CanvasRunHistory({
 		: (history.data?.pages.flatMap((p) => p.runs) ?? []);
 	const reference = selected ?? runs[0];
 	const detail = useQuery({
-		queryKey: ["canvas-run", userId, projectId, reference?.kind, reference?.id],
+		queryKey: [
+			"canvas-run",
+			userId,
+			projectId,
+			canvasId,
+			reference?.kind,
+			reference?.id,
+		],
 		queryFn: () => {
 			if (!reference) throw new Error("Choose a run.");
 			return client.runs.detail({
 				projectId,
+				canvasId,
 				id: reference.id,
 				kind: reference.kind,
 			});
@@ -215,11 +228,12 @@ export function CanvasRunHistory({
 		retry: false,
 	});
 	const cancel = useMutation({
-		mutationFn: (ref: Reference) => client.runs.cancel({ projectId, ...ref }),
+		mutationFn: (ref: Reference) =>
+			client.runs.cancel({ projectId, canvasId, ...ref }),
 		onSettled: async () => {
 			await Promise.allSettled(
 				[
-					["canvas-runs", userId, projectId],
+					["canvas-runs", userId, projectId, canvasId],
 					["canvas-run", userId, projectId],
 					["graph-runs", userId, projectId],
 					["generation", userId, projectId],

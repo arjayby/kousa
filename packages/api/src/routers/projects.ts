@@ -1,5 +1,7 @@
 import {
+	canvasIdInput,
 	changeMemberInput,
+	createCanvasInput,
 	createInviteInput,
 	createProjectInput,
 	inviteTokenInput,
@@ -7,6 +9,7 @@ import {
 	memberInput,
 	projectAccessInput,
 	projectIdInput,
+	renameCanvasInput,
 	renameProjectInput,
 	resendInviteInput,
 	revokeInviteInput,
@@ -38,8 +41,23 @@ export function createProjectsRouter(
 		}
 	});
 	return {
-		getCanvas: procedure
+		listCanvases: procedure
 			.input(projectIdInput)
+			.handler(({ context, input }) =>
+				service().listCanvases(context.session.user.id, input),
+			),
+		createCanvas: procedure
+			.input(createCanvasInput)
+			.handler(({ context, input }) =>
+				service().createCanvas(context.session.user.id, input),
+			),
+		renameCanvas: procedure
+			.input(renameCanvasInput)
+			.handler(({ context, input }) =>
+				service().renameCanvas(context.session.user.id, input),
+			),
+		getCanvas: procedure
+			.input(canvasIdInput)
 			.handler(({ context, input }) =>
 				service().getCanvas(context.session.user.id, input),
 			),

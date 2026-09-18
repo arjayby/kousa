@@ -90,11 +90,13 @@ export async function selectedRun(
 	nodeId: string,
 	kind: GenerationRun["kind"],
 	runId: string,
+	canvasId = projectId,
 ) {
 	const run = await store.get(runId);
 	if (
 		!run ||
 		run.projectId !== projectId ||
+		run.canvasId !== canvasId ||
 		run.nodeId !== nodeId ||
 		run.kind !== kind ||
 		run.status !== "succeeded"
@@ -110,14 +112,19 @@ export async function resolveTextOutputs(
 	store: Pick<GenerationStore, "get" | "outputs">,
 	projectId: string,
 	sources: { id: string; runId?: string }[],
+	canvasId = projectId,
 ) {
 	const latest = await store.outputs(
 		projectId,
 		sources.filter((s) => !s.runId).map((s) => s.id),
+		"text",
+		canvasId,
 	);
 	const pinned = await Promise.all(
 		sources.flatMap((s) =>
-			s.runId ? [selectedRun(store, projectId, s.id, "text", s.runId)] : [],
+			s.runId
+				? [selectedRun(store, projectId, s.id, "text", s.runId, canvasId)]
+				: [],
 		),
 	);
 	return [...latest, ...pinned];

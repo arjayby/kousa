@@ -16,6 +16,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 import { orpc } from "@/utils/orpc";
+import { type CanvasList, ProjectCanvases } from "../projects/project-canvases";
 
 const CanvasEditor = dynamic(() => import("./canvas-editor"), {
 	ssr: false,
@@ -34,9 +35,13 @@ const CanvasEditor = dynamic(() => import("./canvas-editor"), {
 export function ProjectCanvas({
 	userId,
 	initialProject,
+	canvasId,
+	initialCanvases,
 }: {
 	userId: string;
 	initialProject: ProjectDetails;
+	canvasId: string;
+	initialCanvases: CanvasList;
 }) {
 	const session = authClient.useSession();
 	const query = useQuery({
@@ -85,7 +90,13 @@ export function ProjectCanvas({
 						{project.name}
 					</Link>
 					<ChevronRightIcon className="size-3 shrink-0 text-muted-foreground" />
-					<h1 className="font-medium text-sm">Canvas</h1>
+					<ProjectCanvases
+						userId={userId}
+						projectId={project.id}
+						canEdit={project.permissions.canEdit}
+						canvasId={canvasId}
+						initialCanvases={initialCanvases}
+					/>
 				</div>
 				<Badge variant="secondary">
 					{project.permissions.canEdit ? project.role : "View only"}
@@ -99,9 +110,10 @@ export function ProjectCanvas({
 				</Link>
 			</header>
 			<CanvasEditor
-				key={`${userId}:${project.id}`}
+				key={`${userId}:${project.id}:${canvasId}`}
 				userId={userId}
 				projectId={project.id}
+				canvasId={canvasId}
 				canEdit={project.permissions.canEdit}
 			/>
 		</main>

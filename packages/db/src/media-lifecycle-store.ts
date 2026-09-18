@@ -45,10 +45,10 @@ export function createMediaLifecycleStore(
 		async canvas(projectId: string) {
 			return rows(
 				await db.execute(
-					sql`select canvas, canvas_room_id as room from project where id=${projectId}::uuid`,
+					sql`select canvas, canvas_room_id as room from project_canvas where project_id=${projectId}::uuid`,
 				),
 				z.object({ canvas: z.unknown(), room: z.string().nullable() }),
-			)[0];
+			);
 		},
 		async retain(actorId: string, projectId: string, assetId: string) {
 			return (

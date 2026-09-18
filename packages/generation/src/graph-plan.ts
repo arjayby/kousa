@@ -29,7 +29,10 @@ import {
 	videoInputSnapshot,
 } from "./input";
 
-export const graphProjectInput = z.object({ projectId: z.uuid() });
+export const graphProjectInput = z.object({
+	projectId: z.uuid(),
+	canvasId: z.uuid().optional(),
+});
 export const graphPreviewInput = graphProjectInput
 	.extend({
 		nodeId: z.uuid().optional(),

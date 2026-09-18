@@ -1,5 +1,5 @@
 import { createAuth } from "@kousa/auth";
-import { projectIdInput } from "@kousa/projects/contracts";
+import { canvasIdInput } from "@kousa/projects/contracts";
 import { createProjects } from "@kousa/projects/runtime";
 import { ProjectError } from "@kousa/projects/service";
 import { headers } from "next/headers";
@@ -8,10 +8,15 @@ import { ProjectCanvas } from "@/components/canvas/project-canvas";
 
 export default async function CanvasPage({
 	params,
+	searchParams,
 }: {
 	params: Promise<{ projectId: string }>;
+	searchParams: Promise<{ canvas?: string | string[] }>;
 }) {
-	const input = projectIdInput.safeParse(await params);
+	const input = canvasIdInput.safeParse({
+		...(await params),
+		canvasId: (await searchParams).canvas,
+	});
 	if (!input.success) notFound();
 	const session = await createAuth().api.getSession({
 		headers: await headers(),
@@ -24,5 +29,18 @@ export default async function CanvasPage({
 				notFound();
 			throw error;
 		});
-	return <ProjectCanvas userId={session.user.id} initialProject={project} />;
+	const canvases = await createProjects().listCanvases(
+		session.user.id,
+		input.data,
+	);
+	const canvasId = input.data.canvasId ?? project.id;
+	if (!canvases.some((canvas) => canvas.id === canvasId)) notFound();
+	return (
+		<ProjectCanvas
+			userId={session.user.id}
+			initialProject={project}
+			canvasId={canvasId}
+			initialCanvases={canvases}
+		/>
+	);
 }

@@ -195,8 +195,8 @@ export const canvasDocumentSchema = z
 		}
 	});
 
-export function canvasDraftKey(userId: string, projectId: string) {
-	return `kousa:canvas:v1:${encodeURIComponent(userId)}:${encodeURIComponent(projectId)}`;
+export function canvasDraftKey(userId: string, canvasId: string) {
+	return `kousa:canvas:v1:${encodeURIComponent(userId)}:${encodeURIComponent(canvasId)}`;
 }
 
 export function imageOutputAssetId(

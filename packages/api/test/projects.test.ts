@@ -802,3 +802,118 @@ it("migrates legacy links by disabling unclaimed invitations while retaining acc
 		canvasUpdatedAt: null,
 	});
 }, 30_000);
+
+describe("multiple canvases", () => {
+	it("creates, lists and renames canvases using project roles", async () => {
+		expect(await viewer.listCanvases({ projectId })).toMatchObject([
+			{ id: projectId, name: "Canvas 1" },
+		]);
+		const second = await editor.createCanvas({
+			projectId,
+			name: "  Storyboard  ",
+		});
+		await owner.renameCanvas({
+			projectId,
+			canvasId: second.id,
+			name: "Final cut",
+		});
+		expect(await viewer.listCanvases({ projectId })).toMatchObject([
+			{ id: projectId },
+			{ id: second.id, name: "Final cut" },
+		]);
+		await expect(
+			viewer.createCanvas({ projectId, name: "Denied" }),
+		).rejects.toMatchObject({ code: "FORBIDDEN" });
+		await expect(
+			viewer.renameCanvas({ projectId, canvasId: second.id, name: "Denied" }),
+		).rejects.toMatchObject({ code: "FORBIDDEN" });
+		await expect(outsider.listCanvases({ projectId })).rejects.toMatchObject({
+			code: "NOT_FOUND",
+		});
+		await expect(
+			outsider.createCanvas({ projectId, name: "Denied" }),
+		).rejects.toMatchObject({ code: "NOT_FOUND" });
+		await expect(
+			owner.createCanvas({ projectId, name: "   " }),
+		).rejects.toMatchObject({ code: "BAD_REQUEST" });
+	});
+	it("keeps documents and revisions independent and rejects cross-project IDs", async () => {
+		const second = await owner.createCanvas({ projectId, name: "Second" });
+		const document = {
+			...emptyCanvas(),
+			nodes: [createCanvasNode("text", { x: 0, y: 0 })],
+		};
+		await editor.saveCanvas({
+			projectId,
+			canvasId: second.id,
+			expectedRevision: 0,
+			document,
+		});
+		expect(await viewer.getCanvas({ projectId })).toMatchObject({
+			revision: 0,
+			document: emptyCanvas(),
+		});
+		expect(
+			await viewer.getCanvas({ projectId, canvasId: second.id }),
+		).toMatchObject({ revision: 1, document });
+		await owner.saveCanvas({
+			projectId,
+			expectedRevision: 0,
+			document: emptyCanvas(),
+		});
+		await expect(
+			owner.saveCanvas({
+				projectId,
+				canvasId: second.id,
+				expectedRevision: 0,
+				document,
+			}),
+		).rejects.toMatchObject({ code: "CONFLICT" });
+		const foreign = await owner.create({ name: "Another project" });
+		await expect(
+			owner.getCanvas({ projectId: foreign.id, canvasId: second.id }),
+		).rejects.toMatchObject({ code: "NOT_FOUND" });
+		await expect(
+			owner.saveCanvas({
+				projectId: foreign.id,
+				canvasId: second.id,
+				expectedRevision: 1,
+				document,
+			}),
+		).rejects.toMatchObject({ code: "NOT_FOUND" });
+		await expect(
+			owner.renameCanvas({
+				projectId: foreign.id,
+				canvasId: second.id,
+				name: "Denied",
+			}),
+		).rejects.toMatchObject({ code: "NOT_FOUND" });
+	});
+});
+
+it("migrates saved graphs, collaboration state and old runs to the first canvas", async () => {
+	const { testMultipleCanvasMigration } = await import(
+		"@kousa/db/testing-projects"
+	);
+	const document = {
+		...emptyCanvas(),
+		nodes: [createCanvasNode("text", { x: 25, y: 50 })],
+	};
+	const migrated = await testMultipleCanvasMigration(document);
+	expect(migrated.canvases).toHaveLength(1);
+	expect(migrated.canvases[0]).toMatchObject({
+		id: migrated.id,
+		projectId: migrated.id,
+		name: "Canvas 1",
+		canvas: document,
+		canvasRevision: 7,
+		canvasRoomId: `kousa-${migrated.id}`,
+		canvasSeed: "persisted-seed",
+		canvasReady: true,
+	});
+	expect(migrated.runs).toEqual([{ canvas_id: migrated.id }]);
+	expect(migrated.project).toMatchObject({
+		name: "Existing project",
+		role: "owner",
+	});
+}, 30_000);

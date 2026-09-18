@@ -6,12 +6,16 @@ export const clipSettingsSchema = z.object({
 });
 export const clipPreviewInput = z.object({
 	projectId: z.uuid(),
+	canvasId: z.uuid().optional(),
 	nodeId: z.uuid(),
 });
 export const clipStartInput = clipPreviewInput.extend({
 	id: z.uuid(),
 	inputHash: z.string().regex(/^[a-f0-9]{64}$/),
 });
-export const clipProjectInput = z.object({ projectId: z.uuid() });
+export const clipProjectInput = z.object({
+	projectId: z.uuid(),
+	canvasId: z.uuid().optional(),
+});
 export const clipActive = (status: string) =>
 	["queued", "rendering", "saving"].includes(status);

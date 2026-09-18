@@ -53,9 +53,12 @@ export function createClipService(
 			);
 	}
 	async function preview(actorId: string, raw: unknown) {
-		const { projectId, nodeId } = clipPreviewInput.parse(raw);
+		const { projectId, canvasId, nodeId } = clipPreviewInput.parse(raw);
 		await access(actorId, projectId, true);
-		const { document } = await projects.getCanvas(actorId, { projectId });
+		const { document } = await projects.getCanvas(actorId, {
+			projectId,
+			canvasId,
+		});
 		const node = document.nodes.find((n) => n.id === nodeId);
 		if (node?.type !== "video")
 			throw new ClipError("BAD_REQUEST", "Select a Video node.");
@@ -71,8 +74,8 @@ export function createClipService(
 				"Connect a Speech node to this video's Audio input.",
 			);
 		const [videos, audio] = await Promise.all([
-			generations.outputs(projectId, [node.id], "video"),
-			generations.outputs(projectId, [audioNode.id], "speech"),
+			generations.outputs(projectId, [node.id], "video", canvasId),
+			generations.outputs(projectId, [audioNode.id], "speech", canvasId),
 		]);
 		const pinned = await Promise.all(
 			[node, audioNode].map(async (source) => {
@@ -81,6 +84,7 @@ export function createClipService(
 				if (
 					!run ||
 					run.projectId !== projectId ||
+					run.canvasId !== (canvasId ?? projectId) ||
 					run.nodeId !== source.id ||
 					run.kind !== source.type ||
 					run.status !== "succeeded"
@@ -136,7 +140,14 @@ export function createClipService(
 		const hash = new Uint8Array(
 			await crypto.subtle.digest(
 				"SHA-256",
-				new TextEncoder().encode(JSON.stringify({ projectId, nodeId, plan })),
+				new TextEncoder().encode(
+					JSON.stringify({
+						projectId,
+						canvasId: canvasId ?? projectId,
+						nodeId,
+						plan,
+					}),
+				),
 			),
 		);
 		return {
@@ -160,11 +171,11 @@ export function createClipService(
 	return {
 		preview,
 		async list(actorId: string, raw: unknown) {
-			const { projectId } = clipProjectInput.parse(raw);
+			const { projectId, canvasId } = clipProjectInput.parse(raw);
 			await access(actorId, projectId);
 			const [runs, results, configured] = await Promise.all([
-				store.latest(projectId),
-				store.latest(projectId, true),
+				store.latest(projectId, false, canvasId),
+				store.latest(projectId, true, canvasId),
 				jobs.configured(),
 			]);
 			return {
@@ -181,6 +192,7 @@ export function createClipService(
 				if (
 					existing.userId !== actorId ||
 					existing.projectId !== input.projectId ||
+					existing.canvasId !== (input.canvasId ?? input.projectId) ||
 					existing.nodeId !== input.nodeId ||
 					existing.inputHash !== input.inputHash
 				)

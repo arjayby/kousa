@@ -68,18 +68,27 @@ type Request = Parameters<typeof client.generation.generate>[0];
 export function useCanvasGeneration({
 	userId,
 	projectId,
+	canvasId,
 	graph,
 	canRun,
 	loaded,
 }: {
 	userId: string;
 	projectId: string;
+	canvasId: string;
 	graph: StudioGraph;
 	canRun: boolean;
 	loaded: boolean;
 }) {
 	const cache = useQueryClient();
-	const workflow = useGraphRuns({ userId, projectId, graph, canRun, loaded });
+	const workflow = useGraphRuns({
+		userId,
+		projectId,
+		canvasId,
+		graph,
+		canRun,
+		loaded,
+	});
 	const nodeIds = graph.nodes
 		.filter(
 			(n) =>
@@ -99,9 +108,9 @@ export function useCanvasGeneration({
 		.sort((a, b) => a.nodeId.localeCompare(b.nodeId));
 	const query = useQuery({
 		...orpc.generation.list.queryOptions({
-			input: { projectId, nodeIds, selections },
+			input: { projectId, canvasId, nodeIds, selections },
 		}),
-		queryKey: ["generation", userId, projectId, nodeIds, selections],
+		queryKey: ["generation", userId, projectId, canvasId, nodeIds, selections],
 		enabled: loaded,
 		refetchInterval: 3_000,
 		retry: false,
@@ -171,6 +180,7 @@ export function useCanvasGeneration({
 				request = {
 					id: crypto.randomUUID(),
 					projectId,
+					canvasId,
 					nodeId,
 					inputHash: await generationInputHash(document, nodeId),
 					...(inputImageAssetId ? { inputImageAssetId } : {}),
@@ -224,6 +234,7 @@ export function useCanvasGeneration({
 		freshness,
 		userId,
 		projectId,
+		canvasId,
 		runs,
 		imageResults,
 		textResults: outputs("text", query.data?.textResults),

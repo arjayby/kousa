@@ -312,3 +312,58 @@ it("captures standalone resolved text references for later workflow reuse", asyn
 		graphFreshness(graph, [upstream, downstream]).get(target.id)?.state,
 	).toBe("outdated");
 });
+
+it("isolates outputs and node history even when canvases contain the same node ID", async () => {
+	const second = await projects().createCanvas("owner", {
+		projectId,
+		name: "Second",
+	});
+	await projects().saveCanvas("owner", {
+		projectId,
+		canvasId: second.id,
+		document: graph,
+		expectedRevision: 0,
+	});
+	const request = { ...(await input()), canvasId: second.id };
+	const run = await service().generate("owner", request);
+	expect(run.status).toBe("succeeded");
+	expect((await database.store.get(run.id))?.canvasId).toBe(second.id);
+	expect((await service().list("viewer", { projectId })).runs).toEqual([]);
+	expect(
+		(
+			await service().list("viewer", { projectId, canvasId: second.id })
+		).runs.map((r) => r.id),
+	).toEqual([run.id]);
+	expect(
+		(await service().history("viewer", { projectId, nodeId: target.id })).runs,
+	).toEqual([]);
+	expect(
+		(
+			await service().history("viewer", {
+				projectId,
+				canvasId: second.id,
+				nodeId: target.id,
+			})
+		).runs,
+	).toHaveLength(1);
+	await expect(
+		service().generate("owner", { ...request, canvasId: projectId }),
+	).rejects.toMatchObject({ code: "CONFLICT" });
+	await expect(
+		service().historyAction("owner", {
+			projectId,
+			nodeId: target.id,
+			runId: run.id,
+			action: "select",
+		}),
+	).rejects.toMatchObject({ code: "BAD_REQUEST" });
+	expect(
+		await service().historyAction("owner", {
+			projectId,
+			canvasId: second.id,
+			nodeId: target.id,
+			runId: run.id,
+			action: "select",
+		}),
+	).toMatchObject({ patch: { selectedRunId: run.id } });
+});

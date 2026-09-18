@@ -11,7 +11,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
 import { mediaAsset } from "./media";
-import { project } from "./projects";
+import { project, projectCanvas } from "./projects";
 
 export type ClipPlan = {
 	videoAssetId: string;
@@ -28,6 +28,9 @@ export const clipRun = pgTable(
 	"clip_run",
 	{
 		id: uuid("id").primaryKey(),
+		canvasId: uuid("canvas_id")
+			.notNull()
+			.references(() => projectCanvas.id, { onDelete: "restrict" }),
 		projectId: uuid("project_id")
 			.notNull()
 			.references(() => project.id, { onDelete: "restrict" }),

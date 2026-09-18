@@ -14,7 +14,7 @@ import { creditGrant } from "./src/schema/credits";
 import { generationRun } from "./src/schema/generations";
 import { graphRun } from "./src/schema/graph-runs";
 import { mediaAsset } from "./src/schema/media";
-import { project, projectMember } from "./src/schema/projects";
+import { project, projectCanvas, projectMember } from "./src/schema/projects";
 
 export async function createGenerationTestDatabase() {
 	const db = drizzle();
@@ -70,9 +70,9 @@ export async function createGenerationTestDatabase() {
 		},
 		setGraph(projectId: string, canvas: unknown) {
 			return db
-				.update(project)
+				.update(projectCanvas)
 				.set({ canvas })
-				.where(eq(project.id, projectId));
+				.where(eq(projectCanvas.id, projectId));
 		},
 		revoke(userId: string) {
 			return db.delete(projectMember).where(eq(projectMember.userId, userId));

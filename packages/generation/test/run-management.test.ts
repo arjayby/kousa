@@ -400,3 +400,56 @@ it("paginates individual and workflow history without duplicate children or losi
 		(await runs().detail("viewer", singleRef(newer))).steps[0]?.prompt,
 	).toBe("Saved prompt");
 });
+
+it("keeps workflows, child outputs, run details and cancellation within the selected canvas", async () => {
+	const second = await projects().createCanvas("owner", {
+		projectId,
+		name: "Second",
+	});
+	await projects().saveCanvas("owner", {
+		projectId,
+		canvasId: second.id,
+		expectedRevision: 0,
+		document: graph,
+	});
+	const request = {
+		projectId,
+		canvasId: second.id,
+		nodeId: b.id,
+		mode: "force" as const,
+	};
+	const estimate = await workflows().preview("owner", request);
+	const flow = await workflows().start("owner", {
+		...request,
+		id: crypto.randomUUID(),
+		inputHash: estimate.inputHash,
+	});
+	expect((await workflows().list("viewer", { projectId })).runs).toEqual([]);
+	expect((await workflows().list("viewer", request)).runs).toHaveLength(1);
+	await expect(runs().cancel("owner", flowRef(flow.id))).rejects.toMatchObject({
+		code: "NOT_FOUND",
+	});
+	await execute(flow.id);
+	const saved = await db.graphs.get(flow.id);
+	expect(saved?.canvasId).toBe(second.id);
+	for (const step of saved?.plan ?? [])
+		expect((await db.store.get(step.runId))?.canvasId).toBe(second.id);
+	expect((await runs().history("viewer", { projectId })).runs).toEqual([]);
+	const history = await runs().history("viewer", request);
+	expect(history.runs[0]).toMatchObject({
+		id: flow.id,
+		completedSteps: 2,
+		status: "succeeded",
+	});
+	await expect(runs().detail("viewer", flowRef(flow.id))).rejects.toMatchObject(
+		{ code: "NOT_FOUND" },
+	);
+	expect(
+		(
+			await runs().detail("viewer", {
+				...flowRef(flow.id),
+				canvasId: second.id,
+			})
+		).steps.every((step) => step.status === "succeeded"),
+	).toBe(true);
+});

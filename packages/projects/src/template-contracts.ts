@@ -10,6 +10,7 @@ export const templateIdInput = z.object({ templateId: z.uuid() });
 export const saveTemplateInput = z.object({
 	id: z.uuid(),
 	projectId: z.uuid(),
+	canvasId: z.uuid().optional(),
 	name: templateName,
 });
 export const renameTemplateInput = templateIdInput.extend({
