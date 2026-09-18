@@ -24,6 +24,7 @@ import {
 	videoDurations,
 	videoModels,
 } from "./contracts";
+import { resolveInputs } from "./freshness";
 import {
 	captureSettings,
 	historicalSettings,
@@ -51,6 +52,7 @@ export type { ImageProvider, TextProvider } from "./providers";
 function publicRun(run: GenerationRun): PublicRun {
 	return {
 		id: run.id,
+		resolvedInputs: run.resolvedInputs,
 		nodeId: run.nodeId,
 		userId: run.userId,
 		modelId: run.modelId,
@@ -360,6 +362,7 @@ export function createGenerationService(
 					"Choose an available video duration and aspect ratio.",
 				);
 			let inputImageAssetId: string | null = null;
+			let resolvedImage: GenerationRun | undefined;
 			if (snapshot.kind === "video" && snapshot.image) {
 				const generated = snapshot.image.runId
 					? await selectedRun(
@@ -376,6 +379,7 @@ export function createGenerationService(
 								"image",
 							)
 						)[0];
+				resolvedImage = generated;
 				inputImageAssetId = videoInputImageAssetId(
 					snapshot,
 					generated?.assetId,
@@ -432,6 +436,7 @@ export function createGenerationService(
 				userId: actorId,
 				modelId: snapshot.modelId,
 				authoredSettings: captureSettings(node, snapshot.modelId),
+				resolvedInputs: resolveInputs(snapshot, outputs, resolvedImage),
 				prompt,
 				credits,
 				kind,

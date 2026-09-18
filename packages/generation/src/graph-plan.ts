@@ -33,6 +33,7 @@ export const graphProjectInput = z.object({ projectId: z.uuid() });
 export const graphPreviewInput = graphProjectInput
 	.extend({
 		nodeId: z.uuid().optional(),
+		mode: z.enum(["affected", "force"]).optional(),
 		nodeIds: z
 			.array(z.uuid())
 			.min(1)

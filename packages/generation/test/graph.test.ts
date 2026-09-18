@@ -59,7 +59,14 @@ const request = async (nodeId = c.id) => ({
 	id: crypto.randomUUID(),
 	projectId,
 	nodeId,
-	inputHash: (await planGraph(graph, nodeId)).inputHash,
+	mode: "force" as const,
+	inputHash: (
+		await service().preview("owner", {
+			projectId,
+			nodeId: nodeId,
+			mode: "force",
+		})
+	).inputHash,
 });
 const execute = (id: string) =>
 	executeGraphWorkflow(id, db.graphs, db.store, runner(), inlineSteps);

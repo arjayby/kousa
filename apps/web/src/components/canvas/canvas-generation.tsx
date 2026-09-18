@@ -20,6 +20,7 @@ import {
 	videoCreditCost,
 	videoModels,
 } from "@kousa/generation/contracts";
+import { type Freshness, graphFreshness } from "@kousa/generation/freshness";
 import {
 	generationInputHash,
 	imageInputSnapshot,
@@ -46,7 +47,7 @@ import {
 import { Textarea } from "@kousa/ui/components/textarea";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CopyIcon, LoaderCircleIcon, PlayIcon } from "lucide-react";
-import { createContext, useContext, useRef, useState } from "react";
+import { createContext, useContext, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { client, orpc } from "@/utils/orpc";
 import {
@@ -104,6 +105,19 @@ export function useCanvasGeneration({
 		refetchInterval: 3_000,
 		retry: false,
 	});
+	const freshness = useMemo(
+		() =>
+			query.data
+				? graphFreshness(documentFromGraph(graph), [
+						...query.data.textResults,
+						...query.data.imageResults,
+						...query.data.speechResults,
+						...query.data.videoResults,
+						...query.data.selectedResults,
+					])
+				: new Map<string, Freshness>(),
+		[graph, query.data],
+	);
 	const [error, setError] = useState<{
 		nodeId: string;
 		message: string;
@@ -205,6 +219,7 @@ export function useCanvasGeneration({
 	}
 	return {
 		workflow,
+		freshness,
 		userId,
 		projectId,
 		runs,
@@ -239,6 +254,9 @@ type GenerationContextValue = ReturnType<typeof useCanvasGeneration>;
 export const GenerationContext = createContext<GenerationContextValue | null>(
 	null,
 );
+export function useNodeFreshness(id: string) {
+	return useContext(GenerationContext)?.freshness.get(id);
+}
 export function useNodeRun(id: string): PublicRun | undefined {
 	return useContext(GenerationContext)?.runs.get(id);
 }
@@ -384,6 +402,14 @@ export function GenerationPanel({
 			className="flex flex-col gap-4 border-t pt-4"
 			aria-label={`${kind[0]?.toUpperCase()}${kind.slice(1)} generation`}
 		>
+			{generation.freshness.get(node.id)?.runId ? (
+				<p role="status" className="text-muted-foreground text-xs">
+					{generation.freshness.get(node.id)?.state === "current"
+						? "Up to date"
+						: "Outdated"}
+					. {generation.freshness.get(node.id)?.reason}
+				</p>
+			) : null}
 			<Field>
 				<FieldLabel htmlFor={`${kind}-model`}>Model</FieldLabel>
 				<Select
@@ -490,7 +516,9 @@ export function GenerationPanel({
 							? "Check run"
 							: pending
 								? (runProgress(run) ?? "Queuing…")
-								: `Generate ${kind}`}
+								: generation.freshness.get(node.id)?.runId
+									? "Force regenerate"
+									: `Generate ${kind}`}
 					</Button>
 					<p className="text-muted-foreground text-xs">
 						Your balance: {generation.balance ?? "…"} credits. Uses your
@@ -569,8 +597,8 @@ export function GenerationPanel({
 				<div className="flex flex-col gap-3">
 					<p className="text-muted-foreground text-xs">
 						Generate speech reads the connected text's last successful output,
-						or its written text, followed by this script. Run to this node
-						generates connected text first.
+						or its written text, followed by this script. Run affected steps
+						updates affected connected text first.
 					</p>
 					{speechResult?.assetId ? (
 						<>

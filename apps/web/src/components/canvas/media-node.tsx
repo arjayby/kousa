@@ -6,12 +6,14 @@ import {
 	inputPorts,
 	nodeLabels,
 } from "@kousa/projects/canvas";
+import { Badge } from "@kousa/ui/components/badge";
 import { cn } from "@kousa/ui/lib/utils";
 import { Handle, type NodeProps, Position } from "@xyflow/react";
 import { FileTextIcon, ImageIcon, MicIcon, VideoIcon } from "lucide-react";
 import { memo } from "react";
 import { clipStatusLabels, useNodeClip } from "./canvas-clips";
 import {
+	useNodeFreshness,
 	useNodeImage,
 	useNodeRun,
 	useNodeSpeech,
@@ -55,6 +57,7 @@ export const MediaNode = memo(function MediaNode({
 }: NodeProps<StudioNode>) {
 	const kind = type ?? "text";
 	const run = useNodeRun(id);
+	const freshness = useNodeFreshness(id);
 	const textResult = useNodeText(id);
 	const workflowStep = useWorkflowStep(id);
 	const imageResult = useNodeImage(id);
@@ -91,6 +94,18 @@ export const MediaNode = memo(function MediaNode({
 				</div>
 			</div>
 			<div className="studio-node-body">
+				{freshness?.runId &&
+				(kind === "text" ||
+					(data.imageSource !== "project" &&
+						data.mediaSource !== "project")) ? (
+					<Badge variant="outline" className="mb-2" title={freshness.reason}>
+						{freshness.state === "current"
+							? "Up to date"
+							: freshness.state === "blocked"
+								? "Blocked"
+								: "Outdated"}
+					</Badge>
+				) : null}
 				{data.selectedRunId ? (
 					<p className="mb-2 text-muted-foreground text-xs">
 						Historical output selected

@@ -5,6 +5,7 @@ import { createMediaService } from "@kousa/media/service";
 import { type CanvasDocument, createCanvasNode } from "@kousa/projects/canvas";
 import { createProjectService } from "@kousa/projects/service";
 import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
+import { graphFreshness } from "../src/freshness";
 import { graphOutputIds, planGraph } from "../src/graph-plan";
 import { createGraphService } from "../src/graph-service";
 import { executeGraphWorkflow } from "../src/graph-workflow";
@@ -94,7 +95,10 @@ const request = async (nodeIds = [clip.id, narration.id]) => ({
 	id: crypto.randomUUID(),
 	projectId,
 	nodeIds,
-	inputHash: (await planGraph(graph, nodeIds)).inputHash,
+	mode: "force" as const,
+	inputHash: (
+		await service().preview("owner", { projectId, nodeIds, mode: "force" })
+	).inputHash,
 });
 
 beforeAll(async () => {
@@ -573,11 +577,289 @@ it("rejects oversized historical narration before reserving workflow credits", a
 	idea.data.selectedRunId = first.id;
 	await db.setGraph(projectId, graph);
 	const balance = await db.store.balance("owner");
-	const next = await request([narration.id]);
+	const next = {
+		id: crypto.randomUUID(),
+		projectId,
+		nodeIds: [narration.id],
+		inputHash: (await planGraph(graph, [narration.id])).inputHash,
+	};
 	await expect(service().start("owner", next)).rejects.toMatchObject({
 		code: "BAD_REQUEST",
 	});
 	expect(await db.graphs.get(next.id)).toBeNull();
 	expect(await db.store.balance("owner")).toBe(balance);
 	expect(speech).not.toHaveBeenCalled();
+});
+
+const affected = async (nodeIds = [clip.id, narration.id], actor = "owner") => {
+	const input = { projectId, nodeIds };
+	const preview = await service().preview(actor, input);
+	return { ...input, id: crypto.randomUUID(), inputHash: preview.inputHash };
+};
+const currentResults = async () =>
+	(
+		await Promise.all(
+			(["text", "image", "speech", "video"] as const).map((kind) =>
+				db.store.outputs(projectId, undefined, kind),
+			),
+		)
+	).flat();
+const completeInitial = async () => {
+	const input = await affected();
+	await service().start("owner", input);
+	await execute(input.id);
+	expect((await db.graphs.get(input.id))?.status).toBe("succeeded");
+	return input;
+};
+
+it("reuses all four unchanged kinds for zero credits, including after moves and renames", async () => {
+	await completeInitial();
+	for (const node of graph.nodes) {
+		node.position.x += 100;
+		node.data.label = `Renamed ${node.type}`;
+	}
+	await db.setGraph(projectId, graph);
+	const states = graphFreshness(graph, await currentResults());
+	expect([...states.values()].map((state) => state.state)).toEqual([
+		"current",
+		"current",
+		"current",
+		"current",
+	]);
+	const preview = await service().preview("owner", {
+		projectId,
+		nodeIds: [clip.id, narration.id],
+	});
+	expect(preview.credits).toBe(0);
+	expect(preview.steps.every((step) => step.reused)).toBe(true);
+	const next = await affected();
+	await service().start("owner", next);
+	await execute(next.id);
+	expect(await db.store.balance("owner")).toBe(84);
+	expect(text).toHaveBeenCalledTimes(1);
+	expect(image).toHaveBeenCalledTimes(1);
+	expect(speech).toHaveBeenCalledTimes(1);
+	expect(startVideo).toHaveBeenCalledTimes(1);
+});
+
+it("regenerates only a changed image branch and preserves the narration and text", async () => {
+	await completeInitial();
+	picture.data.aspectRatio = "16:9";
+	await db.setGraph(projectId, graph);
+	const states = graphFreshness(graph, await currentResults());
+	expect(states.get(picture.id)?.reason).toBe("Generation settings changed.");
+	expect(states.get(clip.id)?.state).toBe("outdated");
+	expect(states.get(narration.id)?.state).toBe("current");
+	const preview = await service().preview("owner", {
+		projectId,
+		nodeIds: [clip.id, narration.id],
+	});
+	expect(preview.credits).toBe(13);
+	const input = await affected();
+	await service().start("owner", input);
+	expect(await db.store.balance("owner")).toBe(71);
+	await execute(input.id);
+	expect(text).toHaveBeenCalledTimes(1);
+	expect(image).toHaveBeenCalledTimes(2);
+	expect(speech).toHaveBeenCalledTimes(1);
+	expect(startVideo).toHaveBeenCalledTimes(2);
+	expect(
+		[...graphFreshness(graph, await currentResults()).values()].every(
+			(state) => state.state === "current",
+		),
+	).toBe(true);
+});
+
+it("invalidates descendants when a source is regenerated even with identical output text", async () => {
+	await completeInitial();
+	const input = await request([idea.id]);
+	await service().start("owner", input);
+	await execute(input.id);
+	const states = graphFreshness(graph, await currentResults());
+	expect(states.get(idea.id)?.state).toBe("current");
+	expect(states.get(picture.id)?.reason).toBe(
+		"Connected input or selected output changed.",
+	);
+	expect(states.get(narration.id)?.state).toBe("outdated");
+	const preview = await service().preview("owner", {
+		projectId,
+		nodeIds: [clip.id, narration.id],
+	});
+	expect(preview.credits).toBe(15);
+});
+
+it("pins form a fixed boundary and changing a pin invalidates the consumer", async () => {
+	await completeInitial();
+	const old = (await db.store.outputs(projectId, [idea.id]))[0];
+	if (!old) throw new Error("Missing text");
+	idea.data.selectedRunId = old.id;
+	idea.data.content = "An edited source behind the historical pin";
+	await db.setGraph(projectId, graph);
+	expect(
+		(
+			await service().preview("owner", {
+				projectId,
+				nodeIds: [clip.id, narration.id],
+			})
+		).credits,
+	).toBe(0);
+	const forced = await request([idea.id]);
+	await service().start("owner", forced);
+	await execute(forced.id);
+	expect(
+		(
+			await service().preview("owner", {
+				projectId,
+				nodeIds: [clip.id, narration.id],
+			})
+		).credits,
+	).toBe(0);
+	const latest = (await db.store.outputs(projectId, [idea.id]))[0];
+	idea.data.selectedRunId = latest?.id;
+	await db.setGraph(projectId, graph);
+	expect(
+		(
+			await service().preview("owner", {
+				projectId,
+				nodeIds: [clip.id, narration.id],
+			})
+		).credits,
+	).toBe(15);
+});
+
+it("rejects a stale reuse review when another successful output appears before start", async () => {
+	await completeInitial();
+	const reviewed = await affected();
+	const forced = await request([idea.id]);
+	await service().start("owner", forced);
+	await execute(forced.id);
+	await expect(service().start("owner", reviewed)).rejects.toMatchObject({
+		code: "CONFLICT",
+	});
+	expect(await db.graphs.get(reviewed.id)).toBeNull();
+	expect(await db.store.balance("owner")).toBe(83);
+});
+
+it("freezes exact reused references and lets an editor reuse the owner's image", async () => {
+	await completeInitial();
+	const priorImage = (
+		await db.store.outputs(projectId, [picture.id], "image")
+	)[0];
+	clip.data.content = "A different camera movement";
+	await db.setGraph(projectId, graph);
+	await db.grant("editor", 10);
+	const input = await affected([clip.id], "editor");
+	await service().start("editor", input);
+	const saved = await db.graphs.get(input.id);
+	expect(saved?.plan.find((step) => step.nodeId === picture.id)).toMatchObject({
+		runId: priorImage?.id,
+		reused: true,
+	});
+	// Shared canvas edits after reservation do not affect this saved execution.
+	picture.data.content = "Replace the starting picture";
+	graph.edges = [];
+	await db.setGraph(projectId, graph);
+	await execute(input.id);
+	expect((await db.graphs.get(input.id))?.status).toBe("succeeded");
+	const run = (await db.store.outputs(projectId, [clip.id], "video"))[0];
+	expect(run?.inputImageAssetId).toBe(priorImage?.assetId);
+	expect(run?.resolvedInputs?.image?.runId).toBe(priorImage?.id);
+	expect(await db.store.balance("editor")).toBe(0);
+	expect(await db.store.balance("owner")).toBe(84);
+});
+
+it("resumes a selective run without recharging reused or completed steps", async () => {
+	await completeInitial();
+	picture.data.content = "A brighter street";
+	await db.setGraph(projectId, graph);
+	startVideo.mockRejectedValueOnce(new Error("Provider interrupted"));
+	const input = await affected();
+	await service().start("owner", input);
+	await execute(input.id);
+	expect((await db.graphs.get(input.id))?.status).toBe("failed");
+	expect(await db.store.balance("owner")).toBe(81);
+	const preview = await service().preview("owner", {
+		projectId,
+		nodeIds: input.nodeIds,
+		resumeOf: input.id,
+	});
+	expect(preview.credits).toBe(10);
+	const resumed = {
+		...input,
+		id: crypto.randomUUID(),
+		resumeOf: input.id,
+		inputHash: preview.inputHash,
+	};
+	await service().start("owner", resumed);
+	await execute(resumed.id);
+	expect((await db.graphs.get(resumed.id))?.status).toBe("succeeded");
+	expect(text).toHaveBeenCalledTimes(1);
+	expect(image).toHaveBeenCalledTimes(2);
+	expect(speech).toHaveBeenCalledTimes(1);
+	expect(await db.store.balance("owner")).toBe(71);
+});
+
+it("requires regeneration for legacy results and ignores clip audio connections", async () => {
+	await completeInitial();
+	const results = await currentResults();
+	expect(
+		graphFreshness(
+			graph,
+			results.map((run) => ({ ...run, resolvedInputs: null })),
+		).get(idea.id)?.reason,
+	).toContain("Input history unavailable");
+	graph.edges.push(connect(narration.id, clip.id, "audio"));
+	await db.setGraph(projectId, graph);
+	expect(
+		(
+			await service().preview("owner", {
+				projectId,
+				nodeIds: [clip.id, narration.id],
+			})
+		).credits,
+	).toBe(0);
+});
+
+it("regenerates a missing saved asset and its descendants", async () => {
+	await completeInitial();
+	const get = vi.spyOn(db.media, "get").mockResolvedValueOnce(null);
+	try {
+		const preview = await service().preview("owner", {
+			projectId,
+			nodeIds: [clip.id, narration.id],
+		});
+		expect(preview.credits).toBe(13);
+		expect(
+			preview.steps.find((step) => step.nodeId === picture.id),
+		).toMatchObject({
+			reused: false,
+			reason: "Saved media is unavailable.",
+		});
+	} finally {
+		get.mockRestore();
+	}
+});
+
+it("never reuses a selected failed run with matching saved inputs", async () => {
+	await completeInitial();
+	const forced = await request([picture.id]);
+	await service().start("owner", forced);
+	await db.graphs.finish(forced.id, "Stopped before generating");
+	const succeeded = (
+		await db.store.outputs(projectId, [picture.id], "image")
+	)[0];
+	if (!succeeded) throw new Error("Missing image");
+	const failedId = crypto.randomUUID();
+	await db.store.claim({ ...succeeded, id: failedId });
+	await db.store.finish(failedId, { error: "Provider failed" });
+	picture.data.selectedRunId = failedId;
+	await db.setGraph(projectId, graph);
+	const preview = await service().preview("owner", {
+		projectId,
+		nodeId: picture.id,
+	});
+	expect(preview.steps.find((step) => step.nodeId === picture.id)?.reused).toBe(
+		false,
+	);
+	expect(preview.credits).toBe(3);
 });

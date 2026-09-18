@@ -54,7 +54,7 @@ Open [http://localhost:3001](http://localhost:3001) in your browser to see the f
 
 ## UI Customization
 
-Run multiple output branches with shared inputs, combined credit review, progress and resume, or use **Run to this node** for one output. See [workflow execution](docs/graph-execution.md).
+Choose **Run affected steps** from the toolbar or a node inspector. Changed-input indicators explain outdated results; unchanged steps are reused at zero cost, with explicit force-regeneration controls. See [selective reruns](docs/selective-reruns.md) and [workflow execution](docs/graph-execution.md) for credit review, progress, and resume.
 
 Open **Media library** in the canvas toolbar to browse project files. See [project media](docs/project-media.md) for supported formats, access rules, and local storage.
 

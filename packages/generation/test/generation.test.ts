@@ -11,6 +11,7 @@ import {
 	vi,
 } from "vitest";
 import { defaultTextModel } from "../src/contracts";
+import { graphFreshness } from "../src/freshness";
 import { buildPrompt, textInputHash, textInputSnapshot } from "../src/input";
 import type { TextProvider } from "../src/service";
 import { inlineService } from "./helpers";
@@ -284,4 +285,30 @@ describe("generation and credit ledger", () => {
 			"text nodes only",
 		);
 	});
+});
+
+it("captures standalone resolved text references for later workflow reuse", async () => {
+	await database.grant("owner", 2);
+	const source = node();
+	graph.nodes.push(source);
+	graph.edges.push({
+		id: crypto.randomUUID(),
+		source: source.id,
+		target: target.id,
+		sourceHandle: "output",
+		targetHandle: "context",
+	});
+	await database.setGraph(projectId, graph);
+	const upstream = await service().generate("owner", await input(source.id));
+	const downstream = await service().generate("owner", await input());
+	expect(downstream.resolvedInputs?.text).toEqual([
+		{ nodeId: source.id, runId: upstream.id, content: upstream.output },
+	]);
+	expect(
+		graphFreshness(graph, [upstream, downstream]).get(target.id)?.state,
+	).toBe("current");
+	source.data.content = "Updated source";
+	expect(
+		graphFreshness(graph, [upstream, downstream]).get(target.id)?.state,
+	).toBe("outdated");
 });

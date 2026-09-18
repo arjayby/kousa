@@ -29,6 +29,8 @@ type GraphStepBase = {
 	inputHash: string;
 	credits: number;
 	reused: boolean;
+	reason?: string;
+	blocker?: string;
 };
 export type GraphStep = GraphStepBase &
 	(

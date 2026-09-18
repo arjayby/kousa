@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
+import type { ResolvedInputs } from "./schema/generation-inputs";
 import { generationRun } from "./schema/generations";
 import { graphRun } from "./schema/graph-runs";
 
@@ -42,10 +43,15 @@ export function createGraphStore(db: Database) {
 			if (!result) throw new Error("Workflow reservation unavailable");
 			return result.claim;
 		},
-		async begin(id: string, index: number, prompt: string) {
+		async begin(
+			id: string,
+			index: number,
+			prompt: string,
+			inputs?: ResolvedInputs,
+		) {
 			const [result] = await db
 				.select({
-					ok: sql<boolean>`kousa_begin_graph_step(${id}::uuid, ${index}::integer, ${prompt})`,
+					ok: sql<boolean>`kousa_begin_graph_step(${id}::uuid, ${index}::integer, ${prompt}, ${JSON.stringify(inputs ?? null)}::jsonb)`,
 				})
 				.from(sql`(select 1) request`);
 			return result?.ok ?? false;

@@ -4,6 +4,7 @@ import type { MediaStore } from "@kousa/db/media-store";
 import type { GraphStep } from "@kousa/db/schema/graph-runs";
 import { imageMimeTypes } from "@kousa/media/contracts";
 import type { ProjectService } from "@kousa/projects/service";
+import { fingerprint, graphFreshness } from "./freshness";
 import {
 	graphPreviewInput,
 	graphProjectInput,
@@ -12,6 +13,7 @@ import {
 	graphTargetIds,
 	planGraph,
 } from "./graph-plan";
+import { graphDependencies } from "./graph-selection";
 import { selectedRun } from "./history";
 import { generationImageOrigin } from "./image-origin";
 import {
@@ -38,19 +40,15 @@ export function createGraphService(
 		for (const step of plan) {
 			if (step.reused) continue;
 			const pinned = await Promise.all(
-				step.sources.flatMap((source) =>
-					source.runId
-						? [
-								selectedRun(
-									generations,
-									projectId,
-									source.id,
-									"text",
-									source.runId,
-								),
-							]
-						: [],
-				),
+				step.sources.flatMap((source) => {
+					const runId =
+						source.runId ??
+						plan.find((item) => item.nodeId === source.id && item.reused)
+							?.runId;
+					return runId
+						? [selectedRun(generations, projectId, source.id, "text", runId)]
+						: [];
+				}),
 			);
 			if (pinned.length) {
 				if (step.kind === "speech") buildSpeechScript(step, pinned);
@@ -75,6 +73,9 @@ export function createGraphService(
 				step.image.assetId = run.assetId;
 			}
 			step.inputImageOrigin = imageOrigin;
+			if (!imageOrigin)
+				step.blocker =
+					"Image-to-video needs a public HTTPS app URL so the provider can fetch the starting image. No workflow credits will be reserved until this is configured.";
 			if (
 				step.image.imageSource === "project" ||
 				step.image.imageSource === "history"
@@ -90,13 +91,25 @@ export function createGraphService(
 					);
 			}
 		}
-		return plan.some(
-			(step) => !step.reused && step.kind === "video" && step.image,
-		) && !imageOrigin
-			? [
-					"Image-to-video needs a public HTTPS app URL so the provider can fetch the starting image. No workflow credits will be reserved until this is configured.",
-				]
-			: [];
+		// Show blocked dependants too, while withholding the entire reservation.
+		for (const step of plan) {
+			if (step.reused || step.blocker) continue;
+			const blocked = plan.find(
+				(source) =>
+					source.blocker &&
+					(step.sources.some(
+						(input) => !input.runId && input.id === source.nodeId,
+					) ||
+						(step.kind === "video" &&
+							step.image?.imageSource === "generated" &&
+							step.image.nodeId === source.nodeId)),
+			);
+			if (blocked)
+				step.blocker = `Blocked by ${blocked.label || blocked.kind}.`;
+		}
+		return [
+			...new Set(plan.flatMap((step) => (step.blocker ? [step.blocker] : []))),
+		];
 	}
 	async function access(actorId: string, projectId: string, edit = false) {
 		const project = await projects.get(actorId, { projectId });
@@ -158,14 +171,58 @@ export function createGraphService(
 			nodeId?: string;
 			nodeIds?: string[];
 			resumeOf?: string;
+			mode?: "affected" | "force";
 		},
 	) {
 		const targets = graphTargetIds(input);
-		if (!input.resumeOf)
-			return planGraph(
-				(await projects.getCanvas(actorId, input)).document,
-				targets,
-			);
+		if (!input.resumeOf) {
+			const graph = (await projects.getCanvas(actorId, input)).document;
+			const planned = await planGraph(graph, targets);
+			const nodeIds = graph.nodes.map((node) => node.id);
+			const results = (
+				await Promise.all([
+					...(["text", "image", "speech", "video"] as const).map((kind) =>
+						generations.outputs(input.projectId, nodeIds, kind),
+					),
+					generations.getMany(
+						input.projectId,
+						graph.nodes.flatMap((node) =>
+							node.data.selectedRunId ? [node.data.selectedRunId] : [],
+						),
+					),
+				])
+			)
+				.flat()
+				.filter((run) => run.status === "succeeded");
+			const states = graphFreshness(graph, results);
+			const dependencies = graphDependencies(graph);
+			const byNode = new Map(planned.plan.map((step) => [step.nodeId, step]));
+			for (const step of planned.plan) {
+				const state = states.get(step.nodeId);
+				step.reason = state?.reason;
+				if (state?.state === "blocked") step.blocker = state.reason;
+				const upstream = [...(dependencies.get(step.nodeId) ?? [])].some(
+					(id) => byNode.has(id) && !byNode.get(id)?.reused,
+				);
+				const result = results.find((run) => run.id === state?.runId);
+				step.reused =
+					input.mode !== "force" && state?.state === "current" && !upstream;
+				if (input.mode === "force")
+					step.reason = "Force regeneration requested.";
+				else if (upstream && state?.state === "current")
+					step.reason = "An upstream step will regenerate.";
+				if (
+					step.reused &&
+					result?.assetId &&
+					(!media || !(await media.get(input.projectId, result.assetId)))
+				) {
+					step.reused = false;
+					step.reason = "Saved media is unavailable.";
+				}
+				if (step.reused && result) step.runId = result.id;
+			}
+			return { ...planned, canvasHash: planned.inputHash };
+		}
 		const previous = await store.get(input.resumeOf);
 		if (
 			!previous ||
@@ -189,11 +246,34 @@ export function createGraphService(
 		);
 		return {
 			inputHash: previous.inputHash,
+			canvasHash: previous.inputHash,
 			plan: previous.plan.map((step) => ({
 				...step,
 				reused: results.get(step.runId)?.status === "succeeded",
 			})),
 		};
+	}
+	async function reviewHash(
+		input: { resumeOf?: string; mode?: string },
+		canvasHash: string,
+		plan: GraphStep[],
+	) {
+		if (input.resumeOf) return canvasHash;
+		return fingerprint({
+			canvasHash,
+			mode: input.mode ?? "affected",
+			steps: plan.map((step) => ({
+				nodeId: step.nodeId,
+				inputHash: step.inputHash,
+				reused: step.reused,
+				runId: step.reused ? step.runId : null,
+				sources: step.sources.map((source) => ({
+					nodeId: source.id,
+					runId: source.runId ?? null,
+				})),
+				image: step.kind === "video" ? step.image : null,
+			})),
+		});
 	}
 	return {
 		async list(actorId: string, raw: unknown) {
@@ -216,13 +296,18 @@ export function createGraphService(
 			const input = graphPreviewInput.parse(raw);
 			const targets = graphTargetIds(input);
 			await access(actorId, input.projectId, true);
-			const { plan, inputHash } = await makePlan(actorId, input);
-			if (input.inputHash && input.inputHash !== inputHash)
+			const { plan, canvasHash } = await makePlan(actorId, input);
+			const blockers = await prepareInputs(input.projectId, plan);
+			const inputHash = await reviewHash(input, canvasHash, plan);
+			if (
+				input.inputHash &&
+				input.inputHash !== canvasHash &&
+				input.inputHash !== inputHash
+			)
 				throw new GenerationError(
 					"CONFLICT",
 					"The workflow changed or is still saving. Wait for it to sync, then preview again.",
 				);
-			const blockers = await prepareInputs(input.projectId, plan);
 			return {
 				blockers,
 				targetNodeIds: targets,
@@ -239,6 +324,12 @@ export function createGraphService(
 					kind: step.kind,
 					credits: step.credits,
 					reused: step.reused,
+					reason:
+						step.reason ??
+						(step.reused
+							? "Completed in the saved workflow."
+							: "Unfinished step."),
+					blocker: step.blocker ?? null,
 					imageInput:
 						step.kind === "video" && step.image ? step.image.imageSource : null,
 					speech:
@@ -278,13 +369,14 @@ export function createGraphService(
 					"AI generation is not configured yet.",
 				);
 			await store.expire();
-			const { plan, inputHash } = await makePlan(actorId, input);
+			const { plan, canvasHash } = await makePlan(actorId, input);
+			const blockers = await prepareInputs(input.projectId, plan);
+			const inputHash = await reviewHash(input, canvasHash, plan);
 			if (inputHash !== input.inputHash)
 				throw new GenerationError(
 					"CONFLICT",
 					"The workflow changed. Preview it again before starting.",
 				);
-			const blockers = await prepareInputs(input.projectId, plan);
 			if (blockers[0])
 				throw new GenerationError("SERVICE_UNAVAILABLE", blockers[0]);
 			const result = await store.claim({

@@ -1,3 +1,4 @@
+import type { ResolvedInputs } from "@kousa/db/schema/generation-inputs";
 import { z } from "zod";
 
 export const textModels = [
@@ -75,6 +76,7 @@ export const generateInput = generationProjectInput.extend({
 });
 
 export type PublicRun = {
+	resolvedInputs?: ResolvedInputs | null;
 	id: string;
 	nodeId: string;
 	userId: string;

@@ -111,6 +111,7 @@ export function createGenerationStore(db: Database) {
 				inputImageAssetId?: string | null;
 				inputImageOrigin?: string | null;
 				authoredSettings?: unknown;
+				resolvedInputs?: GenerationRun["resolvedInputs"];
 			},
 		) {
 			// This Postgres function locks the payer and project before checking balance
@@ -119,7 +120,7 @@ export function createGenerationStore(db: Database) {
 				.select({
 					claim: sql<Claim>`kousa_claim_generation(
 				${input.id}::uuid, ${input.userId}, ${input.projectId}::uuid, ${input.nodeId}::uuid,
-				${input.modelId}, ${input.prompt}, ${input.inputHash}, ${input.credits}::integer, ${input.kind ?? "text"}, ${input.size ?? null}, ${input.voiceId ?? null}, ${input.voiceDirection ?? null}, ${input.duration ?? null}::integer, ${input.aspectRatio ?? null}, ${input.inputImageAssetId ?? null}::uuid, ${input.inputImageOrigin ?? null}, ${input.authoredSettings ? JSON.stringify(input.authoredSettings) : null}::jsonb
+				${input.modelId}, ${input.prompt}, ${input.inputHash}, ${input.credits}::integer, ${input.kind ?? "text"}, ${input.size ?? null}, ${input.voiceId ?? null}, ${input.voiceDirection ?? null}, ${input.duration ?? null}::integer, ${input.aspectRatio ?? null}, ${input.inputImageAssetId ?? null}::uuid, ${input.inputImageOrigin ?? null}, ${input.authoredSettings ? JSON.stringify(input.authoredSettings) : null}::jsonb, ${input.resolvedInputs ? JSON.stringify(input.resolvedInputs) : null}::jsonb
 			)`,
 				})
 				.from(sql`(select 1) as request`);

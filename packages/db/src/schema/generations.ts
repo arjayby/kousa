@@ -11,6 +11,7 @@ import {
 	uuid,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
+import type { ResolvedInputs } from "./generation-inputs";
 import { graphRun } from "./graph-runs";
 import { mediaAsset } from "./media";
 import { project } from "./projects";
@@ -46,6 +47,7 @@ export const generationRun = pgTable(
 		inputImageTokenHash: text("input_image_token_hash"),
 		prompt: text("prompt").notNull(),
 		authoredSettings: jsonb("authored_settings"),
+		resolvedInputs: jsonb("resolved_inputs").$type<ResolvedInputs>(),
 		size: text("size"),
 		duration: integer("duration"),
 		aspectRatio: text("aspect_ratio"),

@@ -86,7 +86,14 @@ const request = async () => ({
 	id: crypto.randomUUID(),
 	projectId,
 	nodeId: videoNode.id,
-	inputHash: (await planGraph(graph, videoNode.id)).inputHash,
+	mode: "force" as const,
+	inputHash: (
+		await service().preview("owner", {
+			projectId,
+			nodeId: videoNode.id,
+			mode: "force",
+		})
+	).inputHash,
 });
 async function upload(bytes = olderPng, pid = projectId) {
 	return media.upload("owner", pid, {
@@ -377,7 +384,12 @@ it("rejects another project's selected image, including at the database boundary
 	const other = await db.projects.create("owner", "Other project");
 	imageNode.data.assetId = (await upload(png, other.id)).id;
 	await db.setGraph(projectId, graph);
-	const input = await request();
+	const input = {
+		id: crypto.randomUUID(),
+		projectId,
+		nodeId: videoNode.id,
+		inputHash: (await planGraph(graph, videoNode.id)).inputHash,
+	};
 	await expect(service().preview("owner", input)).rejects.toMatchObject({
 		code: "BAD_REQUEST",
 	});

@@ -77,6 +77,18 @@ See [workflow templates](workflow-templates.md) for usage, copied fields, permis
 
 See [node generation history](node-generation-history.md) for usage, exact-output behavior, and legacy restoration limits.
 
+## Changed inputs and selective reruns
+
+- **377 application tests passed** across generation (206), projects (37), media (26), API (72), email (18), and billing (18). Coverage includes all four generation kinds, standalone input records, exact source IDs even for identical text, prompt/settings/connection changes, movement/rename stability, historical and project-image boundaries, missing assets, failed selections, zero-cost reuse, selective branch charging, stale reviews, cross-editor reuse, immutable queued inputs, and selective failure/resume.
+- All **10 workspace type-check tasks** passed. Changed files pass Biome and `git diff --check`. OpenNext Cloudflare and jobs Worker dry-run bundles passed, with existing dependency/compatibility warnings. No deployment was made.
+- Alchemy applied `0020_selective_reruns` to development Neon. Existing results stay readable and show the explanation that one generation is needed to establish input history. No new environment variables or services are required.
+- In the in-app browser, Coffee scene showed **Outdated**, the legacy input-history explanation, **Force regenerate**, and **Run affected steps**. Its review listed Campaign brief, Visual prompt, and Coffee scene with reasons and a 5-credit reservation. Switching to **Force regenerate all steps** changed the reasons and heading; switching back restored the selective review.
+- Coffee video's review marked the video step **Blocked** for the existing missing public HTTPS image origin, showed a **0-credit reservation**, and disabled starting. No AI generation or rendering was started. The balance shown throughout these reviews was **455 credits**. The shared graph retained eleven nodes and nine connections.
+- A separate **Selective reruns demo** canvas generated three text results and two images for **9 credits**, leaving **446 credits**. All five nodes then showed **Up to date**, and an unchanged review cost **0 credits**. Changing one image's aspect ratio marked only that image outdated and quoted **3 credits**; restoring it cleared the badge. Changing branch A's text prompt marked its text and downstream image outdated while the shared brief and branch B stayed current. The affected review quoted **4 credits**, versus **9 credits** with force regeneration. The rerun preview was left open without starting it.
+- Both final Next.js runtime and compilation diagnostics were clean. Selective execution and reuse were covered with fake providers and local media fixtures. The demo verified live baseline generation, freshness indicators, and review costs; its selective rerun was not executed.
+
+See [selective reruns](selective-reruns.md) for behavior, input records, migration, and legacy limits.
+
 ## Deferred provider checks
 
 | Feature | What is needed | Remaining checks |

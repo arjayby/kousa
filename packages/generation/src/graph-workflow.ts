@@ -1,5 +1,6 @@
 import type { GenerationStore } from "@kousa/db/generation-store";
 import type { GraphStore } from "@kousa/db/graph-store";
+import { resolveInputs } from "./freshness";
 import {
 	buildImagePrompt,
 	buildPrompt,
@@ -69,7 +70,19 @@ export async function executeGraphWorkflow(
 								: item.kind === "image"
 									? buildImagePrompt(item, outputs)
 									: buildPrompt(item, outputs);
-					return store.begin(id, index, prompt);
+					const imageRunId =
+						item.kind === "video" && item.image
+							? (item.image.runId ??
+								flow.plan.find((source) => source.nodeId === item.image?.nodeId)
+									?.runId)
+							: undefined;
+					const image = imageRunId ? await generations.get(imageRunId) : null;
+					return store.begin(
+						id,
+						index,
+						prompt,
+						resolveInputs(item, outputs, image),
+					);
 				},
 			);
 			if (!prepared)

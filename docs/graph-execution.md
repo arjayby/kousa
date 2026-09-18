@@ -1,6 +1,6 @@
 # Workflow execution
 
-Choose **Run workflow** in the canvas toolbar to select multiple output nodes, or select one node and choose **Run to this node**. The preview lists its ancestors in execution order and the total Kousa credits. Starting reserves the full cost from the person who starts it. A new workflow regenerates every listed node. Explicitly selected historical inputs are reused without generating their upstream branches.
+Choose **Run affected steps** in the canvas toolbar to select output nodes, or use the same control in a node inspector. The review lists dependencies in execution order, explains why each step needs generation or can be reused, and shows the credit reservation. Unchanged successful results cost zero credits. **Force regenerate all steps** refreshes every listed generation; pinned historical inputs remain fixed. See [selective reruns](selective-reruns.md).
 
 Supported paths include Text → Text → Image, Text → Video, Text → Image → Video, and Text → Speech. A shared ancestor runs once. Only the selected outputs and their ancestors participate, with a maximum of 20 steps across the entire workflow. Video-to-video, audio inputs, and image-reference generation remain unsupported. Speech accepts one connected Text script; audio output cannot yet feed another generation step.
 
@@ -8,7 +8,7 @@ The canvas shows a workflow progress button and a status on each participating n
 
 ## Multiple outputs
 
-The toolbar's **Run workflow** chooser defaults to **All outputs**: nodes without outgoing connections, including disconnected nodes. **Use canvas selection** replaces that set with the nodes selected on the canvas. Any intermediate node can also be selected explicitly. Selecting a downstream output automatically deselects its upstream inputs and disables their checkboxes with **Included automatically**. They remain part of the run. Removing the output makes those inputs selectable again without checking them. Both bulk-selection buttons use the same rule, and separate output branches remain selectable together. The next dialog identifies each selected output, lists shared inputs once, and shows the combined credit reservation before starting.
+The toolbar's **Run affected steps** chooser defaults to **All outputs**: nodes without outgoing connections, including disconnected nodes. **Use canvas selection** replaces that set with the nodes selected on the canvas. Any intermediate node can also be selected explicitly. Selecting a downstream output automatically deselects its upstream inputs and disables their checkboxes with **Included automatically**. They remain part of the run. Removing the output makes those inputs selectable again without checking them. Both bulk-selection buttons use the same rule, and separate output branches remain selectable together. The next dialog identifies each selected output, lists shared inputs once, and shows the combined credit reservation before starting.
 
 For example, Text → Image → Video and the same Text → Speech cost 16 credits together (1 + 3 + 10 + 2). The common text runs once and feeds both branches by its exact generation ID. Its checkbox is disabled because it is included automatically. Changing the output set invalidates the reviewed hash, even when it would execute the same steps; merely reordering the selection does not.
 
@@ -18,7 +18,7 @@ The progress dialog marks selected outputs and shows both their completion count
 
 ## Starting images and preview
 
-When an Image node shows **Latest generation**, a video workflow runs that image and its text dependencies first, even if older outputs already exist. Video receives the new image from this workflow. On resume, a completed image child is reused by its original generation ID for zero additional credits. The video does not switch to a later image generated elsewhere.
+When an Image node shows **Latest generation**, a video workflow reuses that image if its resolved inputs are unchanged, or regenerates its affected branch. Video receives the exact image generation recorded in this workflow. On resume, a completed image child is reused by its original generation ID for zero additional credits. The video does not switch to a later image generated elsewhere.
 
 When the source Image node has a project image selected, video uses that fixed asset. Its image-generation branch is excluded from the plan and has no generation charge unless that image is also explicitly selected as an output or needed by another branch. The picker keeps that image branch selectable because it is not generated automatically. Selecting it separately regenerates the image, but the video still uses its original fixed asset. An independently connected Text → Video prompt branch still runs. The review dialog explains whether the video uses a new workflow image or a selected project image. Missing or inaccessible project images fail validation before any credits are reserved.
 
@@ -30,7 +30,7 @@ Image-to-video requires the [public HTTPS media origin](video-generation.md#priv
 
 ## Persistence and credits
 
-`graph_run` stores a server-built plan with prompts, models, input hashes, dependency IDs, per-step prices, selected-output markers and generation IDs. Older single-output plans without markers continue to use their original target. Video steps also freeze duration, aspect ratio, image selection, and the configured delivery origin. Speech steps freeze voice and delivery direction. Starting checks the preview hash against the saved canvas. Later canvas edits do not change the plan.
+`graph_run` stores a server-built plan with prompts, models, input hashes, dependency IDs, per-step prices, selected-output markers and generation IDs. Older single-output plans without markers continue to use their original target. Video steps also freeze duration, aspect ratio, image selection, and the configured delivery origin. Speech steps freeze voice and delivery direction. Starting checks the preview hash against the saved canvas, execution mode, and exact reused run/asset references. Later canvas edits do not change the plan.
 
 Cloudflare Workflows executes the plan in dependency order. Each node uses the existing generation runner, receipt storage and atomic result publication. Downstream prompts read successful outputs by the exact generation IDs in this plan. Video uses the image asset published by the exact image child in its plan. These inputs never look up the latest output from another run.
 

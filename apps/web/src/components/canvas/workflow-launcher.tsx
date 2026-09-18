@@ -68,7 +68,7 @@ export function WorkflowLauncher({
 				}}
 			>
 				<WorkflowIcon data-icon="inline-start" />
-				Run workflow
+				Run affected steps
 			</Button>
 			<Dialog
 				open={open}
@@ -83,8 +83,8 @@ export function WorkflowLauncher({
 					<DialogHeader>
 						<DialogTitle>Choose workflow outputs</DialogTitle>
 						<DialogDescription>
-							Select the results you want. Their connected inputs will run
-							automatically, with shared steps generated once.
+							Select the results to update. Unchanged steps are reused at no
+							charge. Review affected steps before starting.
 						</DialogDescription>
 					</DialogHeader>
 					<div className="flex flex-wrap gap-2">

@@ -69,7 +69,14 @@ const request = async () => ({
 	id: crypto.randomUUID(),
 	projectId,
 	nodeId: speechNode.id,
-	inputHash: (await planGraph(graph, speechNode.id)).inputHash,
+	mode: "force" as const,
+	inputHash: (
+		await service().preview("owner", {
+			projectId,
+			nodeId: speechNode.id,
+			mode: "force",
+		})
+	).inputHash,
 });
 async function finishText(id: string) {
 	const flow = await db.graphs.get(id);
