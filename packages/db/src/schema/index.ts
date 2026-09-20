@@ -1,4 +1,5 @@
 export * from "./auth";
+export * from "./canvas-chat";
 export * from "./clip-runs";
 export * from "./credits";
 export * from "./generations";

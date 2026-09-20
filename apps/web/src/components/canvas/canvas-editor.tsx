@@ -1,5 +1,9 @@
 "use client";
 
+import {
+	type ChatProposal,
+	insertChatProposal,
+} from "@kousa/generation/canvas-chat";
 import { resolveConnection } from "@kousa/generation/connections";
 import { canonical } from "@kousa/generation/freshness";
 import {
@@ -61,6 +65,7 @@ import {
 	LayoutTemplateIcon,
 	LocateFixedIcon,
 	LockKeyholeIcon,
+	MessageSquareIcon,
 	MousePointer2Icon,
 	Redo2Icon,
 	ScanIcon,
@@ -71,6 +76,7 @@ import {
 	ZoomInIcon,
 	ZoomOutIcon,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PlaygroundCanvasImport } from "@/components/playground/canvas-import";
@@ -108,6 +114,10 @@ import { isCanvasTextTarget, useCanvasClipboard } from "./use-canvas-clipboard";
 import { useCanvasMediaImport } from "./use-canvas-media-import";
 import { WorkflowLauncher } from "./workflow-launcher";
 import "@xyflow/react/dist/style.css";
+
+const CanvasChat = dynamic(() =>
+	import("./canvas-chat").then((module) => module.CanvasChat),
+);
 
 const nodeTypes: NodeTypes = {
 	text: MediaNode,
@@ -250,6 +260,7 @@ function Editor({
 	const [message, setMessage] = useState("");
 	const [searchOpen, setSearchOpen] = useState(false);
 	const [guideOpen, setGuideOpen] = useState(false);
+	const [chatOpen, setChatOpen] = useState(false);
 	const [variationSession, setVariationSession] =
 		useState<ImageVariationSession | null>(null);
 	const [starterSession, setStarterSession] = useState<StarterSession | null>(
@@ -473,6 +484,36 @@ function Editor({
 			void mediaImport.upload(files);
 		},
 	});
+	const insertChat = (proposal: ChatProposal) => {
+		let error: string | null =
+			"You no longer have permission to edit this canvas.";
+		dispatch({
+			type: "edit",
+			update: (current) => {
+				try {
+					const next = insertChatProposal(documentFromGraph(current), proposal);
+					const added = new Set(proposal.graph.nodes.map((node) => node.id));
+					error = null;
+					fitAfterAdd.current = true;
+					return {
+						nodes: next.nodes.map((node) => ({
+							...node,
+							selected: added.has(node.id),
+						})),
+						edges: next.edges,
+					};
+				} catch (cause) {
+					error =
+						cause instanceof Error
+							? cause.message
+							: "Could not add this proposal.";
+					return current;
+				}
+			},
+		});
+		if (!error) setMessage("Workflow added. Undo removes the full insertion.");
+		return error;
+	};
 	const insertVariations: InsertImageVariations = (request, sourceKey) => {
 		if (!canEdit)
 			throw new Error("Editing access is required to create variations.");
@@ -796,6 +837,17 @@ function Editor({
 				onImport={importPlaygroundNode}
 			/>
 			<div className="studio-toolbar">
+				<Button
+					variant={chatOpen ? "secondary" : "outline"}
+					size="sm"
+					disabled={!canEdit}
+					aria-label="Canvas chat"
+					aria-expanded={chatOpen}
+					onClick={() => setChatOpen((open) => !open)}
+				>
+					<MessageSquareIcon data-icon="inline-start" />
+					Chat
+				</Button>
 				<section
 					className="flex flex-wrap items-center gap-1"
 					aria-label="Add nodes"
@@ -1250,7 +1302,21 @@ function Editor({
 						</div>
 					) : null}
 				</div>
-				{selectedNode ? (
+				{chatOpen ? (
+					<CanvasChat
+						key={`${userId}:${canvasId}`}
+						userId={userId}
+						projectId={projectId}
+						canvasId={canvasId}
+						graph={canvasDocument}
+						canEdit={canEdit}
+						canRun={canRun}
+						workflow={generation.workflow}
+						insert={insertChat}
+						close={() => setChatOpen(false)}
+					/>
+				) : null}
+				{selectedNode && !chatOpen ? (
 					<NodeInspector
 						node={selectedNode}
 						reviewConnection={(connection, reconnectId) =>

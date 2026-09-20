@@ -2,6 +2,7 @@ import { fileURLToPath, URL } from "node:url";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
+import { createCanvasChatStore } from "./src/canvas-chat-store";
 import { createClipStore } from "./src/clip-store";
 import { createCreditStore } from "./src/credit-store";
 import { createGenerationStore } from "./src/generation-store";
@@ -9,6 +10,7 @@ import { createGraphStore } from "./src/graph-store";
 import { createMediaStore } from "./src/media-store";
 import { createProjectStore } from "./src/project-store";
 import { user } from "./src/schema/auth";
+import { canvasChat } from "./src/schema/canvas-chat";
 import { clipRun } from "./src/schema/clip-runs";
 import { creditGrant } from "./src/schema/credits";
 import { generationRun } from "./src/schema/generations";
@@ -24,6 +26,7 @@ export async function createGenerationTestDatabase() {
 		),
 	});
 	return {
+		chat: createCanvasChatStore(db),
 		store: createGenerationStore(db),
 		clips: createClipStore(db),
 		graphs: createGraphStore(db),
@@ -67,6 +70,12 @@ export async function createGenerationTestDatabase() {
 				polarCustomerId: "test",
 				polarProductId: "test",
 			});
+		},
+		expireChat(id: string) {
+			return db
+				.update(canvasChat)
+				.set({ expiresAt: new Date(0) })
+				.where(eq(canvasChat.id, id));
 		},
 		setGraph(projectId: string, canvas: unknown) {
 			return db

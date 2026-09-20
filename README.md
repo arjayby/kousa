@@ -64,6 +64,8 @@ Open **Playground** to generate text, images, video, or speech without setting u
 
 Select an Image node and choose **Create variations** to prepare 2–8 prompts and sizes together, then review their combined generation cost. See [image variations](docs/image-variations.md).
 
+Open **Chat** on the canvas to describe a workflow, refine its proposed nodes and connections, and add them in one undoable edit. Planning is free; generation uses the existing credit review. See [canvas chat](docs/canvas-chat.md).
+
 Select nodes and use **Duplicate selection**, **Copy selection**, or **Paste nodes** in the canvas toolbar. Cmd/Ctrl+D duplicates, Cmd/Ctrl+C/V copies and pastes, and one undo removes the entire copy. See [branch copying](docs/canvas-copy-paste.md) for media rules and shortcuts.
 
 Choose **Run affected steps** from the toolbar or a node inspector. Changed-input indicators explain outdated results; unchanged steps are reused at zero cost, with explicit force-regeneration controls. See [selective reruns](docs/selective-reruns.md) and [workflow execution](docs/graph-execution.md) for credit review, progress, and resume.

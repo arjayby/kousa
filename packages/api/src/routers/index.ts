@@ -2,6 +2,7 @@ import { createBilling } from "@kousa/billing/runtime";
 import type { RouterClient } from "@orpc/server";
 
 import { protectedProcedure, publicProcedure } from "../index";
+import { createCanvasChatRouter } from "./canvas-chat";
 import { createClipRouter } from "./clips";
 import { createGenerationRouter } from "./generation";
 import { createGraphRouter } from "./graph";
@@ -13,6 +14,7 @@ import { createRunRouter } from "./runs";
 import { createTemplatesRouter } from "./templates";
 
 export const appRouter = {
+	canvasChat: createCanvasChatRouter(),
 	media: createMediaRouter(),
 	playground: createPlaygroundRouter(),
 	runs: createRunRouter(),

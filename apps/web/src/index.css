@@ -6,6 +6,8 @@
 .studio-editor { display: flex; flex: 1; min-height: 0; flex-direction: column; }
 .studio-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 18px; border-bottom: 1px solid var(--border); background: var(--background); }
 .studio-workspace { position: relative; display: flex; flex: 1; min-height: 0; }
+.studio-chat { display: flex; width: 360px; flex-shrink: 0; min-height: 0; flex-direction: column; border-left: 1px solid var(--border); background: var(--background); }
+@media (max-width: 767px) { .studio-chat { position: absolute; right: 0; top: 0; bottom: 0; width: min(360px, 95%); z-index: 6; box-shadow: var(--shadow-lg); } }
 .studio-viewport { position: relative; flex: 1; min-width: 0; min-height: 300px; }
 .studio-editor .react-flow { --xy-background-color: var(--background); --xy-edge-stroke: var(--muted-foreground); --xy-edge-stroke-selected: var(--ring); --xy-selection-background-color: color-mix(in oklch, var(--ring), transparent 92%); --xy-selection-border: 1px solid var(--ring); --xy-attribution-background-color: var(--background); }
 .studio-editor .react-flow__node { border-radius: 12px; }
