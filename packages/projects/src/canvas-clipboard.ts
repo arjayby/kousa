@@ -84,6 +84,8 @@ export function pasteCanvasSelection(
 			0,
 			80,
 		);
+		if (clipboard.projectId === projectId && original.data.imageLayout)
+			node.data.imageLayout = structuredClone(original.data.imageLayout);
 		if (clipboard.projectId !== projectId || !original.data.assetId) continue;
 		const sourceMode =
 			node.type === "image"

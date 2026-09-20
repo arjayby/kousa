@@ -35,6 +35,7 @@ function sharedNode(node: CanvasNode) {
 	if (node.data.imageModel) value.set("imageModel", node.data.imageModel);
 	if (node.data.imageSource) value.set("imageSource", node.data.imageSource);
 	if (node.data.mediaSource) value.set("mediaSource", node.data.mediaSource);
+	if (node.data.imageLayout) value.set("imageLayout", node.data.imageLayout);
 	if (node.data.clipSettings) value.set("clipSettings", node.data.clipSettings);
 	if (node.data.assetId) value.set("assetId", node.data.assetId);
 	if (node.data.selectedRunId)
@@ -77,6 +78,7 @@ export function readCanvasDocument(doc: Y.Doc) {
 			selectedRunId: value.get("selectedRunId"),
 			mediaSource: value.get("mediaSource"),
 			clipSettings: value.get("clipSettings"),
+			imageLayout: value.get("imageLayout"),
 			duration: value.get("duration"),
 		};
 		for (const field of textFields) {
@@ -221,6 +223,7 @@ export function createCanvasDocumentModel(doc: Y.Doc) {
 						"assetId",
 						"mediaSource",
 						"clipSettings",
+						"imageLayout",
 						"selectedRunId",
 					] as const)
 						if (node.data[field] !== previous.data[field])

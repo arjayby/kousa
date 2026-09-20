@@ -109,3 +109,27 @@ it("ignores source edits behind a project image and detects a replaced asset", (
 	image.data.assetId = crypto.randomUUID();
 	expect(graphFreshness(graph, [run]).get(video.id)?.state).toBe("outdated");
 });
+
+it("keeps a generated image current when only its editable layout changes", () => {
+	const node = createCanvasNode("image", { x: 0, y: 0 });
+	node.data.content = "A product photo";
+	const graph: CanvasDocument = { version: 1, nodes: [node], edges: [] };
+	const run = {
+		id: crypto.randomUUID(),
+		nodeId: node.id,
+		kind: "image",
+		output: null,
+		assetId: crypto.randomUUID(),
+		resolvedInputs: resolveInputs(inputSnapshot(graph, node.id), []),
+	};
+	node.data.imageLayout = {
+		version: 1,
+		width: 1080,
+		height: 1080,
+		backgroundAssetId: run.assetId,
+		backgroundColor: "#ffffff",
+		fit: "contain",
+		layers: [],
+	};
+	expect(graphFreshness(graph, [run]).get(node.id)?.state).toBe("current");
+});

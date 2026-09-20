@@ -393,3 +393,58 @@ it("checks media references in every canvas and fails closed if any room is unav
 		lifecycle.remove("owner", projectId, unused.id),
 	).rejects.toThrow();
 });
+
+it("protects layout backgrounds and logos, including after deletion for canvas undo", async () => {
+	const background = await upload();
+	const bytes = png();
+	bytes[bytes.length - 1] = (bytes[bytes.length - 1] ?? 0) ^ 1;
+	const logo = await media.upload(
+		"owner",
+		projectId,
+		{ bytes, mimeType: "image/png", name: "logo.png" },
+		true,
+	);
+	await db.query(
+		"update project_canvas set canvas_room_id='room' where id=$1",
+		[projectId],
+	);
+	const node = createCanvasNode("image", { x: 0, y: 0 });
+	node.data.imageLayout = {
+		version: 1,
+		width: 1080,
+		height: 1080,
+		backgroundAssetId: background.id,
+		backgroundColor: "#ffffff",
+		fit: "contain",
+		layers: [
+			{
+				id: crypto.randomUUID(),
+				kind: "logo",
+				assetId: logo.id,
+				x: 0.1,
+				y: 0.1,
+				width: 0.2,
+				height: 0.2,
+				opacity: 1,
+			},
+		],
+	};
+	document.nodes = [node];
+	for (const asset of [background, logo]) {
+		const usage = (await lifecycle.inspect("owner", projectId)).usage.find(
+			(item) => item.assetId === asset.id,
+		);
+		expect(usage?.references).toContainEqual({
+			kind: "canvas",
+			label: node.data.label,
+			nodeId: node.id,
+		});
+		await expect(
+			lifecycle.remove("owner", projectId, asset.id),
+		).rejects.toMatchObject({ status: 409 });
+		await age(asset.id);
+	}
+	document.nodes = [];
+	expect((await lifecycle.cleanup()).removed).toBe(0);
+	expect(storage.delete).not.toHaveBeenCalled();
+});

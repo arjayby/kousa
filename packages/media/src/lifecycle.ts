@@ -4,6 +4,7 @@ import {
 	type CanvasDocument,
 	canvasDocumentSchema,
 } from "@kousa/projects/canvas";
+import { layoutAssetIds } from "@kousa/projects/image-layout";
 import { MediaError, objectKey } from "./service";
 import type { MediaStorage } from "./storage";
 
@@ -41,7 +42,11 @@ export function createMediaLifecycle(
 		for (const asset of assets) {
 			if (
 				!asset.retentionReason &&
-				snapshot?.nodes.some((node) => node.data.assetId === asset.id)
+				snapshot?.nodes.some(
+					(node) =>
+						node.data.assetId === asset.id ||
+						layoutAssetIds(node.data.imageLayout).includes(asset.id),
+				)
 			) {
 				await store.protectObserved(projectId, asset.id);
 				asset.retentionReason = "canvas";
@@ -53,6 +58,7 @@ export function createMediaLifecycle(
 			for (const node of snapshot?.nodes ?? []) {
 				if (
 					node.data.assetId === asset.id ||
+					layoutAssetIds(node.data.imageLayout).includes(asset.id) ||
 					(node.data.selectedRunId &&
 						retained.some((ref) => ref.id === node.data.selectedRunId))
 				) {

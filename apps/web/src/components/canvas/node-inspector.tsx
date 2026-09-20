@@ -1,5 +1,6 @@
 "use client";
 
+import type { PublicAsset } from "@kousa/media/contracts";
 import {
 	aspectRatios,
 	type CanvasConnection,
@@ -25,6 +26,7 @@ import { GenerationPanel, useNodeImage } from "./canvas-generation";
 import { ImageMediaPanel } from "./canvas-media";
 import { ConnectionPreview } from "./connection-preview";
 import { type ApplyHistory, GenerationHistory } from "./generation-history";
+import { ImageLayoutPanel } from "./image-layout-panel";
 import { nodeIcons } from "./media-node";
 import { SharedTextField } from "./shared-text-field";
 import { StoredMediaPanel } from "./stored-media-panel";
@@ -42,6 +44,7 @@ export function NodeInspector({
 	remove,
 	duplicate,
 	applyHistory,
+	addImage,
 	disconnect,
 	reviewConnection,
 	close,
@@ -56,6 +59,7 @@ export function NodeInspector({
 	remove: () => void;
 	duplicate: () => void;
 	applyHistory: ApplyHistory;
+	addImage: (asset: PublicAsset) => boolean;
 	disconnect: (id: string) => void;
 	reviewConnection: (
 		connection: CanvasConnection,
@@ -87,6 +91,16 @@ export function NodeInspector({
 				</Button>
 			</header>
 			<div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-4">
+				{kind === "image" ? (
+					<ImageLayoutPanel
+						key={`layout-${node.id}`}
+						node={node}
+						generatedAssetId={imageResult?.assetId}
+						canEdit={canEdit}
+						apply={applyHistory}
+						addImage={addImage}
+					/>
+				) : null}
 				<GenerationHistory
 					key={`history:${node.id}`}
 					node={node}

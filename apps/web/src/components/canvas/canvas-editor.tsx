@@ -1,6 +1,7 @@
 "use client";
 
 import { resolveConnection } from "@kousa/generation/connections";
+import { canonical } from "@kousa/generation/freshness";
 import {
 	createCanvasStarter,
 	type StarterKind,
@@ -1205,7 +1206,15 @@ function Editor({
 						update={update}
 						endEdit={() => dispatch({ type: "end" })}
 						remove={removeSelected}
+						addImage={(asset) =>
+							addNode("image", {
+								assetId: asset.id,
+								imageSource: "project",
+								label: asset.name.slice(0, 80),
+							})
+						}
 						applyHistory={(before, patch) => {
+							if (!canEdit) return false;
 							let applied = false;
 							dispatch({
 								type: "edit",
@@ -1216,7 +1225,7 @@ function Editor({
 									if (
 										!node ||
 										node.type !== before.type ||
-										JSON.stringify(node.data) !== JSON.stringify(before.data)
+										canonical(node.data) !== canonical(before.data)
 									)
 										return current;
 									applied = true;

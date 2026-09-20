@@ -1,4 +1,5 @@
 import { type CanvasDocument, canvasDocumentSchema } from "./canvas";
+import { templateImageLayout } from "./image-layout";
 
 // Explicitly copy authoring fields. Assets, generated output and future runtime
 // fields must never leak into another project through a template.
@@ -21,6 +22,9 @@ export function copyTemplateDocument(raw: unknown): CanvasDocument {
 			position: { ...node.position },
 			data: {
 				label: node.data.label,
+				imageLayout: node.data.imageLayout
+					? templateImageLayout(node.data.imageLayout)
+					: undefined,
 				content: node.data.content,
 				aspectRatio: node.data.aspectRatio,
 				duration: node.data.duration,

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { imageLayoutSchema } from "./image-layout";
 
 export const nodeKinds = ["text", "image", "video", "speech"] as const;
 export type NodeKind = (typeof nodeKinds)[number];
@@ -30,6 +31,7 @@ export const inputPorts: Record<NodeKind, readonly InputPort[]> = {
 };
 
 const nodeDataSchema = z.object({
+	imageLayout: imageLayoutSchema.optional(),
 	selectedRunId: z.uuid().nullable().optional(),
 	label: z.string().max(80),
 	textModel: z.string().max(120).optional(),
