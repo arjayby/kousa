@@ -3,6 +3,10 @@
 import { resolveConnection } from "@kousa/generation/connections";
 import { canonical } from "@kousa/generation/freshness";
 import {
+	createImageVariations,
+	imageVariationSourceKey,
+} from "@kousa/generation/image-variations";
+import {
 	createCanvasStarter,
 	type StarterKind,
 	starterUnavailable,
@@ -84,6 +88,11 @@ import { CanvasRecovery } from "./canvas-recovery";
 import { CanvasRunHistory } from "./canvas-run-history";
 import { WorkflowMonitor } from "./canvas-workflow";
 import { ConnectionDialog, type ConnectionReview } from "./connection-preview";
+import {
+	type ImageVariationSession,
+	ImageVariationsDialog,
+	type InsertImageVariations,
+} from "./image-variations-dialog";
 import { MediaLibrary } from "./media-library";
 import { MediaNode, nodeDescriptions, nodeIcons } from "./media-node";
 import { NodeInspector } from "./node-inspector";
@@ -241,6 +250,8 @@ function Editor({
 	const [message, setMessage] = useState("");
 	const [searchOpen, setSearchOpen] = useState(false);
 	const [guideOpen, setGuideOpen] = useState(false);
+	const [variationSession, setVariationSession] =
+		useState<ImageVariationSession | null>(null);
 	const [starterSession, setStarterSession] = useState<StarterSession | null>(
 		null,
 	);
@@ -462,6 +473,42 @@ function Editor({
 			void mediaImport.upload(files);
 		},
 	});
+	const insertVariations: InsertImageVariations = (request, sourceKey) => {
+		if (!canEdit)
+			throw new Error("Editing access is required to create variations.");
+		let ids: string[] = [];
+		dispatch({
+			type: "edit",
+			update: (current) => {
+				const document = documentFromGraph(current);
+				if (imageVariationSourceKey(document, request.sourceId) !== sourceKey)
+					throw new Error(
+						"The source or its inputs changed. Reopen the variation builder.",
+					);
+				const insertion = createImageVariations(document, request);
+				ids = insertion.targetIds;
+				fitAfterAdd.current = true;
+				return {
+					nodes: [
+						...clearSelection(current).nodes,
+						...insertion.nodes.map((node) => ({
+							...node,
+							selected: ids.includes(node.id),
+						})),
+					],
+					edges: [...clearSelection(current).edges, ...insertion.edges],
+				};
+			},
+		});
+		if (!ids.length)
+			throw new Error(
+				"The canvas is not ready to save. Reconnect with editing access and try again.",
+			);
+		setMessage(
+			`${ids.length} image variations added. Review their cost before generating.`,
+		);
+		return ids;
+	};
 	const update = (data: Partial<CanvasNode["data"]>, field: string) => {
 		if (!canEdit || !selectedNode) return;
 		dispatch({
@@ -853,6 +900,16 @@ function Editor({
 						onFocus={focusNode}
 					/>
 					<WorkflowMonitor workflow={generation.workflow} />
+					{variationSession ? (
+						<ImageVariationsDialog
+							graph={canvasDocument}
+							initial={variationSession}
+							canEdit={canEdit}
+							workflow={generation.workflow}
+							insert={insertVariations}
+							close={() => setVariationSession(null)}
+						/>
+					) : null}
 					<ClipMonitor />
 					{session ? <CanvasPeople session={session} /> : null}
 					<Button
@@ -1206,6 +1263,17 @@ function Editor({
 						update={update}
 						endEdit={() => dispatch({ type: "end" })}
 						remove={removeSelected}
+						createVariations={(assetId) => {
+							const source = canvasDocument.nodes.find(
+								(node) => node.id === selectedNode.id,
+							);
+							if (source)
+								setVariationSession({
+									source,
+									sourceKey: imageVariationSourceKey(canvasDocument, source.id),
+									assetId,
+								});
+						}}
 						addImage={(asset) =>
 							addNode("image", {
 								assetId: asset.id,

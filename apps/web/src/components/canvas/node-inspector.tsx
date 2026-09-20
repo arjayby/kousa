@@ -5,6 +5,7 @@ import {
 	aspectRatios,
 	type CanvasConnection,
 	type CanvasNode,
+	imageOutputAssetId,
 	inputPorts,
 	nodeLabels,
 } from "@kousa/projects/canvas";
@@ -20,7 +21,13 @@ import {
 	ToggleGroup,
 	ToggleGroupItem,
 } from "@kousa/ui/components/toggle-group";
-import { CopyIcon, Trash2Icon, UnplugIcon, XIcon } from "lucide-react";
+import {
+	CopyIcon,
+	CopyPlusIcon,
+	Trash2Icon,
+	UnplugIcon,
+	XIcon,
+} from "lucide-react";
 import { ClipPanel } from "./canvas-clips";
 import { GenerationPanel, useNodeImage } from "./canvas-generation";
 import { ImageMediaPanel } from "./canvas-media";
@@ -45,6 +52,7 @@ export function NodeInspector({
 	duplicate,
 	applyHistory,
 	addImage,
+	createVariations,
 	disconnect,
 	reviewConnection,
 	close,
@@ -60,6 +68,7 @@ export function NodeInspector({
 	duplicate: () => void;
 	applyHistory: ApplyHistory;
 	addImage: (asset: PublicAsset) => boolean;
+	createVariations: (assetId: string | null) => void;
 	disconnect: (id: string) => void;
 	reviewConnection: (
 		connection: CanvasConnection,
@@ -100,6 +109,29 @@ export function NodeInspector({
 						apply={applyHistory}
 						addImage={addImage}
 					/>
+				) : null}
+				{kind === "image" && canEdit ? (
+					<section
+						aria-label="Image variations"
+						className="flex flex-col gap-2"
+					>
+						<h3 className="font-medium text-xs">Image variations</h3>
+						<p className="text-muted-foreground text-xs">
+							Try several prompts and sizes together. Review the total credits
+							before generating.
+						</p>
+						<Button
+							variant="outline"
+							onClick={() =>
+								createVariations(
+									imageOutputAssetId(node.data, imageResult?.assetId) ?? null,
+								)
+							}
+						>
+							<CopyPlusIcon data-icon="inline-start" />
+							Create variations
+						</Button>
+					</section>
 				) : null}
 				<GenerationHistory
 					key={`history:${node.id}`}

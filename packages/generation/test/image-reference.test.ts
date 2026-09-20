@@ -8,6 +8,7 @@ import { graphFreshness } from "../src/freshness";
 import { createGraphService } from "../src/graph-service";
 import { executeGraphWorkflow } from "../src/graph-workflow";
 import { createGenerationImageAccess } from "../src/image-access";
+import { createImageVariations } from "../src/image-variations";
 import { generationInputHash } from "../src/input";
 import type { ImageProvider } from "../src/providers";
 import { createGenerationRunner } from "../src/runner";
@@ -320,4 +321,49 @@ it("uses historical references in workflows without rerunning the source", async
 	expect((await db.graphs.get(id))?.status).toBe("succeeded");
 	expect(generate).toHaveBeenCalledTimes(1);
 	expect(generate.mock.calls[0]?.[0].referenceImage).toEqual(png);
+});
+
+it("runs identical variations separately against one pinned reference, charges once per output and reuses both", async () => {
+	const insertion = createImageVariations(graph, {
+		sourceId: source.id,
+		mode: "image",
+		referenceAssetId: assetId,
+		prompt: "Create a product ad. Keep the product unchanged.",
+		variations: [
+			{ instructions: "", aspectRatio: "1:1" },
+			{ instructions: "", aspectRatio: "1:1" },
+		],
+	});
+	graph = {
+		version: 1,
+		nodes: [...graph.nodes, ...insertion.nodes],
+		edges: [...graph.edges, ...insertion.edges],
+	};
+	await db.setGraph(projectId, graph);
+	const input = { projectId, nodeIds: insertion.targetIds };
+	const preview = await graphs().preview("owner", input);
+	expect(preview.credits).toBe(6);
+	expect(preview.steps).toHaveLength(2);
+	const id = crypto.randomUUID();
+	await graphs().start("owner", { ...input, id, inputHash: preview.inputHash });
+	await executeGraphWorkflow(id, db.graphs, db.store, runner(), inlineSteps);
+	expect((await db.graphs.get(id))?.status).toBe("succeeded");
+	expect(generate).toHaveBeenCalledTimes(2);
+	expect(
+		generate.mock.calls.every((call) =>
+			call[0].referenceImage?.every((byte, index) => byte === png[index]),
+		),
+	).toBe(true);
+	expect(await db.store.balance("owner")).toBe(44);
+	const outputs = await db.store.outputs(
+		projectId,
+		insertion.targetIds,
+		"image",
+	);
+	expect(new Set(outputs.map((output) => output.nodeId)).size).toBe(2);
+	expect(new Set(outputs.map((output) => output.id)).size).toBe(2);
+	expect((await graphs().preview("owner", input)).credits).toBe(0);
+	await executeGraphWorkflow(id, db.graphs, db.store, runner(), inlineSteps);
+	expect(generate).toHaveBeenCalledTimes(2);
+	expect(await db.store.balance("owner")).toBe(44);
 });
