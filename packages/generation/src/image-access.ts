@@ -46,6 +46,41 @@ export function createGenerationImageAccess(
 		return result;
 	}
 	return {
+		async bytes(run: GenerationRun) {
+			const current = await store.get(run.id);
+			if (
+				current?.kind !== "image" ||
+				current.status !== "running" ||
+				current.expiresAt.getTime() <= Date.now()
+			)
+				throw new MediaError(404, "Unavailable image");
+			const { object, asset } = await read(current);
+			const reader = object.body.getReader();
+			const chunks: Uint8Array[] = [];
+			let length = 0;
+			try {
+				while (true) {
+					const { value, done } = await reader.read();
+					if (done) break;
+					length += value.byteLength;
+					if (length > maxImageBytes || length > asset.bytes)
+						throw new MediaError(404, "Unavailable image");
+					chunks.push(value);
+				}
+				if (!length || length !== asset.bytes)
+					throw new MediaError(404, "Unavailable image");
+				const bytes = new Uint8Array(length);
+				let offset = 0;
+				for (const chunk of chunks) {
+					bytes.set(chunk, offset);
+					offset += chunk.byteLength;
+				}
+				return bytes;
+			} finally {
+				await reader.cancel();
+				reader.releaseLock();
+			}
+		},
 		async issue(run: GenerationRun) {
 			const origin = generationImageOrigin(run.inputImageOrigin ?? undefined);
 			if (run.kind !== "video" || !origin)

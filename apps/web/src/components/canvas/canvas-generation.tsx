@@ -167,14 +167,17 @@ export function useCanvasGeneration({
 		try {
 			if (!request) {
 				const document = documentFromGraph(graph);
-				const videoInput =
-					document.nodes.find((node) => node.id === nodeId)?.type === "video"
+				const kind = document.nodes.find((node) => node.id === nodeId)?.type;
+				const imageInput =
+					kind === "video"
 						? videoInputSnapshot(document, nodeId)
-						: null;
-				const inputImageAssetId = videoInput
+						: kind === "image"
+							? imageInputSnapshot(document, nodeId)
+							: null;
+				const inputImageAssetId = imageInput
 					? videoInputImageAssetId(
-							videoInput,
-							imageResults.get(videoInput.image?.nodeId ?? "")?.assetId,
+							imageInput,
+							imageResults.get(imageInput.image?.nodeId ?? "")?.assetId,
 						)
 					: null;
 				request = {
@@ -362,11 +365,10 @@ export function GenerationPanel({
 	let imageNode: StudioNode | undefined;
 	try {
 		settings.snapshot(documentFromGraph(generation.graph), node.id);
-		if (kind === "video") {
-			const snapshot = videoInputSnapshot(
-				documentFromGraph(generation.graph),
-				node.id,
-			);
+		if (kind === "video" || kind === "image") {
+			const snapshot = (
+				kind === "video" ? videoInputSnapshot : imageInputSnapshot
+			)(documentFromGraph(generation.graph), node.id);
 			if (snapshot.image) {
 				imageNode = generation.graph.nodes.find(
 					(node) => node.id === snapshot.image?.nodeId,
@@ -378,7 +380,7 @@ export function GenerationPanel({
 				if (!inputImageAssetId)
 					inputError =
 						"Upload or generate an image on the connected image node first.";
-				else if (!generation.imageToVideoConfigured)
+				else if (kind === "video" && !generation.imageToVideoConfigured)
 					inputError =
 						"Image-to-video needs a public HTTPS app URL so the provider can fetch this image.";
 			}
@@ -468,17 +470,19 @@ export function GenerationPanel({
 						: "Models eligible for Vercel free credits."}
 				</FieldDescription>
 			</Field>
-			{kind === "video" && imageNode ? (
+			{imageNode ? (
 				<div className="flex flex-col gap-2">
 					<h3 className="font-medium text-xs">
-						Starting image · {imageNode.data.label}
+						{kind === "image" ? "Reference image" : "Starting image"} ·{" "}
+						{imageNode.data.label}
 					</h3>
 					{inputImageAssetId ? (
 						<AssetPreview key={inputImageAssetId} assetId={inputImageAssetId} />
 					) : null}
 					<p className="text-muted-foreground text-xs">
-						Uses this image node’s selected output. Add a motion prompt, or
-						leave it empty to let the model animate the image.
+						{kind === "image"
+							? "Describe what to change and what to keep. The edit is saved as a new image; your reference stays available."
+							: "Uses this image node’s selected output. Add a motion prompt, or leave it empty to let the model animate the image."}
 					</p>
 				</div>
 			) : null}
@@ -595,9 +599,8 @@ export function GenerationPanel({
 			{kind === "image" ? (
 				<div className="flex flex-col gap-3">
 					<p className="text-muted-foreground text-xs">
-						Uses the prompt and connected text. Connected text uses its last
-						successful output, or its written text. Uploaded images are not used
-						as references yet.
+						Uses the prompt and connected text. Connect an Image node to
+						Reference to edit an uploaded photo or a saved image output.
 					</p>
 					{imageResult?.assetId ? (
 						<>

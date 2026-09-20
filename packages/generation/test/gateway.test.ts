@@ -105,3 +105,25 @@ it("requests MP3 speech with a fixed voice, Fish delivery cue and no paid-call r
 		}),
 	);
 });
+
+it("sends private reference bytes through the SDK image-edit prompt", async () => {
+	mocks.createGateway.mockReturnValue({ imageModel: mocks.imageModel });
+	mocks.imageModel.mockReturnValue("image-model");
+	const bytes = new Uint8Array([1, 2, 3]);
+	mocks.generateImage.mockResolvedValue({
+		image: { uint8Array: bytes, mediaType: "image/png" },
+	});
+	await createGatewayImageProvider("test-key").generate({
+		modelId: "bfl/flux-2-klein-4b",
+		prompt: "Replace the background",
+		size: "1024x1024",
+		referenceImage: bytes,
+	});
+	expect(mocks.generateImage).toHaveBeenCalledWith(
+		expect.objectContaining({
+			prompt: { text: "Replace the background", images: [bytes] },
+			n: 1,
+			maxRetries: 0,
+		}),
+	);
+});

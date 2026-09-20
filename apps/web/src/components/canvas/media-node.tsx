@@ -200,8 +200,7 @@ export const MediaNode = memo(function MediaNode({
 							{port.label}
 							{kind === "video" && port.id === "audio"
 								? " · Composition"
-								: (kind === "image" && port.id === "reference") ||
-										(kind === "video" && port.id === "video")
+								: kind === "video" && port.id === "video"
 									? " · Unsupported"
 									: kind === "text"
 										? " · Text only"

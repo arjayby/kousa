@@ -242,7 +242,7 @@ export function NodeInspector({
 								) : (
 									<p className="text-muted-foreground text-xs">
 										{kind === "image" && port.id === "reference"
-											? "Reference images are not supported by the current generator."
+											? "Connect an Image to edit an uploaded photo or a saved output. Describe your changes in the prompt."
 											: kind === "video" && port.id === "video"
 												? "Video-to-video is not supported by the current generator."
 												: kind === "video" && port.id === "audio"

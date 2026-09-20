@@ -120,6 +120,7 @@ export function imageInputSnapshot(graph: CanvasDocument, nodeId: string) {
 		modelId: node.data.imageModel ?? defaultImageModel,
 		content: node.data.content,
 		sources,
+		image: connectedImage(graph, nodeId),
 		size: imageSizes[node.data.aspectRatio],
 	};
 }
@@ -131,17 +132,20 @@ export async function generationInputHash(
 	const kind = graph.nodes.find((node) => node.id === nodeId)?.type;
 	if (kind !== "image" && kind !== "speech" && kind !== "video")
 		return textInputHash(graph, nodeId);
+	const snapshot =
+		kind === "video"
+			? videoInputSnapshot(graph, nodeId)
+			: kind === "speech"
+				? speechInputSnapshot(graph, nodeId)
+				: imageInputSnapshot(graph, nodeId);
+	// Keep hashes stable for saved text-to-image workflows created before references.
+	const hashInput =
+		"size" in snapshot && !snapshot.image
+			? { ...snapshot, image: undefined }
+			: snapshot;
 	const digest = await crypto.subtle.digest(
 		"SHA-256",
-		new TextEncoder().encode(
-			JSON.stringify(
-				kind === "video"
-					? videoInputSnapshot(graph, nodeId)
-					: kind === "speech"
-						? speechInputSnapshot(graph, nodeId)
-						: imageInputSnapshot(graph, nodeId),
-			),
-		),
+		new TextEncoder().encode(JSON.stringify(hashInput)),
 	);
 	return Array.from(new Uint8Array(digest), (b) =>
 		b.toString(16).padStart(2, "0"),
@@ -219,13 +223,7 @@ export function buildSpeechScript(
 	return script;
 }
 
-export function videoInputSnapshot(graph: CanvasDocument, nodeId: string) {
-	const node = graph.nodes.find((n) => n.id === nodeId);
-	if (node?.type !== "video")
-		throw new GenerationError(
-			"BAD_REQUEST",
-			"Select a video node to generate.",
-		);
+function connectedImage(graph: CanvasDocument, nodeId: string) {
 	const images: Array<{
 		nodeId: string;
 		imageSource: "generated" | "project" | "history";
@@ -238,7 +236,7 @@ export function videoInputSnapshot(graph: CanvasDocument, nodeId: string) {
 		if (images.length)
 			throw new GenerationError(
 				"BAD_REQUEST",
-				"Connect only one image to the video node.",
+				"Connect only one image to this node.",
 			);
 		images.push({
 			nodeId: source.id,
@@ -250,15 +248,17 @@ export function videoInputSnapshot(graph: CanvasDocument, nodeId: string) {
 			assetId: source.data.assetId,
 		});
 	}
-	const sources = inputs
-		.filter((input) => input.usage === "text")
-		.map(({ source }) => ({
-			id: source.id,
-			content: source.data.content,
-			...(source.data.selectedRunId
-				? { runId: source.data.selectedRunId }
-				: {}),
-		}));
+	return images.at(0) ?? null;
+}
+
+export function videoInputSnapshot(graph: CanvasDocument, nodeId: string) {
+	const node = graph.nodes.find((n) => n.id === nodeId);
+	if (node?.type !== "video")
+		throw new GenerationError(
+			"BAD_REQUEST",
+			"Select a video node to generate.",
+		);
+	const sources = connectedText(graph, nodeId);
 	return {
 		nodeId,
 		modelId: node.data.videoModel ?? defaultVideoModel,
@@ -266,12 +266,12 @@ export function videoInputSnapshot(graph: CanvasDocument, nodeId: string) {
 		sources,
 		aspectRatio: node.data.aspectRatio,
 		duration: Number(node.data.duration),
-		image: images.at(0) ?? null,
+		image: connectedImage(graph, nodeId),
 	};
 }
 
 export function videoInputImageAssetId(
-	snapshot: ReturnType<typeof videoInputSnapshot>,
+	snapshot: Pick<ReturnType<typeof videoInputSnapshot>, "image">,
 	generatedAssetId?: string | null,
 ) {
 	return snapshot.image

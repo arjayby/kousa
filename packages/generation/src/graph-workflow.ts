@@ -89,7 +89,7 @@ export async function executeGraphWorkflow(
 									? buildImagePrompt(item, outputs)
 									: buildPrompt(item, outputs);
 					const imageRunId =
-						item.kind === "video" && item.image
+						(item.kind === "video" || item.kind === "image") && item.image
 							? (item.image.runId ??
 								flow.plan.find((source) => source.nodeId === item.image?.nodeId)
 									?.runId)

@@ -20,10 +20,10 @@ export function graphDependencies(graph: Graph) {
 			source?.type === "speech"
 		)
 			continue;
-		// Video consumes the fixed asset, not a new generation of its source image.
+		// Reference inputs consume fixed project assets without regenerating them.
 		if (
-			target?.type === "video" &&
-			edge.targetHandle === "image" &&
+			((target?.type === "video" && edge.targetHandle === "image") ||
+				(target?.type === "image" && edge.targetHandle === "reference")) &&
 			source?.type === "image" &&
 			(source.data.imageSource ??
 				(source.data.assetId ? "project" : "generated")) === "project"

@@ -46,6 +46,7 @@ export function createGenerationRunner(
 	speech?: SpeechProvider,
 	video?: VideoProvider,
 	inputImageUrl?: (run: GenerationRun) => Promise<string>,
+	inputImageBytes?: (run: GenerationRun) => Promise<Uint8Array<ArrayBuffer>>,
 ) {
 	async function active(id: string): Promise<GenerationRun | null> {
 		const run = await store.get(id);
@@ -202,12 +203,18 @@ export function createGenerationRunner(
 						(size) => size === run.size,
 					);
 					if (!size) throw new Error("Invalid image size");
+					if (run.inputImageAssetId && !inputImageBytes)
+						throw new Error("Reference image access unavailable");
+					const referenceImage = run.inputImageAssetId
+						? await inputImageBytes?.(run)
+						: undefined;
 					result = {
 						kind: "image",
 						...(await image.generate({
 							modelId: run.modelId,
 							prompt: run.prompt,
 							size,
+							...(referenceImage ? { referenceImage } : {}),
 						})),
 					};
 					if (!result.bytes.length || result.bytes.length > 10 * 1024 * 1024)

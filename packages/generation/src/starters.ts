@@ -6,6 +6,7 @@ import {
 
 export const starterKinds = [
 	"image",
+	"image-edit",
 	"speech",
 	"video",
 	"image-video",
@@ -18,8 +19,14 @@ export const starterExamples: Record<
 	image: {
 		title: "Text to image",
 		description:
-			"Use written text as an image prompt. Image references are not consumed by current image generators.",
+			"Use written text as an image prompt, then generate your first image.",
 		next: "Edit The idea, then choose Generate image on First frame. You do not need to generate the Text node first.",
+	},
+	"image-edit": {
+		title: "Edit a product photo",
+		description:
+			"Upload a product photo, then describe a new background, lighting, or composition.",
+		next: "Upload a photo on Product photo, then select Product ad, describe your changes, and Generate image.",
 	},
 	speech: {
 		title: "Script to speech",
@@ -53,7 +60,7 @@ export function starterUnavailable(
 	const required =
 		kind === "image-video"
 			? [capabilities.image, capabilities.video, capabilities.imageToVideo]
-			: [capabilities[kind]];
+			: [capabilities[kind === "image-edit" ? "image" : kind]];
 	if (required.some((value) => value === false))
 		return kind === "image-video"
 			? "Image-to-video is unavailable here. Try Text to image or Text to video."
@@ -66,6 +73,38 @@ export function createCanvasStarter(
 	kind: StarterKind,
 	origin = { x: 0, y: 0 },
 ) {
+	if (kind === "image-edit") {
+		const source = createCanvasNode("image", origin);
+		source.data.label = "Product photo";
+		source.data.imageSource = "project";
+		const output = createCanvasNode("image", {
+			x: origin.x + 380,
+			y: origin.y,
+		});
+		output.data.label = "Product ad";
+		output.data.content =
+			"Place this product on a clean studio surface with soft natural lighting and a warm beige background. Keep the product's shape, colors, and label unchanged. Leave space above for ad copy.";
+		return {
+			document: {
+				version: 1,
+				nodes: [source, output],
+				edges: [
+					{
+						id: crypto.randomUUID(),
+						source: source.id,
+						target: output.id,
+						sourceHandle: "output",
+						targetHandle: "reference",
+					},
+				],
+			} satisfies CanvasDocument,
+			sourceId: source.id,
+			steps: [
+				{ nodeId: output.id, label: output.data.label, kind: output.type },
+			],
+			kind,
+		};
+	}
 	const text = createCanvasNode("text", origin);
 	text.data.label = kind === "speech" ? "The script" : "The idea";
 	text.data.content =

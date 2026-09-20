@@ -2,7 +2,7 @@
 
 Choose **Run affected steps** in the canvas toolbar to select output nodes, or use the same control in a node inspector. The review lists dependencies in execution order, explains why each step needs generation or can be reused, and shows the credit reservation. Unchanged successful results cost zero credits. **Force regenerate all steps** refreshes every listed generation; pinned historical inputs remain fixed. See [selective reruns](selective-reruns.md).
 
-Supported paths include Text → Text → Image, Text → Video, Text → Image → Video, and Text → Speech. A shared ancestor runs once. Only the selected outputs and their ancestors participate, with a maximum of 20 steps across the entire workflow. Video-to-video, audio inputs, and image-reference generation remain unsupported. Speech accepts one connected Text script; audio output cannot yet feed another generation step.
+Supported paths include Text → Text → Image, Image → Image, Text → Video, Text → Image → Video, and Text → Speech. A shared ancestor runs once. Only the selected outputs and their ancestors participate, with a maximum of 20 steps across the entire workflow. Video-to-video and audio inputs to generation remain unsupported. Image edits consume one project, historical, or upstream generated image. Speech accepts one connected Text script; audio output cannot yet feed another generation step.
 
 The canvas shows a **Runs** button and a status on each participating node. Owners, editors and viewers can inspect current progress and older runs. Only owners and editors can start or stop workflows. One workflow may run per project and per payer; individual generation requests wait until it finishes.
 
@@ -32,7 +32,7 @@ Image-to-video requires the [public HTTPS media origin](video-generation.md#priv
 
 ## Persistence and credits
 
-`graph_run` stores a server-built plan with prompts, models, input hashes, dependency IDs, per-step prices, selected-output markers and generation IDs. Older single-output plans without markers continue to use their original target. Video steps also freeze duration, aspect ratio, image selection, and the configured delivery origin. Speech steps freeze voice and delivery direction. Starting checks the preview hash against the saved canvas, execution mode, and exact reused run/asset references. Later canvas edits do not change the plan.
+`graph_run` stores a server-built plan with prompts, models, input hashes, dependency IDs, per-step prices, selected-output markers and generation IDs. Older single-output plans without markers continue to use their original target. Image and video steps freeze image selection. Video steps also freeze duration, aspect ratio, and the configured delivery origin. Speech steps freeze voice and delivery direction. Starting checks the preview hash against the saved canvas, execution mode, and exact reused run/asset references. Later canvas edits do not change the plan.
 
 Cloudflare Workflows executes the plan in dependency order. Each node uses the existing generation runner, receipt storage and atomic result publication. Downstream prompts read successful outputs by the exact generation IDs in this plan. Video uses the image asset published by the exact image child in its plan. These inputs never look up the latest output from another run.
 

@@ -382,7 +382,10 @@ export function createGenerationService(
 				);
 			let inputImageAssetId: string | null = null;
 			let resolvedImage: GenerationRun | undefined;
-			if (snapshot.kind === "video" && snapshot.image) {
+			if (
+				(snapshot.kind === "video" || snapshot.kind === "image") &&
+				snapshot.image
+			) {
 				const generated = snapshot.image.runId
 					? await selectedRun(
 							store,
@@ -415,12 +418,12 @@ export function createGenerationService(
 						"CONFLICT",
 						"The connected image changed. Review it, then try again.",
 					);
-				if (!imageOrigin || !media)
+				if (snapshot.kind === "video" && !imageOrigin)
 					throw new GenerationError(
 						"SERVICE_UNAVAILABLE",
 						"Image-to-video needs a public HTTPS app URL so the provider can fetch this image.",
 					);
-				const asset = await media.get(input.projectId, inputImageAssetId);
+				const asset = await media?.get(input.projectId, inputImageAssetId);
 				if (!asset || !imageMimeTypes.some((type) => type === asset.mimeType))
 					throw new GenerationError(
 						"BAD_REQUEST",
@@ -463,7 +466,8 @@ export function createGenerationService(
 				credits,
 				kind,
 				inputImageAssetId,
-				inputImageOrigin: inputImageAssetId ? imageOrigin : null,
+				inputImageOrigin:
+					snapshot.kind === "video" && inputImageAssetId ? imageOrigin : null,
 				duration: snapshot.kind === "video" ? snapshot.duration : null,
 				aspectRatio: snapshot.kind === "video" ? snapshot.aspectRatio : null,
 				size: snapshot.kind === "image" ? snapshot.size : null,

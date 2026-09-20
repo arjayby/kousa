@@ -69,7 +69,7 @@ export function resolveInputs(
 			};
 		}),
 		image:
-			snapshot.kind === "video" && snapshot.image
+			(snapshot.kind === "video" || snapshot.kind === "image") && snapshot.image
 				? {
 						nodeId: snapshot.image.nodeId,
 						runId:
@@ -146,7 +146,8 @@ export function graphFreshness(graph: CanvasDocument, results: Result[]) {
 			const current = resolveInputs(
 				snapshot,
 				snapshot.sources.flatMap((source) => chosen.get(source.id) ?? []),
-				snapshot.kind === "video" && snapshot.image
+				(snapshot.kind === "video" || snapshot.kind === "image") &&
+					snapshot.image
 					? chosen.get(snapshot.image.nodeId)
 					: null,
 			);
@@ -159,7 +160,7 @@ export function graphFreshness(graph: CanvasDocument, results: Result[]) {
 			);
 			if (
 				missingPin ||
-				(snapshot.kind === "video" &&
+				((snapshot.kind === "video" || snapshot.kind === "image") &&
 					snapshot.image?.imageSource === "history" &&
 					!chosen.has(snapshot.image.nodeId))
 			) {

@@ -69,7 +69,8 @@ export function createGraphService(
 				else if (step.kind === "image") buildImagePrompt(step, pinned);
 				else buildPrompt(step, pinned);
 			}
-			if (step.kind !== "video" || !step.image) continue;
+			if ((step.kind !== "video" && step.kind !== "image") || !step.image)
+				continue;
 			if (step.image.imageSource === "history") {
 				if (!step.image.runId)
 					throw new GenerationError(
@@ -86,8 +87,8 @@ export function createGraphService(
 				);
 				step.image.assetId = run.assetId;
 			}
-			step.inputImageOrigin = imageOrigin;
-			if (!imageOrigin)
+			if (step.kind === "video") step.inputImageOrigin = imageOrigin;
+			if (step.kind === "video" && !imageOrigin)
 				step.blocker =
 					"Image-to-video needs a public HTTPS app URL so the provider can fetch the starting image. No workflow credits will be reserved until this is configured.";
 			if (
@@ -114,7 +115,7 @@ export function createGraphService(
 					(step.sources.some(
 						(input) => !input.runId && input.id === source.nodeId,
 					) ||
-						(step.kind === "video" &&
+						((step.kind === "video" || step.kind === "image") &&
 							step.image?.imageSource === "generated" &&
 							step.image.nodeId === source.nodeId)),
 			);
@@ -291,7 +292,8 @@ export function createGraphService(
 					nodeId: source.id,
 					runId: source.runId ?? null,
 				})),
-				image: step.kind === "video" ? step.image : null,
+				image:
+					step.kind === "video" || step.kind === "image" ? step.image : null,
 			})),
 		});
 	}
@@ -355,7 +357,9 @@ export function createGraphService(
 							: "Unfinished step."),
 					blocker: step.blocker ?? null,
 					imageInput:
-						step.kind === "video" && step.image ? step.image.imageSource : null,
+						(step.kind === "video" || step.kind === "image") && step.image
+							? step.image.imageSource
+							: null,
 					speech:
 						step.kind === "speech"
 							? { voiceId: step.voiceId, voiceDirection: step.voiceDirection }

@@ -61,6 +61,7 @@ function runtime(env: JobsEnv) {
 		createGatewaySpeechProvider(env.AI_GATEWAY_API_KEY),
 		createGatewayVideoProvider(env.AI_GATEWAY_API_KEY),
 		createGenerationImageAccess(store, media).issue,
+		createGenerationImageAccess(store, media).bytes,
 	);
 	const clips = createClipStore(db);
 	const clipRunner = createClipRunner(

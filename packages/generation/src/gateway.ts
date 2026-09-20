@@ -30,10 +30,12 @@ export function createGatewayImageProvider(
 ): ImageProvider {
 	return {
 		configured: Boolean(apiKey?.trim()),
-		async generate({ modelId, prompt, size }) {
+		async generate({ modelId, prompt, size, referenceImage }) {
 			const result = await generateImage({
 				model: createGateway({ apiKey }).imageModel(modelId),
-				prompt,
+				prompt: referenceImage
+					? { text: prompt, images: [referenceImage] }
+					: prompt,
 				size,
 				n: 1,
 				maxRetries: 0,

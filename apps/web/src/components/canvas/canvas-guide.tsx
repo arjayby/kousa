@@ -233,7 +233,9 @@ export function StarterProgress({
 						variant="outline"
 						onClick={() => focus(session.sourceId)}
 					>
-						Edit source text
+						{session.kind === "image-edit"
+							? "Choose product photo"
+							: "Edit source text"}
 					</Button>
 					<Button
 						size="sm"

@@ -65,8 +65,8 @@ export function connectionCapability(
 		);
 	if (target.type === "image" && handle === "reference")
 		return result(
-			"unsupported",
-			`${model} currently accepts text prompts only in Kousa. Reference images are not sent to this generator. Disconnect reference images before generating, or connect Text to Prompt instead.`,
+			"image",
+			"Edits this reference image using the destination node's prompt. Describe what to change and what to keep.",
 		);
 	if (target.type === "video" && handle === "video")
 		return result(

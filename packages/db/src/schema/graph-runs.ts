@@ -32,20 +32,21 @@ type GraphStepBase = {
 	reason?: string;
 	blocker?: string;
 };
+type GraphImageInput = {
+	nodeId: string;
+	imageSource: "generated" | "project" | "history";
+	runId?: string;
+	assetId?: string | null;
+};
 export type GraphStep = GraphStepBase &
 	(
-		| { kind: "text" | "image" }
+		| { kind: "text" | "image"; image?: GraphImageInput | null }
 		| { kind: "speech"; voiceId: string; voiceDirection: string }
 		| {
 				kind: "video";
 				duration: number;
 				aspectRatio: "1:1" | "16:9" | "9:16" | "4:3";
-				image: {
-					nodeId: string;
-					imageSource: "generated" | "project" | "history";
-					runId?: string;
-					assetId?: string | null;
-				} | null;
+				image: GraphImageInput | null;
 				inputImageOrigin?: string | null;
 		  }
 	);

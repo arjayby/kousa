@@ -311,9 +311,9 @@ export function WorkflowMonitor({ workflow }: { workflow: Workflow }) {
 									{step.imageInput ? (
 										<span className="mt-1 block text-muted-foreground text-xs">
 											{step.imageInput === "history"
-												? "Uses the selected historical image. No image generation charge."
+												? "Uses the selected historical image without regenerating the source."
 												: step.imageInput === "project"
-													? "Uses the selected project image. No image generation charge."
+													? "Uses the selected project image without regenerating the source."
 													: workflow.preview?.request.resumeOf
 														? "Uses the image from this saved workflow, reusing it if already completed."
 														: "Uses this workflow’s exact image output, reusing it when unchanged."}

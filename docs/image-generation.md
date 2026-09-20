@@ -1,6 +1,6 @@
 # Image generation
 
-Image nodes generate through the existing Vercel AI Gateway key and save the result in private project storage. No additional environment variables, provider keys, or paid plan activation are needed for local development. Run `pnpm dev` from the repository root so Alchemy applies migrations through `0010_speech_generation`, starts the jobs Worker, and supplies its bindings.
+Image nodes generate through the existing Vercel AI Gateway key and save the result in private project storage. No additional environment variables or provider keys are needed for reference editing; provider availability depends on the Gateway account. Run `pnpm dev` from the repository root so Alchemy applies migrations through `0027_image_references`, starts the jobs Worker, and supplies its bindings.
 
 ## Model and credits
 
@@ -24,11 +24,19 @@ The server allows only the catalog model and these sizes, with one image per req
 3. Click **Generate image**. The latest successful result appears on the node and in its settings.
 4. Use **Download image** to save a copy. **Show on node** can switch between the latest generation, another saved project image, or no image.
 
-Connected text uses its last successful generated output, falling back to its written text. Upstream nodes do not run automatically. Uploaded images are retained in the project library but are not sent to the model as references. Reference connections are explicitly rejected for this milestone. Failed retries retain the last successful result. Collaborators receive result updates through the existing three-second polling; image metadata refreshes every ten seconds.
+Connected text uses its last successful generated output, falling back to its written text. Upstream nodes do not run automatically. Connect an Image output to another Image node’s Reference input to edit it. The generator receives the uploaded project asset, latest successful output, or selected historical output shown in the input preview. One reference is supported per edit. Failed retries retain the last successful result. Collaborators receive result updates through the existing three-second polling; image metadata refreshes every ten seconds.
+
+## Editing a product photo
+
+Open **Guide → Edit a product photo**. The starter connects **Product photo** to **Product ad** through the Reference input. Upload or select a photo on Product photo, then open Product ad and describe the background, lighting, or composition you want. State which product details should stay the same. The model generates a new asset; the source remains available. Exact label or logo preservation depends on the model output and should be reviewed.
+
+You can also connect an existing generated image as a reference and select any saved historical output. The preview shows the exact input. **Run affected steps** generates upstream image nodes when needed and reuses fixed project/historical references without generating them again. Changing the photo or selected output marks the edit outdated.
+
+This first editing flow uses natural-language instructions and one reference. Region masks, brush edits, and multiple references are not included.
 
 ## Persistence and failure behavior
 
-The saved graph determines the model, size, prompt and connected sources. A client hash detects unsaved or conflicting prompt changes. The browser cannot supply a generation price, output, payer, or arbitrary provider URL.
+The saved graph determines the model, size, prompt and connected sources. A client hash detects unsaved or conflicting prompt changes. The browser cannot supply a generation price, output, payer, or arbitrary provider URL. Reference asset IDs and resolved input history are frozen when queuing. The worker rechecks editing access, loads bounded private bytes, and sends them through the SDK image prompt; image edits do not need a public HTTPS origin. Missing or inaccessible references fail before an AI call.
 
 `generation_run` records the kind and generated asset ID alongside the existing reservation. Queued and running reservations expire after thirty minutes. Available credit calculations release expired reservations immediately; the next list or claim marks abandoned rows failed. Replaying a request ID never repeats a provider call.
 

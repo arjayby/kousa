@@ -255,7 +255,7 @@ it("blocks unapproved models and stale dimensions before reserving", async () =>
 	expect(generate).not.toHaveBeenCalled();
 	expect(await db.store.balance("owner")).toBe(10);
 });
-it("rejects reference connections and bounds combined prompt bytes", () => {
+it("accepts reference connections and bounds combined prompt bytes", () => {
 	expect(() =>
 		buildImagePrompt(
 			{ ...imageInputSnapshot(graph, target.id), content: "😀".repeat(3001) },
@@ -277,9 +277,10 @@ it("rejects reference connections and bounds combined prompt bytes", () => {
 		sourceHandle: "output",
 		targetHandle: "reference",
 	});
-	expect(() => imageInputSnapshot(graph, target.id)).toThrow(
-		"Disconnect reference images",
-	);
+	expect(imageInputSnapshot(graph, target.id).image).toMatchObject({
+		nodeId: source.id,
+		imageSource: "generated",
+	});
 });
 it("refuses a cross-project asset without publishing it or completing the debit", async () => {
 	const otherProject = await db.projects.create("owner", "Other");

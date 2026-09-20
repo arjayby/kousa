@@ -322,7 +322,7 @@ it("moves a reservation to a child atomically and rejects out-of-order starts", 
 	expect(await db.store.balance("owner")).toBe(20);
 	expect(await db.graphs.begin(input.id, 1, "Late worker")).toBe(false);
 });
-it("limits the number of steps and rejects image references before reserving", async () => {
+it("limits the number of steps and includes image references without reserving", async () => {
 	const nodes = Array.from({ length: 21 }, () => {
 		const node = createCanvasNode("text", { x: 0, y: 0 });
 		node.data.content = "Prompt";
@@ -338,7 +338,10 @@ it("limits the number of steps and rejects image references before reserving", a
 	reference.data.content = "Reference";
 	graph.nodes.push(reference);
 	graph.edges.push(connect(reference.id, c.id, "reference"));
-	await expect(planGraph(graph, c.id)).rejects.toThrow("text prompts only");
+	const planned = await planGraph(graph, c.id);
+	expect(planned.plan.find((step) => step.nodeId === c.id)).toMatchObject({
+		image: { nodeId: reference.id, imageSource: "generated" },
+	});
 	expect(await db.store.balance("owner")).toBe(20);
 });
 it("prevents reusing workflow IDs for single generations and the reverse", async () => {
