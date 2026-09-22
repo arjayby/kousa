@@ -3,7 +3,12 @@ import { z } from "zod";
 
 export { resolveSpeechModel } from "./model-catalog";
 
-import { fishVoices, modelsFor, standardImageSizes } from "./model-catalog";
+import {
+	findModel,
+	fishVoices,
+	modelsFor,
+	standardImageSizes,
+} from "./model-catalog";
 
 export const textModels = modelsFor("text");
 export const imageModels = modelsFor("image");
@@ -14,11 +19,7 @@ export const defaultImageModel = "bfl/flux-2-klein-4b";
 export const defaultSpeechModel = "fish-audio/s2.1-pro";
 export const defaultVideoModel = "bytedance/seedance-v1.0-pro-fast";
 export function resolveTextModel(modelId: string | undefined): string {
-	return !modelId ||
-		modelId === "openai/gpt-4.1-mini" ||
-		modelId === "google/gemini-2.5-flash-lite"
-		? defaultTextModel
-		: modelId;
+	return modelId || defaultTextModel;
 }
 // Legacy exports describe the existing defaults. New quotations use modelCreditCost.
 export const textCreditCost = 1;
@@ -33,6 +34,14 @@ export const videoAspectRatios = ["1:1", "16:9", "9:16", "4:3"] as const;
 export const videoDurations = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 export const maxInputBytes = 12_000;
 export const maxOutputTokens = 2_048;
+// A UTF-8 byte can consume at most one token. Keep enough room for the output
+// on small-context models without relying on a provider-specific tokenizer.
+export function textInputByteLimit(modelId: string) {
+	const context = findModel(modelId, "text")?.contextWindow;
+	return context
+		? Math.max(1, Math.min(maxInputBytes, context - maxOutputTokens - 256))
+		: maxInputBytes;
+}
 export const generationProjectInput = z.object({
 	projectId: z.uuid(),
 	canvasId: z.uuid().optional(),

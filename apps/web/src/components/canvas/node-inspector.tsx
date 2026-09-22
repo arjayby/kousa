@@ -6,6 +6,7 @@ import {
 import {
 	imageProfile,
 	imageQualityFor,
+	speechProfile,
 	videoProfile,
 } from "@kousa/generation/model-catalog";
 import type { PublicAsset } from "@kousa/media/contracts";
@@ -291,7 +292,9 @@ export function NodeInspector({
 							}}
 						/>
 					) : null}
-					{kind === "audio" && node.data.speechModel !== "spacexai/grok-tts" ? (
+					{kind === "audio" &&
+					speechProfile(node.data.speechModel ?? "fish-audio/s2.1-pro")
+						.direction ? (
 						<Field>
 							<FieldLabel htmlFor="voice-direction">Voice direction</FieldLabel>
 							{model ? (

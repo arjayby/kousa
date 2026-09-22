@@ -89,7 +89,7 @@ it("requests MP3 speech with a fixed voice, Fish delivery cue and no paid-call r
 		await createGatewaySpeechProvider("test-key").generate({
 			modelId: "fish-audio/s2.1-pro-free",
 			text: "Welcome",
-			voiceId: "voice",
+			voiceId: "933563129e564b19a115bedd57b7406a",
 			voiceDirection: "[warm]\ncalm",
 		}),
 	).toEqual({ bytes, mimeType: "audio/mpeg" });
@@ -98,7 +98,7 @@ it("requests MP3 speech with a fixed voice, Fish delivery cue and no paid-call r
 		expect.objectContaining({
 			model: "speech-model",
 			text: "[warm  calm] Welcome",
-			voice: "voice",
+			voice: "933563129e564b19a115bedd57b7406a",
 			outputFormat: "mp3",
 			maxRetries: 0,
 			abortSignal: expect.any(AbortSignal),
@@ -269,4 +269,97 @@ it("does not send Fish delivery directions to Grok TTS", async () => {
 			outputFormat: "mp3",
 		}),
 	);
+});
+
+it.each([
+	["openai/tts-1", "alloy", ""],
+	["openai/tts-1-hd", "nova", ""],
+	["fish-audio/s1", "933563129e564b19a115bedd57b7406a", ""],
+	["fish-audio/s2-pro", "933563129e564b19a115bedd57b7406a", "warm"],
+])(
+	"routes %s with the provider's voice and supported delivery controls",
+	async (modelId, voiceId, voiceDirection) => {
+		mocks.createGateway.mockReturnValue({ speechModel: mocks.speechModel });
+		mocks.speechModel.mockReturnValue("speech-model");
+		mocks.generateSpeech.mockResolvedValue({
+			audio: { uint8Array: new Uint8Array([1]), mediaType: "audio/mpeg" },
+		});
+		await createGatewaySpeechProvider("key").generate({
+			modelId,
+			voiceId,
+			voiceDirection,
+			text: "Welcome",
+		});
+		expect(mocks.speechModel).toHaveBeenCalledWith(modelId);
+		expect(mocks.generateSpeech).toHaveBeenCalledWith(
+			expect.objectContaining({
+				voice: voiceId,
+				text: voiceDirection ? "[warm] Welcome" : "Welcome",
+				outputFormat: "mp3",
+			}),
+		);
+		expect(mocks.generateSpeech.mock.calls[0]?.[0]).not.toHaveProperty(
+			"instructions",
+		);
+	},
+);
+
+it("rejects unavailable workflows and incompatible voices before contacting Gateway", async () => {
+	await expect(
+		createGatewayProvider("key").generate({
+			modelId: "openai/whisper-1",
+			prompt: "x",
+		}),
+	).rejects.toThrow("Transcription");
+	await expect(
+		createGatewayImageProvider("key").generate({
+			modelId: "bfl/flux-pro-1.0-fill",
+			prompt: "x",
+			size: "1024x1024",
+		}),
+	).rejects.toThrow("mask");
+	await expect(
+		createGatewaySpeechProvider("key").generate({
+			modelId: "openai/tts-1",
+			voiceId: "eve",
+			text: "x",
+			voiceDirection: "",
+		}),
+	).rejects.toThrow("voice");
+	expect(mocks.createGateway).not.toHaveBeenCalled();
+});
+
+it("sends Kontext an aspect ratio and reference image", async () => {
+	const bytes = new Uint8Array([1]);
+	mocks.createGateway.mockReturnValue({ imageModel: mocks.imageModel });
+	mocks.generateImage.mockResolvedValue({
+		image: { uint8Array: bytes, mediaType: "image/png" },
+	});
+	await createGatewayImageProvider("key").generate({
+		modelId: "bfl/flux-kontext-pro",
+		prompt: "Change the background",
+		size: "1024x576",
+		referenceImage: bytes,
+	});
+	expect(mocks.generateImage).toHaveBeenCalledWith(
+		expect.objectContaining({
+			aspectRatio: "16:9",
+			prompt: { text: "Change the background", images: [bytes] },
+		}),
+	);
+	expect(mocks.generateImage.mock.calls[0]?.[0]).not.toHaveProperty("size");
+});
+
+it("omits the unsupported resolution setting on original Nano Banana", async () => {
+	mocks.generateText.mockResolvedValue({
+		files: [{ uint8Array: new Uint8Array([1]), mediaType: "image/png" }],
+	});
+	await createGatewayImageProvider("key").generate({
+		modelId: "google/gemini-2.5-flash-image",
+		prompt: "A tree",
+		size: "1024x576",
+	});
+	expect(
+		mocks.generateText.mock.calls[0]?.[0].providerOptions.google.imageConfig,
+	).toEqual({ aspectRatio: "16:9" });
 });

@@ -1,5 +1,7 @@
 # Gateway model integration contracts
 
+The original Melius-match implementation is recorded below. The subsequent [Gateway model expansion](gateway-model-expansion.md) documents the current 322 selectable models, supported alternatives, and remaining node-compatibility work.
+
 Checked on 2026-09-22 against the live public Gateway catalog, Gateway endpoint metadata, Vercel documentation, and the AI SDK source. Scope is the verified Melius matches in [the catalog report](vercel-ai-gateway-catalog-2026-09-22.md), plus the existing Kousa models. This document records integration evidence. It does not claim that a paid generation was run for every model.
 
 Kousa has AI SDK 7.0.105 and Gateway 4.0.85 installed. The upstream source reviewed was commit `4e8c387622ee1bb0d55841664416d38754d5c9a3`. Gateway executes provider adapters remotely, so local support for a request shape does not by itself establish that every upstream feature has reached Gateway.

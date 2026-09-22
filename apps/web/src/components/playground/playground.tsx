@@ -14,6 +14,7 @@ import {
 	imageQualityFor,
 	modelSettingsPatch,
 	resolveSpeechModel,
+	speechProfile,
 	videoProfile,
 	voicesFor,
 } from "@kousa/generation/model-catalog";
@@ -549,10 +550,9 @@ export function Playground({
 												setDraft((d) => ({ ...d, voiceId }))
 											}
 										/>
-										{draft.models.speech === "spacexai/grok-tts" ? (
+										{!speechProfile(draft.models.speech).direction ? (
 											<FieldDescription>
-												Add delivery tags such as [pause] or [laugh] in the
-												script.
+												{speechProfile(draft.models.speech).description}
 											</FieldDescription>
 										) : (
 											<Field>

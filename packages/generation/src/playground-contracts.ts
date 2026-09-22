@@ -4,11 +4,16 @@ import {
 	maxInputBytes,
 	maxSpeechCharacters,
 	speechModels,
+	textInputByteLimit,
 	textModels,
 	videoModels,
 } from "./contracts";
 import { authoredSettingsSchema } from "./history";
-import { modelCreditCost, validateModelSettings } from "./model-catalog";
+import {
+	imageProfile,
+	modelCreditCost,
+	validateModelSettings,
+} from "./model-catalog";
 
 export const playgroundModels = {
 	text: textModels,
@@ -24,21 +29,29 @@ export const playgroundSettings = authoredSettingsSchema.superRefine(
 				path: ["content"],
 				message: "Write a prompt before generating.",
 			});
-		if (new TextEncoder().encode(settings.content).length > maxInputBytes)
+		const byteLimit =
+			settings.kind === "text"
+				? textInputByteLimit(settings.modelId)
+				: maxInputBytes;
+		if (new TextEncoder().encode(settings.content).length > byteLimit)
 			ctx.addIssue({
 				code: "custom",
 				path: ["content"],
-				message: "Shorten your prompt to 12 KB or less.",
+				message:
+					byteLimit === maxInputBytes
+						? "Shorten your prompt to 12 KB or less."
+						: `Shorten your prompt to ${byteLimit.toLocaleString("en-US")} bytes or choose a model with a larger context.`,
 			});
 		const settingsError = validateModelSettings(settings);
 		if (
 			settings.modelId.startsWith("recraft/") &&
-			settings.content.length > 10_000
+			settings.content.length >
+				imageProfile(settings.modelId).promptMaxCharacters
 		)
 			ctx.addIssue({
 				code: "custom",
 				path: ["content"],
-				message: "Recraft prompts must be 10,000 characters or fewer.",
+				message: `Recraft prompts must be ${imageProfile(settings.modelId).promptMaxCharacters.toLocaleString("en-US")} characters or fewer.`,
 			});
 		if (settingsError)
 			ctx.addIssue({

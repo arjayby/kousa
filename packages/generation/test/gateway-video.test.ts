@@ -91,6 +91,15 @@ it.each([
 	["google/veo-3.1-generate-001", 6, "1280x720", undefined],
 	["klingai/kling-v3.0-t2v", 7, undefined, { klingai: { mode: "pro" } }],
 	["alibaba/wan-v3.0-video", 2, "832x480", undefined],
+	["alibaba/wan-v3.0-video-prime", 5, "832x480", undefined],
+	["google/veo-3.1-lite-generate-001", 4, "1280x720", undefined],
+	["klingai/kling-v2.6-t2v", 5, undefined, { klingai: { mode: "pro" } }],
+	[
+		"bytedance/seedance-v1.5-pro",
+		5,
+		"854x480",
+		{ bytedance: { resolution: "480p" } },
+	],
 	[
 		"spacexai/grok-imagine-video-1.5",
 		1,

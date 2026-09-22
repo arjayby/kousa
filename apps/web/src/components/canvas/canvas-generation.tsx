@@ -23,6 +23,7 @@ import {
 	modelCreditCost,
 	modelSettingsPatch,
 	resolveSpeechModel,
+	speechProfile,
 	validateModelSettings,
 	videoProfile,
 	voicesFor,
@@ -498,9 +499,7 @@ export function GenerationPanel({
 						</SelectContent>
 					</Select>
 					<FieldDescription>
-						{settings.model === "spacexai/grok-tts"
-							? "Add delivery tags such as [pause] or [laugh] in the script."
-							: "Voice direction controls delivery, such as calm or excited. Results can vary."}
+						{speechProfile(settings.model).description}
 					</FieldDescription>
 				</Field>
 			) : null}

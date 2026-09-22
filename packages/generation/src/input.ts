@@ -9,10 +9,12 @@ import {
 	maxInputBytes,
 	maxSpeechCharacters,
 	resolveTextModel,
+	textInputByteLimit,
 } from "./contracts";
 
 import {
 	defaultVoiceFor,
+	imageProfile,
 	imageQualityFor,
 	imageSizeFor,
 	resolveSpeechModel,
@@ -103,10 +105,13 @@ export function buildPrompt(
 	const prompt = context
 		? `Connected text context:\n${context}\n\nYour task:\n${snapshot.content}`
 		: snapshot.content;
-	if (new TextEncoder().encode(prompt).length > maxInputBytes)
+	const byteLimit = textInputByteLimit(snapshot.modelId);
+	if (new TextEncoder().encode(prompt).length > byteLimit)
 		throw new GenerationError(
 			"BAD_REQUEST",
-			"The prompt and connected text exceed 12 KB. Shorten them before generating.",
+			byteLimit === maxInputBytes
+				? "The prompt and connected text exceed 12 KB. Shorten them before generating."
+				: `The prompt and connected text exceed this model's ${byteLimit.toLocaleString("en-US")}-byte input limit. Shorten them or choose a model with a larger context.`,
 		);
 	return prompt;
 }
@@ -192,10 +197,11 @@ export function buildImagePrompt(
 			"BAD_REQUEST",
 			"Write a prompt or connect a text node before generating.",
 		);
-	if (snapshot.modelId?.startsWith("recraft/") && prompt.length > 10_000)
+	const promptLimit = imageProfile(snapshot.modelId ?? "").promptMaxCharacters;
+	if (snapshot.modelId?.startsWith("recraft/") && prompt.length > promptLimit)
 		throw new GenerationError(
 			"BAD_REQUEST",
-			"Recraft prompts must be 10,000 characters or fewer.",
+			`Recraft prompts must be ${promptLimit.toLocaleString("en-US")} characters or fewer.`,
 		);
 	if (new TextEncoder().encode(prompt).length > maxInputBytes)
 		throw new GenerationError(

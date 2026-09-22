@@ -1,6 +1,12 @@
 import { createGateway, generateImage, generateSpeech, generateText } from "ai";
 import { maxOutputTokens } from "./contracts";
-import { imageProfile, resolveSpeechModel } from "./model-catalog";
+import {
+	findModel,
+	imageProfile,
+	resolveSpeechModel,
+	speechProfile,
+	validateModelSettings,
+} from "./model-catalog";
 import type { ImageProvider, SpeechProvider, TextProvider } from "./providers";
 
 export function createGatewayProvider(
@@ -9,11 +15,16 @@ export function createGatewayProvider(
 	return {
 		configured: Boolean(apiKey?.trim()),
 		async generate({ modelId, prompt }) {
+			const error = validateModelSettings({ kind: "text", modelId });
+			if (error) throw new Error(error);
 			const gateway = createGateway({ apiKey });
 			const result = await generateText({
 				model: gateway(modelId),
 				prompt,
-				maxOutputTokens,
+				maxOutputTokens: Math.min(
+					findModel(modelId)?.maxOutputTokens || maxOutputTokens,
+					maxOutputTokens,
+				),
 				maxRetries: 0,
 				abortSignal: AbortSignal.timeout(60_000),
 			});
@@ -35,6 +46,11 @@ export function createGatewayImageProvider(
 	return {
 		configured: Boolean(apiKey?.trim()),
 		async generate({ modelId, prompt, size, referenceImage, quality }) {
+			const error = validateModelSettings(
+				{ kind: "image", modelId },
+				Boolean(referenceImage),
+			);
+			if (error) throw new Error(error);
 			const profile = imageProfile(modelId);
 			if (referenceImage && !profile.reference)
 				throw new Error("Unsupported image reference");
@@ -61,7 +77,12 @@ export function createGatewayImageProvider(
 					providerOptions: {
 						google: {
 							responseModalities: ["TEXT", "IMAGE"],
-							imageConfig: { aspectRatio: ratio, imageSize: "1K" },
+							imageConfig: {
+								aspectRatio: ratio,
+								...(modelId === "google/gemini-2.5-flash-image"
+									? {}
+									: { imageSize: "1K" }),
+							},
 						},
 					},
 					maxRetries: 0,
@@ -77,7 +98,9 @@ export function createGatewayImageProvider(
 				};
 			}
 			const usesRatio =
-				modelId === "bfl/flux-pro-1.1-ultra" || modelId.startsWith("spacexai/");
+				modelId === "bfl/flux-pro-1.1-ultra" ||
+				modelId.startsWith("bfl/flux-kontext-") ||
+				modelId.startsWith("spacexai/");
 			const result = await generateImage({
 				model: gateway.imageModel(modelId),
 				prompt: referenceImage
@@ -130,9 +153,16 @@ export function createGatewaySpeechProvider(
 		configured: Boolean(apiKey?.trim()),
 		async generate({ modelId, text, voiceId, voiceDirection }) {
 			const resolvedModel = resolveSpeechModel(modelId);
+			const error = validateModelSettings({
+				kind: "speech",
+				modelId: resolvedModel,
+				voiceId,
+				voiceDirection,
+			});
+			if (error) throw new Error(error);
 			// Fish S2 uses natural-language bracket cues, not the SDK's instructions field.
 			// Keep the immutable spoken script separate for the saved transcript.
-			const cue = resolvedModel.startsWith("fish-audio/")
+			const cue = speechProfile(resolvedModel).direction
 				? voiceDirection.replace(/[[\]\r\n]/g, " ").trim()
 				: "";
 			const result = await generateSpeech({

@@ -76,13 +76,14 @@ beforeEach(async () => {
 describe("generation and credit ledger", () => {
 	it.each([
 		[undefined, "amazon/nova-micro"],
-		["openai/gpt-4.1-mini", "amazon/nova-micro"],
-		["google/gemini-2.5-flash-lite", "amazon/nova-micro"],
+		["openai/gpt-4.1-mini", "openai/gpt-4.1-mini"],
+		["google/gemini-2.5-flash-lite", "google/gemini-2.5-flash-lite"],
 		["amazon/nova-micro", "amazon/nova-micro"],
 		["amazon/nova-lite", "amazon/nova-lite"],
 	])(
-		"routes saved model %s to the eligible model %s",
+		"preserves saved model %s as %s without silently changing providers",
 		async (saved, expected) => {
+			await database.grant("owner", 10);
 			target.data.textModel = saved;
 			await database.setGraph(projectId, graph);
 			const run = await service().generate("owner", await input());

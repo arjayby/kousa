@@ -24,6 +24,24 @@ const providerNames: Record<string, string> = {
 	minimax: "MiniMax",
 	klingai: "Kuaishou",
 	"fish-audio": "Fish Audio",
+	"arcee-ai": "Arcee AI",
+	cohere: "Cohere",
+	inception: "Inception",
+	inclusionai: "InclusionAI",
+	"inference-net": "Inference.net",
+	interfaze: "Interfaze",
+	mixedbread: "Mixedbread",
+	moonshotai: "Moonshot AI",
+	morph: "Morph",
+	nvidia: "NVIDIA",
+	perplexity: "Perplexity",
+	poolside: "Poolside",
+	sakana: "Sakana AI",
+	stepfun: "StepFun",
+	tencent: "Tencent",
+	thinkingmachines: "Thinking Machines",
+	xiaomi: "Xiaomi",
+	zai: "Z.ai",
 };
 export type CatalogModel = {
 	id: string;
@@ -32,19 +50,44 @@ export type CatalogModel = {
 	provider: string;
 	providerName: string;
 	pricing: Record<string, unknown>;
+	gatewayType: string;
+	inputModalities: string[];
+	outputModalities: string[];
+	contextWindow: number;
+	maxOutputTokens: number;
 	unavailableReason?: string;
 };
-// Reviewed Melius matches and existing Kousa models, never the entire live catalog.
+const unavailableModels: Record<string, string> = {
+	"google/gemini-omni-flash-preview":
+		"Gateway lists video output, but its video request contract is not yet verified.",
+	"quiverai/arrow-2":
+		"Requires a vector generation workflow that is not available yet.",
+	"quiverai/arrow-2-telos":
+		"Requires a vector generation workflow that is not available yet.",
+	"bfl/flux-pro-1.0-fill":
+		"Requires an image and a mask. Mask inputs are not available yet.",
+	"klingai/kling-v2.6-motion-control":
+		"Requires an image and a motion reference video. Motion control is not available yet.",
+	"klingai/kling-v3.0-motion-control":
+		"Requires an image and a motion reference video. Motion control is not available yet.",
+};
+// A reviewed snapshot, not an automatic opt-in to newly published paid models.
+// Gateway capabilities describe the model, not the inputs Kousa sends today.
 export const modelCatalog: CatalogModel[] = modelData.map((model) => ({
 	...model,
 	kind: model.kind as ModelKind,
+	contextWindow: model.contextWindow ?? 0,
+	maxOutputTokens: model.maxOutputTokens ?? 0,
 	providerName: providerNames[model.provider] ?? model.provider,
-	...(model.id === "google/gemini-omni-flash-preview"
-		? {
-				unavailableReason:
-					"Gateway lists video output, but its video request contract is not yet verified.",
-			}
-		: {}),
+	unavailableReason:
+		unavailableModels[model.id] ??
+		(model.gatewayType === "transcription"
+			? "Requires recorded audio. Transcription inputs are not available yet."
+			: model.kind === "text" &&
+					(!Number.isFinite(Number(model.pricing.input)) ||
+						!Number.isFinite(Number(model.pricing.output)))
+				? "A credit quote for this model is not available yet."
+				: undefined),
 }));
 export const modelsFor = (kind: ModelKind) =>
 	modelCatalog.filter((model) => model.kind === kind);
@@ -83,6 +126,12 @@ const recraftProSizes = {
 	"9:16": "1536x2688",
 	"4:3": "2432x1792",
 } as const;
+const recraftLegacySizes = {
+	"1:1": "1024x1024",
+	"16:9": "1820x1024",
+	"9:16": "1024x1820",
+	"4:3": "1365x1024",
+} as const;
 const largeImageSizes = {
 	"1:1": "2048x2048",
 	"16:9": "2560x1440",
@@ -99,7 +148,9 @@ export function imageProfile(id: string) {
 		automaticSize: vector || provider === "meta",
 		// The application exports Arrow's SVG as PNG for storage and downstream models.
 		aspectRatios:
-			vector || provider === "meta" || id === "openai/gpt-image-2"
+			vector ||
+			provider === "meta" ||
+			(provider === "openai" && !id.startsWith("openai/gpt-image-2.5-"))
 				? (["1:1"] as const)
 				: aspectRatios,
 		sizes:
@@ -107,11 +158,13 @@ export function imageProfile(id: string) {
 				? largeImageSizes
 				: provider === "openai"
 					? openAIImageSizes
-					: id === "recraft/recraft-v4.1-pro"
+					: provider === "recraft" && id.endsWith("-pro")
 						? recraftProSizes
-						: provider === "recraft"
-							? recraftSizes
-							: standardImageSizes,
+						: id === "recraft/recraft-v2" || id === "recraft/recraft-v3"
+							? recraftLegacySizes
+							: provider === "recraft"
+								? recraftSizes
+								: standardImageSizes,
 		qualityOptions:
 			provider === "openai" ? (["low", "medium", "high"] as const) : [],
 		reference:
@@ -121,7 +174,12 @@ export function imageProfile(id: string) {
 			provider === "bytedance" ||
 			provider === "meta" ||
 			id.startsWith("bfl/flux-2-") ||
+			id.startsWith("bfl/flux-kontext-") ||
 			provider === "spacexai",
+		promptMaxCharacters:
+			id === "recraft/recraft-v2" || id === "recraft/recraft-v3"
+				? 1_000
+				: 10_000,
 	};
 }
 export function imageSizeFor(id: string, ratio: AspectRatio) {
@@ -141,6 +199,7 @@ type VideoCapabilities = {
 	supported_resolutions: string[];
 	supported_aspect_ratios: string[];
 	supported_durations_seconds: number[];
+	generate_audio?: boolean;
 };
 const videoCapabilities: Record<string, VideoCapabilities> = videoData;
 export function videoProfile(id: string) {
@@ -151,6 +210,8 @@ export function videoProfile(id: string) {
 			? "768p"
 			: (caps?.supported_resolutions[0] ?? "720p");
 	return {
+		operations,
+		generatesAudio: caps?.generate_audio === true,
 		aspectRatios: aspectRatios.filter((ratio) =>
 			caps?.supported_aspect_ratios.includes(ratio),
 		),
@@ -187,11 +248,32 @@ export const grokVoices = [
 	{ id: "sal", name: "Sal" },
 	{ id: "leo", name: "Leo" },
 ] as const;
+export const openAIVoices = [
+	{ id: "alloy", name: "Alloy" },
+	{ id: "echo", name: "Echo" },
+	{ id: "fable", name: "Fable" },
+	{ id: "onyx", name: "Onyx" },
+	{ id: "nova", name: "Nova" },
+	{ id: "shimmer", name: "Shimmer" },
+] as const;
 export function resolveSpeechModel(id?: string) {
 	return !id || id === "fish-audio/s2.1-pro-free" ? "fish-audio/s2.1-pro" : id;
 }
 export function voicesFor(id: string) {
-	return id === "spacexai/grok-tts" ? grokVoices : fishVoices;
+	if (id === "spacexai/grok-tts") return grokVoices;
+	if (id.startsWith("openai/tts-1")) return openAIVoices;
+	return fishVoices;
+}
+export function speechProfile(id: string) {
+	const direction = resolveSpeechModel(id).startsWith("fish-audio/s2");
+	return {
+		direction,
+		description: direction
+			? "Voice direction controls delivery, such as calm or excited. Results can vary."
+			: id === "spacexai/grok-tts"
+				? "Add delivery tags such as [pause] or [laugh] in the script."
+				: "Choose a voice. This model does not support a separate voice direction.",
+	};
 }
 export function defaultVoiceFor(id: string) {
 	return voicesFor(id)[0].id;
@@ -201,6 +283,21 @@ export function defaultVoiceFor(id: string) {
 // Text reserves for the 12 KB input / 2,048 output token caps. Existing defaults
 // retain their prices. Media tiers cover the bounded settings exposed below.
 const imageCredits: Record<string, number> = {
+	"bfl/flux-2-flex": 16,
+	"bfl/flux-2-klein-9b": 8,
+	"bfl/flux-2-pro": 12,
+	"bfl/flux-kontext-max": 16,
+	"bfl/flux-kontext-pro": 8,
+	"bfl/flux-pro-1.1": 8,
+	"bytedance/seedream-4.0": 6,
+	"google/gemini-2.5-flash-image": 8,
+	"google/gemini-3.1-flash-image-preview": 16,
+	"recraft/recraft-v2": 5,
+	"recraft/recraft-v3": 8,
+	"recraft/recraft-v4": 8,
+	"recraft/recraft-v4-pro": 50,
+	"recraft/recraft-v4.1-utility": 7,
+	"recraft/recraft-v4.1-utility-pro": 42,
 	"bfl/flux-2-klein-4b": 3,
 	"bfl/flux-2-max": 16,
 	"bfl/flux-pro-1.1-ultra": 12,
@@ -219,6 +316,20 @@ const imageCredits: Record<string, number> = {
 	"spacexai/grok-imagine-image-2.0": 12,
 };
 const videoCreditsPerSecond: Record<string, number> = {
+	"alibaba/wan-v2.5-t2v-preview": 10,
+	"alibaba/wan-v2.6-i2v": 20,
+	"alibaba/wan-v2.6-i2v-flash": 10,
+	"alibaba/wan-v2.6-r2v": 20,
+	"alibaba/wan-v2.6-r2v-flash": 10,
+	"alibaba/wan-v2.6-t2v": 20,
+	"alibaba/wan-v3.0-video-prime": 14,
+	"bytedance/seedance-v1.0-pro": 5,
+	"bytedance/seedance-v1.5-pro": 5,
+	"google/veo-3.0-fast-generate-001": 30,
+	"google/veo-3.0-generate-001": 80,
+	"google/veo-3.1-lite-generate-001": 10,
+	"klingai/kling-v2.6-i2v": 28,
+	"klingai/kling-v2.6-t2v": 28,
 	"bytedance/seedance-v1.0-pro-fast": 2,
 	"bfl/flux-3-video": 20,
 	"minimax/minimax-h3": 20,
@@ -247,7 +358,7 @@ export function modelCreditCost(
 ) {
 	const model = findModel(id, kind);
 	if (!model || model.unavailableReason) return 0;
-	if (kind === "speech") return 2;
+	if (kind === "speech") return id === "openai/tts-1-hd" ? 4 : 2;
 	if (kind === "video")
 		return Math.ceil((videoCreditsPerSecond[id] ?? 0) * duration);
 	if (kind === "image")
@@ -320,10 +431,12 @@ export function validateModelSettings(
 		return "Choose a voice supported by this model.";
 	if (
 		settings.kind === "speech" &&
-		settings.modelId === "spacexai/grok-tts" &&
+		!speechProfile(settings.modelId).direction &&
 		settings.voiceDirection?.trim()
 	)
-		return "Grok TTS uses delivery tags in the script. Clear the separate voice direction.";
+		return settings.modelId === "spacexai/grok-tts"
+			? "Grok TTS uses delivery tags in the script. Clear the separate voice direction."
+			: "This model does not support voice direction. Clear it before generating.";
 	if (settings.kind === "video") {
 		const profile = videoProfile(settings.modelId);
 		if (

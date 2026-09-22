@@ -185,7 +185,7 @@ describe("connection contributions", () => {
 			runId: null,
 		});
 	});
-	it("rejects unknown models and resolves legacy text model selections", () => {
+	it("rejects unknown models and preserves supported text model selections", () => {
 		const source = node("text");
 		const target = node("text");
 		target.data.textModel = "unknown";
@@ -195,7 +195,7 @@ describe("connection contributions", () => {
 		target.data.textModel = "openai/gpt-4.1-mini";
 		expect(connectionCapability(source, target, "context")).toMatchObject({
 			usage: "text",
-			model: "Nova Micro",
+			model: "GPT-4.1 mini",
 		});
 	});
 });
