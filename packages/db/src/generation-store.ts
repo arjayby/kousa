@@ -328,7 +328,7 @@ export function createGenerationStore(db: Database) {
 						eq(generationRun.id, id),
 						eq(generationRun.status, "running"),
 						sql`${generationRun.expiresAt} > now()`,
-						sql`${generationRun.inputImageAssetId} is not null`,
+						sql`(${generationRun.inputImageAssetId} is not null or jsonb_array_length(coalesce(${generationRun.resolvedInputs}->'media', '[]'::jsonb)) > 0)`,
 						isNull(generationRun.inputImageTokenHash),
 					),
 				)

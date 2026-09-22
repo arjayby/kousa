@@ -20,7 +20,7 @@ const edge = (source: string, target: string): CanvasEdge => ({
 });
 
 describe("connection edits", () => {
-	it("reconnects onto an occupied input and restores both edges in one undo, including on a remote replica", () => {
+	it("reconnects into multi-input context without replacing the other connection, including on a remote replica", () => {
 		const a = node();
 		const b = node();
 		const c = node();
@@ -38,10 +38,12 @@ describe("connection edits", () => {
 		const connection = edge(a.id, d.id);
 		const plan = planConnection(graph, connection, original.id);
 		expect(plan.error).toBeNull();
-		expect(plan.removed).toHaveLength(2);
+		expect(plan.removed).toHaveLength(1);
 		model.apply(graph, { ...graph, edges: [...plan.edges, connection] });
 		Y.applyUpdate(remote, Y.encodeStateAsUpdate(doc));
-		expect(replica.read().document.edges).toEqual([connection]);
+		expect(
+			new Set(replica.read().document.edges.map((edge) => edge.id)),
+		).toEqual(new Set([occupied.id, connection.id]));
 		model.history.undo();
 		Y.applyUpdate(remote, Y.encodeStateAsUpdate(doc));
 		expect(
@@ -49,13 +51,15 @@ describe("connection edits", () => {
 		).toEqual(new Set([original.id, occupied.id]));
 		expect(model.history.canUndo()).toBe(false);
 		model.history.redo();
-		expect(model.read().document.edges).toEqual([connection]);
+		expect(new Set(model.read().document.edges.map((edge) => edge.id))).toEqual(
+			new Set([occupied.id, connection.id]),
+		);
 		model.destroy();
 		replica.destroy();
 		doc.destroy();
 		remote.destroy();
 	});
-	it("replaces an occupied input without requiring its removal first", () => {
+	it("adds context without replacing existing inputs", () => {
 		const a = node();
 		const b = node();
 		const c = node();
@@ -63,8 +67,8 @@ describe("connection edits", () => {
 		const graph = { nodes: [a, b, c], edges: [old] };
 		const plan = planConnection(graph, edge(c.id, b.id));
 		expect(plan.error).toBeNull();
-		expect(plan.occupied).toEqual(old);
-		expect(plan.edges).toEqual([]);
+		expect(plan.occupied).toBeUndefined();
+		expect(plan.edges).toEqual([old]);
 		expect(graph.edges).toEqual([old]);
 	});
 	it("validates loops against the final graph and preserves the original on rejection", () => {

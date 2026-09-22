@@ -135,12 +135,12 @@ const fitOptions = { padding: 0.22, maxZoom: 1 };
 function asConnection(value: Connection | Edge): CanvasConnection | null {
 	return value.source &&
 		value.target &&
-		value.sourceHandle === "output" &&
+		["output", "lastFrame", "audio"].includes(value.sourceHandle ?? "") &&
 		value.targetHandle
 		? {
 				source: value.source,
 				target: value.target,
-				sourceHandle: "output",
+				sourceHandle: value.sourceHandle as CanvasConnection["sourceHandle"],
 				targetHandle: value.targetHandle,
 			}
 		: null;

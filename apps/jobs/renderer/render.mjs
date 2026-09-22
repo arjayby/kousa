@@ -124,3 +124,89 @@ export async function renderClip(video, audio, settings) {
 		await rm(dir, { recursive: true, force: true });
 	}
 }
+
+// Decode only saved MP4 bytes; FFmpeg cannot fetch network inputs.
+export async function extractVideoOutput(video, output) {
+	if (
+		!video.length ||
+		video.length > 20 * 1024 * 1024 ||
+		!["lastFrame", "audio"].includes(output)
+	)
+		throw new Error("Invalid video output request");
+	const dir = await mkdtemp(join(tmpdir(), "kousa-extract-"));
+	try {
+		const input = join(dir, "input.mp4");
+		const path = join(dir, output === "lastFrame" ? "frame.png" : "audio.mp3");
+		await writeFile(input, video);
+		const info = await probe(input);
+		const tracks = info.streams.filter((track) => track.codec_type === "video");
+		const track = tracks[0];
+		const duration = Number(track?.duration);
+		if (
+			tracks.length !== 1 ||
+			track.codec_name !== "h264" ||
+			track.width > 1920 ||
+			track.height > 1920 ||
+			!Number.isFinite(duration) ||
+			duration <= 0 ||
+			duration > 12
+		)
+			throw new Error("Invalid video input");
+		if (
+			output === "audio" &&
+			!info.streams.some((track) => track.codec_type === "audio")
+		)
+			throw new Error("This video has no audio track");
+		const args =
+			output === "lastFrame"
+				? [
+						"-ss",
+						String(Math.max(0, duration - 1)),
+						"-i",
+						input,
+						"-update",
+						"1",
+						"-an",
+						"-c:v",
+						"png",
+					]
+				: [
+						"-i",
+						input,
+						"-map",
+						"0:a:0",
+						"-vn",
+						"-c:a",
+						"libmp3lame",
+						"-b:a",
+						"128k",
+						"-ar",
+						"44100",
+						"-ac",
+						"2",
+						"-t",
+						String(duration),
+					];
+		await run("ffmpeg", [
+			"-hide_banner",
+			"-loglevel",
+			"error",
+			"-nostdin",
+			"-y",
+			"-protocol_whitelist",
+			"file,pipe",
+			...args,
+			"-map_metadata",
+			"-1",
+			"-threads",
+			"1",
+			path,
+		]);
+		const bytes = await readFile(path);
+		if (!bytes.length || bytes.length > 10 * 1024 * 1024)
+			throw new Error("Extracted output too large");
+		return bytes;
+	} finally {
+		await rm(dir, { recursive: true, force: true });
+	}
+}

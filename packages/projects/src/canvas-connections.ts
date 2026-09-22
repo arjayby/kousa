@@ -3,6 +3,7 @@ import {
 	type CanvasDocument,
 	type CanvasEdge,
 	connectionError,
+	inputPorts,
 } from "./canvas";
 
 type Graph = Pick<CanvasDocument, "nodes" | "edges">;
@@ -16,12 +17,19 @@ export function planConnection(
 	const previous = reconnectId
 		? graph.edges.find((edge) => edge.id === reconnectId)
 		: undefined;
-	const occupied = graph.edges.find(
-		(edge) =>
-			edge.target === connection.target &&
-			edge.targetHandle === connection.targetHandle &&
-			edge.id !== reconnectId,
-	);
+	const target = graph.nodes.find((node) => node.id === connection.target);
+	const multiple =
+		target &&
+		(inputPorts[target.type].find((port) => port.id === connection.targetHandle)
+			?.maxConnections ?? 1) > 1;
+	const occupied = multiple
+		? undefined
+		: graph.edges.find(
+				(edge) =>
+					edge.target === connection.target &&
+					edge.targetHandle === connection.targetHandle &&
+					edge.id !== reconnectId,
+			);
 	const removed = graph.edges.filter(
 		(edge) => edge.id === reconnectId || edge.id === occupied?.id,
 	);

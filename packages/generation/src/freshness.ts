@@ -1,4 +1,8 @@
-import type { ResolvedInputs } from "@kousa/db/schema/generation-inputs";
+import type {
+	MediaInput,
+	ResolvedInputs,
+	ResolvedMediaInput,
+} from "@kousa/db/schema/generation-inputs";
 import type { CanvasDocument } from "@kousa/projects/canvas";
 import { nodeGenerationKind } from "@kousa/projects/canvas";
 import { graphDependencies } from "./graph-selection";
@@ -8,6 +12,7 @@ import {
 	textInputSnapshot,
 	videoInputSnapshot,
 } from "./input";
+import { resolveMediaInputs } from "./media-inputs";
 
 type Result = {
 	id: string;
@@ -18,6 +23,7 @@ type Result = {
 	resolvedInputs?: ResolvedInputs | null;
 };
 type Snapshot = {
+	media?: MediaInput[];
 	kind: string;
 	modelId: string;
 	content: string;
@@ -48,9 +54,13 @@ export function resolveInputs(
 	snapshot: Snapshot,
 	outputs: Pick<Result, "id" | "nodeId" | "output">[],
 	image?: { id: string; assetId: string | null } | null,
+	media?: ResolvedMediaInput[],
 ): ResolvedInputs {
 	return {
 		version: 1,
+		...(snapshot.media?.length
+			? { media: media ?? resolveMediaInputs(snapshot.media) }
+			: {}),
 		settings: {
 			kind: snapshot.kind,
 			...(snapshot.imageQuality ? { imageQuality: snapshot.imageQuality } : {}),
@@ -154,6 +164,9 @@ export function graphFreshness(graph: CanvasDocument, results: Result[]) {
 					snapshot.image
 					? chosen.get(snapshot.image.nodeId)
 					: null,
+				resolveMediaInputs("media" in snapshot ? snapshot.media : [], [
+					...chosen.values(),
+				]),
 			);
 			const previous = run?.resolvedInputs;
 			const upstream = [...(dependencies.get(nodeId) ?? [])].find(
@@ -164,6 +177,10 @@ export function graphFreshness(graph: CanvasDocument, results: Result[]) {
 			);
 			if (
 				missingPin ||
+				("media" in snapshot &&
+					snapshot.media?.some(
+						(input) => input.source === "history" && !chosen.has(input.nodeId),
+					)) ||
 				((snapshot.kind === "video" || snapshot.kind === "image") &&
 					snapshot.image?.imageSource === "history" &&
 					!chosen.has(snapshot.image.nodeId))

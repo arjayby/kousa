@@ -121,7 +121,7 @@ export const generationRun = pgTable(
 		),
 		check(
 			"generation_input_image_valid",
-			sql`(${t.inputImageAssetId} is null and ${t.inputImageOrigin} is null and ${t.inputImageTokenHash} is null) or (${t.kind} = 'image' and ${t.inputImageAssetId} is not null and ${t.inputImageOrigin} is null and ${t.inputImageTokenHash} is null) or (${t.kind} = 'video' and ${t.inputImageAssetId} is not null and ${t.inputImageOrigin} is not null and (${t.inputImageTokenHash} is null or ${t.inputImageTokenHash} ~ '^[a-f0-9]{64}$'))`,
+			sql`(${t.inputImageAssetId} is null and ${t.inputImageOrigin} is null and ${t.inputImageTokenHash} is null) or (${t.kind} = 'image' and ${t.inputImageAssetId} is not null and ${t.inputImageOrigin} is null and ${t.inputImageTokenHash} is null) or (${t.kind} = 'video' and (${t.inputImageAssetId} is not null or jsonb_array_length(coalesce(${t.resolvedInputs}->'media', '[]'::jsonb)) > 0) and ${t.inputImageOrigin} is not null and (${t.inputImageTokenHash} is null or ${t.inputImageTokenHash} ~ '^[a-f0-9]{64}$'))`,
 		),
 		check(
 			"generation_kind_valid",

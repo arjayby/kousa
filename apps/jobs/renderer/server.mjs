@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { createServer } from "node:http";
-import { renderClip } from "./render.mjs";
+import { extractVideoOutput, renderClip } from "./render.mjs";
 
 try {
 	for (const command of ["ffmpeg", "ffprobe"])
@@ -19,7 +19,11 @@ createServer(async (req, res) => {
 		res.end("ok");
 		return;
 	}
-	if (req.method !== "POST" || req.url !== "/render" || req.headers.origin) {
+	if (
+		req.method !== "POST" ||
+		!["/render", "/extract"].includes(req.url) ||
+		req.headers.origin
+	) {
 		res.writeHead(404);
 		res.end();
 		return;
@@ -46,15 +50,30 @@ createServer(async (req, res) => {
 		const form = await request.formData();
 		const video = form.get("video");
 		const audio = form.get("audio");
-		if (!(video instanceof Blob) || !(audio instanceof Blob))
+		if (
+			!(video instanceof Blob) ||
+			(req.url === "/render" && !(audio instanceof Blob))
+		)
 			throw new Error("Missing media");
-		const result = await renderClip(
-			new Uint8Array(await video.arrayBuffer()),
-			new Uint8Array(await audio.arrayBuffer()),
-			JSON.parse(String(form.get("settings"))),
-		);
+		const output = String(form.get("output"));
+		const result =
+			req.url === "/extract"
+				? await extractVideoOutput(
+						new Uint8Array(await video.arrayBuffer()),
+						output,
+					)
+				: await renderClip(
+						new Uint8Array(await video.arrayBuffer()),
+						new Uint8Array(await audio.arrayBuffer()),
+						JSON.parse(String(form.get("settings"))),
+					);
 		res.writeHead(200, {
-			"Content-Type": "video/mp4",
+			"Content-Type":
+				req.url === "/extract"
+					? output === "lastFrame"
+						? "image/png"
+						: "audio/mpeg"
+					: "video/mp4",
 			"Content-Length": result.length,
 		});
 		res.end(result);

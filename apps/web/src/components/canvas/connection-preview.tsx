@@ -144,7 +144,9 @@ export function ConnectionPreview({
 					) : null}
 				</>
 			)}
-			{input.usage === "text" || input.usage === "image" ? (
+			{input.usage === "text" ||
+			input.usage === "image" ||
+			input.usage === "media" ? (
 				<p className="text-muted-foreground text-xs">
 					Generate uses the output shown now. Run affected steps may update
 					upstream outputs first. Historical selections and project assets stay
@@ -258,8 +260,27 @@ export function ConnectionDialog({
 						label="From output"
 						value={connection.source}
 						items={nodes}
-						onChange={(source) => change({ source })}
+						onChange={(source) => change({ source, sourceHandle: "output" })}
 					/>
+					{graph.nodes.find((node) => node.id === connection.source)?.type ===
+					"video" ? (
+						<ConnectionSelect
+							id="connection-output"
+							label="Video output"
+							value={connection.sourceHandle}
+							items={[
+								{ value: "output", label: "Video" },
+								{ value: "lastFrame", label: "Last frame" },
+								{ value: "audio", label: "Audio track" },
+							]}
+							onChange={(sourceHandle) =>
+								change({
+									sourceHandle:
+										sourceHandle as CanvasConnection["sourceHandle"],
+								})
+							}
+						/>
+					) : null}
 					<ConnectionSelect
 						id="connection-target"
 						label="To node"

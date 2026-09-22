@@ -1,6 +1,6 @@
 # Gateway model expansion
 
-Implemented on 2026-09-22 after the browser comparison with Melius. This pass expands the model choices beyond the original Melius matches, using Vercel AI Gateway only. It prepares model metadata for the next node-compatibility pass; it does not add new canvas connection types.
+Implemented on 2026-09-22 after the browser comparison with Melius. This pass expands the model choices beyond the original Melius matches, using Vercel AI Gateway only. The subsequent [node compatibility implementation](node-compatibility.md) uses this metadata for connected media and separate video outputs.
 
 The reviewed [public Gateway catalog](https://ai-gateway.vercel.sh/v1/models) contains 380 entries. Kousa includes its 339 language, image, video, speech, and transcription entries. Embedding, reranking, realtime sessions, and evaluation models do not belong in these four node pickers. The snapshot is checked into `packages/generation/src/model-data.json`; newly published models are not enabled automatically.
 
@@ -16,7 +16,7 @@ The catalog spans 35 provider labels, with selectable models from 34. Perplexity
 
 ## Generation contracts
 
-The additional language models use the existing Gateway text route, with the smaller of Kousa's 2,048-token output limit and the published model maximum. Small-context models have a conservative UTF-8 input bound that reserves output and message overhead. Kousa still sends connected Text only.
+The additional language models use the Gateway text route, with the smaller of Kousa's 2,048-token output limit and the published model maximum. Small-context models have a conservative UTF-8 input bound that reserves output and message overhead. Connected media support is described in [node compatibility](node-compatibility.md).
 
 Image alternatives include FLUX Kontext Pro/Max, additional FLUX.2 variants, Seedream 4, GPT Image 1/1 Mini/1.5, original Nano Banana, and Recraft variants. Kontext uses ratio plus reference-image input. Original Nano Banana omits the unsupported image-resolution setting. Older GPT Image models use the supported square preset. Recraft V2/V3 use their own dimensions and 1,000-character prompt limit; V4 Pro variants use their larger dimensions. [BFL SDK](https://github.com/vercel/ai/blob/4e8c387622ee1bb0d55841664416d38754d5c9a3/content/providers/01-ai-sdk-providers/12-black-forest-labs.mdx), [Google SDK](https://github.com/vercel/ai/blob/4e8c387622ee1bb0d55841664416d38754d5c9a3/content/providers/01-ai-sdk-providers/15-google.mdx), [Recraft dimensions and limits](https://www.recraft.ai/docs/api-reference/appendix).
 
@@ -37,7 +37,7 @@ The following catalog entries remain disabled, including server-side validation 
 - Gemini Omni still lacks a verified Gateway video request contract.
 - Three Perplexity models lack a reviewed credit quote in this public snapshot.
 
-Multimodal Text inputs, multiple image references, first/last frames, video references/edit/extend, and separate video frame/audio outputs still require node and execution changes. Gateway's current catalog has no dedicated music, sound-effect, voice-changing, or voice-isolation models. This limits full Melius parity under the Gateway-only choice.
+Multimodal Text inputs, multiple image references, first/last frames, video and audio references, and separate video frame/audio outputs are implemented in the [node compatibility pass](node-compatibility.md). Dedicated video edit, extend, and motion-control operations remain outside that pass. Gateway's reviewed catalog has no dedicated music, sound-effect, voice-changing, or voice-isolation models. This limits full Melius parity under the Gateway-only choice.
 
 ## Verification
 

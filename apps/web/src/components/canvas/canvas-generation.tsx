@@ -8,7 +8,11 @@ import {
 	resolveTextModel,
 	runProgress,
 } from "@kousa/generation/contracts";
-import { type Freshness, graphFreshness } from "@kousa/generation/freshness";
+import {
+	type Freshness,
+	graphFreshness,
+	inputSnapshot,
+} from "@kousa/generation/freshness";
 import {
 	generationInputHash,
 	imageInputSnapshot,
@@ -17,6 +21,7 @@ import {
 	videoInputImageAssetId,
 	videoInputSnapshot,
 } from "@kousa/generation/input";
+import { resolveMediaInputs } from "@kousa/generation/media-inputs";
 import {
 	defaultVoiceFor,
 	imageSizeFor,
@@ -159,6 +164,11 @@ export function useCanvasGeneration({
 		return results;
 	}
 	const imageResults = outputs("image", query.data?.imageResults);
+	const mediaResults = [
+		...imageResults.values(),
+		...outputs("speech", query.data?.speechResults).values(),
+		...outputs("video", query.data?.videoResults).values(),
+	];
 	async function run(nodeId: string) {
 		if (!canRun || busy.current) return;
 		busy.current = true;
@@ -182,7 +192,23 @@ export function useCanvasGeneration({
 							imageResults.get(imageInput.image?.nodeId ?? "")?.assetId,
 						)
 					: null;
+				const snapshot = inputSnapshot(document, nodeId);
+				const media = resolveMediaInputs(
+					"media" in snapshot ? snapshot.media : [],
+					mediaResults,
+				);
+				if (media.some((input) => !input.assetId))
+					throw new Error(
+						"Upload or generate media on every connected node first.",
+					);
 				request = {
+					...(media.length
+						? {
+								mediaAssetIds: media.flatMap((input) =>
+									input.assetId ? [input.assetId] : [],
+								),
+							}
+						: {}),
 					id: crypto.randomUUID(),
 					projectId,
 					canvasId,
@@ -242,6 +268,7 @@ export function useCanvasGeneration({
 		canvasId,
 		runs,
 		imageResults,
+		mediaResults,
 		textResults: outputs("text", query.data?.textResults),
 		imageConfigured: query.data?.imageConfigured,
 		speechResults: outputs("speech", query.data?.speechResults),
@@ -332,12 +359,6 @@ export function GenerationPanel({
 		},
 	}[kind];
 	const { configured } = settings;
-	const cost = modelCreditCost(
-		kind,
-		settings.model,
-		node.data.duration,
-		node.data.imageQuality,
-	);
 	const voiceItems = voicesFor(settings.model).map((voice) => ({
 		value: voice.id,
 		label: voice.name,
@@ -352,8 +373,25 @@ export function GenerationPanel({
 	let inputError: string | null = null;
 	let inputImageAssetId: string | null = null;
 	let imageNode: StudioNode | undefined;
+	let connectedMedia: ReturnType<typeof resolveMediaInputs> = [];
 	try {
-		settings.snapshot(documentFromGraph(generation.graph), node.id);
+		const snapshot = inputSnapshot(
+			documentFromGraph(generation.graph),
+			node.id,
+		);
+		connectedMedia = resolveMediaInputs(
+			"media" in snapshot ? snapshot.media : [],
+			generation.mediaResults,
+		);
+		if (connectedMedia.some((input) => !input.assetId))
+			inputError = "Upload or generate media on every connected node first.";
+		else if (
+			kind === "video" &&
+			connectedMedia.length &&
+			!generation.imageToVideoConfigured
+		)
+			inputError =
+				"Video references need a public HTTPS app URL so the provider can fetch the media.";
 		if (kind === "video" || kind === "image") {
 			const snapshot = (
 				kind === "video" ? videoInputSnapshot : imageInputSnapshot
@@ -384,7 +422,15 @@ export function GenerationPanel({
 			...node.data,
 			voiceId: node.data.voiceId ?? defaultVoiceFor(settings.model),
 		},
-		Boolean(imageNode),
+		Boolean(imageNode) ||
+			connectedMedia.some((input) => input.kind !== "audio"),
+	);
+	const cost = modelCreditCost(
+		kind,
+		settings.model,
+		node.data.duration,
+		node.data.imageQuality,
+		connectedMedia.length,
 	);
 	const error = pending
 		? null
@@ -458,6 +504,25 @@ export function GenerationPanel({
 					Credits are reserved when you start and charged on success.
 				</FieldDescription>
 			</Field>
+			{connectedMedia.length ? (
+				<section aria-label="Connected media" className="flex flex-col gap-2">
+					<h3 className="font-medium text-xs">Connected media</h3>
+					{connectedMedia.map((input, index) => (
+						<p
+							key={`${input.nodeId}:${input.role}:${input.output ?? "output"}`}
+							className="text-muted-foreground text-xs"
+						>
+							{index + 1}.{" "}
+							{
+								generation.graph.nodes.find((node) => node.id === input.nodeId)
+									?.data.label
+							}{" "}
+							· {input.role === "lastFrame" ? "Last frame" : input.kind} ·{" "}
+							{input.assetId ? "Ready" : "No saved output"}
+						</p>
+					))}
+				</section>
+			) : null}
 			{imageNode ? (
 				<div className="flex flex-col gap-2">
 					<h3 className="font-medium text-xs">
@@ -635,8 +700,9 @@ export function GenerationPanel({
 					<p className="text-muted-foreground text-xs">
 						Creates a clip from text or a connected image, depending on the
 						model. Some models include generated audio. Connect an Audio node to
-						replace it with your own soundtrack using Create clip.
-						Video-to-video generation is not yet available.
+						replace it with your own soundtrack using Create clip. Use Reference
+						video or Reference audio with a compatible model to guide
+						generation. Starting and last frames control the endpoints.
 					</p>
 					{videoResult?.assetId ? (
 						<>

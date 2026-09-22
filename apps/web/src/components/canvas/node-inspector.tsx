@@ -333,25 +333,47 @@ export function NodeInspector({
 						outline. Dashed connections carry audio for composition.
 					</p>
 					{inputPorts[kind].map((port) => {
-						const edge = edges.find(
+						const portEdges = edges.filter(
 							(edge) =>
 								edge.target === node.id && edge.targetHandle === port.id,
 						);
+						const multiple = (port.maxConnections ?? 1) > 1;
+						const edge = multiple ? undefined : portEdges[0];
 						return (
 							<div key={port.id} className="flex flex-col gap-2">
 								<h4 className="font-medium text-xs">{port.label} input</h4>
-								{edge ? (
-									<ConnectionPreview graph={graph} connection={edge} />
+								{portEdges.length ? (
+									<div className="flex flex-col gap-3">
+										{portEdges.map((input) => (
+											<div key={input.id}>
+												<ConnectionPreview graph={graph} connection={input} />
+												{multiple ? (
+													<Button
+														variant="ghost"
+														size="sm"
+														disabled={!canEdit}
+														onClick={() => disconnect(input.id)}
+													>
+														Disconnect{" "}
+														{
+															nodes.find((node) => node.id === input.source)
+																?.data.label
+														}
+													</Button>
+												) : null}
+											</div>
+										))}
+									</div>
 								) : (
 									<p className="text-muted-foreground text-xs">
 										{kind === "image" && port.id === "reference"
 											? "Connect an Image to edit an uploaded photo or a saved output. Describe your changes in the prompt."
 											: kind === "video" && port.id === "video"
-												? "Video-to-video is not supported by the current generator."
+												? "Connect a saved video as a reference with Seedance 2, Wan reference models, or MiniMax H3."
 												: kind === "video" && port.id === "audio"
 													? "Audio is used by Create clip for composition only."
 													: kind === "text"
-														? "The current generator consumes Text context only."
+														? "Connect Text, Image, Video, or Audio context. The selected model determines which media it accepts."
 														: `Connect ${port.accepts.map((kind) => nodeLabels[kind]).join(" or ")}.`}
 									</p>
 								)}

@@ -5,6 +5,7 @@ import {
 	imageProfile,
 	resolveSpeechModel,
 	speechProfile,
+	textInputModalities,
 	validateModelSettings,
 } from "./model-catalog";
 import type { ImageProvider, SpeechProvider, TextProvider } from "./providers";
@@ -14,13 +15,42 @@ export function createGatewayProvider(
 ): TextProvider {
 	return {
 		configured: Boolean(apiKey?.trim()),
-		async generate({ modelId, prompt }) {
+		async generate({ modelId, prompt, media = [] }) {
 			const error = validateModelSettings({ kind: "text", modelId });
 			if (error) throw new Error(error);
 			const gateway = createGateway({ apiKey });
 			const result = await generateText({
 				model: gateway(modelId),
-				prompt,
+				...(media.length
+					? {
+							messages: [
+								{
+									role: "user" as const,
+									content: [
+										{ type: "text" as const, text: prompt },
+										...media.map((input) => {
+											if (
+												!input.bytes ||
+												!textInputModalities(modelId).includes(input.kind)
+											)
+												throw new Error("Unsupported media input");
+											return input.kind === "image"
+												? {
+														type: "image" as const,
+														image: input.bytes,
+														mediaType: input.mediaType,
+													}
+												: {
+														type: "file" as const,
+														data: input.bytes,
+														mediaType: input.mediaType,
+													};
+										}),
+									],
+								},
+							],
+						}
+					: { prompt }),
 				maxOutputTokens: Math.min(
 					findModel(modelId)?.maxOutputTokens || maxOutputTokens,
 					maxOutputTokens,
@@ -45,13 +75,29 @@ export function createGatewayImageProvider(
 ): ImageProvider {
 	return {
 		configured: Boolean(apiKey?.trim()),
-		async generate({ modelId, prompt, size, referenceImage, quality }) {
+		async generate({
+			modelId,
+			prompt,
+			size,
+			referenceImage,
+			referenceImages = [],
+			quality,
+		}) {
 			const error = validateModelSettings(
 				{ kind: "image", modelId },
 				Boolean(referenceImage),
 			);
 			if (error) throw new Error(error);
 			const profile = imageProfile(modelId);
+			const references = [
+				...(referenceImage ? [referenceImage] : []),
+				...referenceImages,
+			];
+			if (
+				references.length > profile.maxReferences ||
+				(references.length && !profile.reference)
+			)
+				throw new Error("Unsupported reference image count");
 			if (referenceImage && !profile.reference)
 				throw new Error("Unsupported image reference");
 			const ratio = Object.entries(profile.sizes).find(
@@ -68,9 +114,10 @@ export function createGatewayImageProvider(
 							role: "user",
 							content: [
 								{ type: "text", text: prompt },
-								...(referenceImage
-									? [{ type: "image" as const, image: referenceImage }]
-									: []),
+								...references.map((image) => ({
+									type: "image" as const,
+									image,
+								})),
 							],
 						},
 					],
@@ -103,8 +150,8 @@ export function createGatewayImageProvider(
 				modelId.startsWith("spacexai/");
 			const result = await generateImage({
 				model: gateway.imageModel(modelId),
-				prompt: referenceImage
-					? { text: prompt, images: [referenceImage] }
+				prompt: references.length
+					? { text: prompt, images: references }
 					: prompt,
 				...(profile.vector || modelId === "meta/muse-image-1.0"
 					? {}

@@ -75,10 +75,18 @@ export function createGatewayVideoProvider(
 ): VideoProvider {
 	return {
 		configured: Boolean(apiKey?.trim()),
-		async start({ id, modelId, prompt, imageUrl, aspectRatio, duration }) {
+		async start({
+			id,
+			modelId,
+			prompt,
+			imageUrl,
+			media = [],
+			aspectRatio,
+			duration,
+		}) {
 			const error = validateModelSettings(
 				{ kind: "video", modelId, aspectRatio, duration },
-				Boolean(imageUrl),
+				Boolean(imageUrl) || media.some((input) => input.kind !== "audio"),
 			);
 			if (error) throw new Error(error);
 			const profile = videoProfile(modelId);
@@ -105,18 +113,76 @@ export function createGatewayVideoProvider(
 							: modelId.startsWith("spacexai/")
 								? { xai: { resolution: tier } }
 								: undefined;
+			const data = (input: (typeof media)[number]) => {
+				if (input.url) return input.url;
+				if (input.bytes) return input.bytes;
+				throw new Error("Missing input media");
+			};
+			const first = media.find((input) => input.role === "firstFrame");
+			const startingImage = imageUrl ?? (first ? data(first) : undefined);
+			const last = media.find((input) => input.role === "lastFrame");
+			const references = media.filter(
+				(input) => input.role !== "lastFrame" && input.role !== "firstFrame",
+			);
+			if (last && (!startingImage || !profile.lastFrame))
+				throw new Error("Unsupported last frame");
+			if (references.length && startingImage && !profile.referenceOnly)
+				throw new Error("Cannot mix frames and references");
+			for (const input of references) {
+				if (
+					(input.kind === "image" && !profile.referenceImages) ||
+					(input.kind === "video" && !profile.referenceVideo) ||
+					(input.kind === "audio" && !profile.referenceAudio)
+				)
+					throw new Error("Unsupported video reference");
+			}
+			const audio = references.filter((input) => input.kind === "audio");
+			if (audio.length) {
+				if (modelId.startsWith("bytedance/"))
+					Object.assign(providerOptions ?? {}, {
+						bytedance: {
+							resolution: tier,
+							referenceAudio: audio.map(data),
+							generateAudio: true,
+						},
+					});
+				else if (modelId.startsWith("minimax/"))
+					Object.assign(providerOptions ?? {}, {
+						minimax: {
+							resolution: tier.toUpperCase(),
+							referenceAudioUrls: audio.map(data),
+						},
+					});
+			}
+			const inputReferences = [
+				...(startingImage && profile.referenceOnly ? [startingImage] : []),
+				...references
+					.filter((input) => input.kind !== "audio")
+					.map((input) => ({ data: data(input), mediaType: input.mediaType })),
+			];
 			const result = await startVideo({
 				model: createGateway({ apiKey }).videoModel(modelId),
 				prompt:
-					imageUrl && !profile.referenceOnly
-						? { text: prompt, image: imageUrl }
+					startingImage && !profile.referenceOnly && !last
+						? { text: prompt, image: startingImage }
 						: prompt,
-				...(imageUrl && profile.referenceOnly
-					? { inputReferences: [imageUrl] }
+				...(last && startingImage
+					? {
+							frameImages: [
+								{ frameType: "first_frame" as const, image: startingImage },
+								{ frameType: "last_frame" as const, image: data(last) },
+							],
+						}
 					: {}),
-				...(imageUrl && profile.imageDeterminesRatio ? {} : { aspectRatio }),
+				...(inputReferences.length ? { inputReferences } : {}),
+				...(startingImage && profile.imageDeterminesRatio
+					? {}
+					: { aspectRatio }),
 				...(modelId.startsWith("klingai/") ? {} : { resolution }),
-				providerOptions,
+				providerOptions:
+					modelId.startsWith("alibaba/") && audio.length
+						? { ...providerOptions, alibaba: { audioUrl: audio[0]?.url ?? "" } }
+						: providerOptions,
 				duration,
 				n: 1,
 				headers: { "idempotency-key": id },

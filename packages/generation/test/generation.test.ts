@@ -283,7 +283,7 @@ describe("generation and credit ledger", () => {
 			targetHandle: "context",
 		});
 		expect(() => textInputSnapshot(graph, target.id)).toThrow(
-			"text nodes only",
+			"does not accept image context",
 		);
 	});
 });

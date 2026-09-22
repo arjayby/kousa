@@ -424,7 +424,7 @@ it("blocks missing project images, extra images, unsupported video edges, and in
 	graph.nodes.push(second);
 	graph.edges.push(connect(second.id, videoNode.id, "image"));
 	await expect(planGraph(graph, videoNode.id)).rejects.toThrow(
-		"only one image",
+		"only one starting frame",
 	);
 	graph.edges.pop();
 	// Exercise malformed persisted settings before any reservation.
@@ -438,7 +438,7 @@ it("blocks missing project images, extra images, unsupported video edges, and in
 	graph.nodes.push(upstream);
 	graph.edges.push(connect(upstream.id, videoNode.id, "video"));
 	await expect(planGraph(graph, videoNode.id)).rejects.toThrow(
-		"Disconnect video",
+		"does not support reference video",
 	);
 });
 

@@ -8,6 +8,7 @@ import {
 	buildVideoPrompt,
 	GenerationError,
 } from "./input";
+import { resolveMediaInputs } from "./media-inputs";
 import type { createGenerationRunner } from "./runner";
 import { type DurableSteps, executeGenerationWorkflow } from "./workflow";
 
@@ -95,11 +96,43 @@ export async function executeGraphWorkflow(
 									?.runId)
 							: undefined;
 					const image = imageRunId ? await generations.get(imageRunId) : null;
+					const mediaRuns = await Promise.all(
+						(item.media ?? []).flatMap((input) => {
+							const runId =
+								input.source === "project"
+									? null
+									: (input.runId ??
+										flow.plan.find((step) => step.nodeId === input.nodeId)
+											?.runId);
+							return runId ? [generations.get(runId)] : [];
+						}),
+					);
+					if (
+						mediaRuns.some(
+							(run) =>
+								run?.status !== "succeeded" ||
+								run.projectId !== flow.projectId ||
+								run.canvasId !== flow.canvasId,
+						)
+					)
+						throw new GenerationError(
+							"BAD_REQUEST",
+							"An upstream media input is unavailable.",
+						);
+					const media = resolveMediaInputs(
+						item.media,
+						mediaRuns.flatMap((run) => (run ? [run] : [])),
+					);
+					if (media.some((input) => !input.assetId))
+						throw new GenerationError(
+							"BAD_REQUEST",
+							"A connected media input is unavailable.",
+						);
 					return store.begin(
 						id,
 						index,
 						prompt,
-						resolveInputs(item, outputs, image),
+						resolveInputs(item, outputs, image, media),
 					);
 				},
 			);

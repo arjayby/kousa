@@ -11,11 +11,13 @@ import {
 	uuid,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
+import type { MediaInput } from "./generation-inputs";
 import { project, projectCanvas } from "./projects";
 
 // Immutable server-built execution plan. Dependencies refer to steps in this plan,
 // never to whichever output happens to be latest when the worker wakes up.
 type GraphStepBase = {
+	media?: MediaInput[];
 	runId: string;
 	nodeId: string;
 	// Optional for saved single-output workflows created before multi-output support.

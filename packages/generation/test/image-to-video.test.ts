@@ -426,7 +426,9 @@ it("hashes the selected source and rejects more than one image", async () => {
 		sourceHandle: "output",
 		targetHandle: "image",
 	});
-	expect(() => videoInputSnapshot(graph, target.id)).toThrow("only one image");
+	expect(() => videoInputSnapshot(graph, target.id)).toThrow(
+		"only one starting frame",
+	);
 });
 
 it("normalizes public HTTPS origins without permitting credentials or URL components", () => {

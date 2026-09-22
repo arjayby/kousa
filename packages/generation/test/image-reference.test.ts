@@ -10,6 +10,7 @@ import { executeGraphWorkflow } from "../src/graph-workflow";
 import { createGenerationImageAccess } from "../src/image-access";
 import { createImageVariations } from "../src/image-variations";
 import { generationInputHash } from "../src/input";
+import { createGenerationMediaAccess } from "../src/media-access";
 import type { ImageProvider } from "../src/providers";
 import { createGenerationRunner } from "../src/runner";
 import { createGenerationService } from "../src/service";
@@ -84,6 +85,7 @@ const runner = () =>
 		undefined,
 		undefined,
 		createGenerationImageAccess(db.store, media).bytes,
+		createGenerationMediaAccess(db.store, media).load,
 	);
 const request = async (image = assetId) => ({
 	id: crypto.randomUUID(),
@@ -366,4 +368,30 @@ it("runs identical variations separately against one pinned reference, charges o
 	await executeGraphWorkflow(id, db.graphs, db.store, runner(), inlineSteps);
 	expect(generate).toHaveBeenCalledTimes(2);
 	expect(await db.store.balance("owner")).toBe(44);
+});
+
+it("freezes and delivers multiple reference images in the reviewed order", async () => {
+	const second = createCanvasNode("image", { x: 0, y: 300 });
+	second.data.imageSource = "project";
+	second.data.assetId = (await upload(editedPng)).id;
+	const primary = graph.edges[0];
+	if (!primary) throw new Error("Missing reference edge");
+	primary.id = "00000000-0000-4000-8000-000000000001";
+	graph.nodes.push(second);
+	graph.edges.push({
+		...primary,
+		id: "00000000-0000-4000-8000-000000000002",
+		source: second.id,
+	});
+	await db.setGraph(projectId, graph);
+	const input = { ...(await request()), mediaAssetIds: [second.data.assetId] };
+	await service().generate("owner", input);
+	await executeGenerationWorkflow(input.id, runner(), inlineSteps);
+	expect((await db.store.get(input.id))?.status).toBe("succeeded");
+	expect(generate).toHaveBeenCalledWith(
+		expect.objectContaining({
+			referenceImage: png,
+			referenceImages: [editedPng],
+		}),
+	);
 });

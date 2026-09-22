@@ -20,13 +20,14 @@ export function graphDependencies(graph: Graph) {
 			source?.type === "audio"
 		)
 			continue;
-		// Reference inputs consume fixed project assets without regenerating them.
+		// Uploaded media is fixed input, never an upstream generation task.
 		if (
-			((target?.type === "video" && edge.targetHandle === "image") ||
-				(target?.type === "image" && edge.targetHandle === "reference")) &&
-			source?.type === "image" &&
-			(source.data.imageSource ??
-				(source.data.assetId ? "project" : "generated")) === "project"
+			source &&
+			source.type !== "text" &&
+			(source.type === "image"
+				? (source.data.imageSource ??
+						(source.data.assetId ? "project" : "generated")) === "project"
+				: source.data.mediaSource === "project")
 		)
 			continue;
 		// A chosen historical output is fixed input, even when its node is also

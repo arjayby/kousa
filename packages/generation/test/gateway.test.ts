@@ -363,3 +363,62 @@ it("omits the unsupported resolution setting on original Nano Banana", async () 
 		mocks.generateText.mock.calls[0]?.[0].providerOptions.google.imageConfig,
 	).toEqual({ aspectRatio: "16:9" });
 });
+
+it("sends typed image, video and audio content to a multimodal text model", async () => {
+	const bytes = new Uint8Array([1, 2]);
+	await createGatewayProvider("key").generate({
+		modelId: "google/gemini-3.6-flash",
+		prompt: "Summarize",
+		media: [
+			{ kind: "image", role: "context", bytes, mediaType: "image/png" },
+			{ kind: "video", role: "context", bytes, mediaType: "video/mp4" },
+			{ kind: "audio", role: "context", bytes, mediaType: "audio/mpeg" },
+		],
+	});
+	expect(mocks.generateText).toHaveBeenCalledWith(
+		expect.objectContaining({
+			messages: [
+				{
+					role: "user",
+					content: [
+						{ type: "text", text: "Summarize" },
+						{ type: "image", image: bytes, mediaType: "image/png" },
+						{ type: "file", data: bytes, mediaType: "video/mp4" },
+						{ type: "file", data: bytes, mediaType: "audio/mpeg" },
+					],
+				},
+			],
+		}),
+	);
+	await expect(
+		createGatewayProvider("key").generate({
+			modelId: "amazon/nova-micro",
+			prompt: "Test",
+			media: [
+				{ kind: "image", role: "context", bytes, mediaType: "image/png" },
+			],
+		}),
+	).rejects.toThrow("Unsupported media");
+	expect(mocks.generateText).toHaveBeenCalledTimes(1);
+});
+
+it("sends all ordered image references to the image adapter", async () => {
+	mocks.createGateway.mockReturnValue({ imageModel: mocks.imageModel });
+	const first = new Uint8Array([1]);
+	const second = new Uint8Array([2]);
+	mocks.generateImage.mockResolvedValue({
+		image: { uint8Array: first, mediaType: "image/png" },
+	});
+	await createGatewayImageProvider("key").generate({
+		modelId: "bfl/flux-2-klein-4b",
+		prompt: "Combine",
+		size: "1024x1024",
+		referenceImage: first,
+		referenceImages: [second],
+	});
+	expect(mocks.generateImage).toHaveBeenCalledWith(
+		expect.objectContaining({
+			prompt: { text: "Combine", images: [first, second] },
+		}),
+	);
+});

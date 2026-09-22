@@ -19,6 +19,7 @@ import {
 } from "./model-catalog";
 import type {
 	ImageProvider,
+	MediaAttachment,
 	SpeechProvider,
 	TextProvider,
 	VideoProvider,
@@ -50,6 +51,7 @@ export function createGenerationRunner(
 	video?: VideoProvider,
 	inputImageUrl?: (run: GenerationRun) => Promise<string>,
 	inputImageBytes?: (run: GenerationRun) => Promise<Uint8Array<ArrayBuffer>>,
+	inputMedia?: (run: GenerationRun) => Promise<MediaAttachment[]>,
 ) {
 	async function active(id: string): Promise<GenerationRun | null> {
 		const run = await store.get(id);
@@ -80,7 +82,10 @@ export function createGenerationRunner(
 					duration: run.duration ?? undefined,
 					aspectRatio: run.aspectRatio ?? undefined,
 				},
-				Boolean(run.inputImageAssetId),
+				Boolean(run.inputImageAssetId) ||
+					Boolean(
+						run.resolvedInputs?.media?.some((input) => input.kind !== "audio"),
+					),
 			) ||
 			!run.duration
 		) {
@@ -104,16 +109,27 @@ export function createGenerationRunner(
 			}
 			let operation: unknown;
 			try {
+				const media = run.resolvedInputs?.media?.length
+					? await inputMedia?.(run)
+					: undefined;
+				if (run.resolvedInputs?.media?.length && !media)
+					throw new Error("Media access unavailable");
 				let imageUrl: string | undefined;
 				if (run.inputImageAssetId) {
 					if (!inputImageUrl) throw new Error("Image delivery unavailable");
-					imageUrl = await inputImageUrl(run);
+					const scopedUrl = media?.find((input) => input.url)?.url;
+					if (scopedUrl) {
+						const url = new URL(scopedUrl);
+						url.searchParams.delete("media");
+						imageUrl = url.href;
+					} else imageUrl = await inputImageUrl(run);
 				}
 				operation = await video.start({
 					id: run.id,
 					modelId: run.modelId,
 					prompt: run.prompt,
 					...(imageUrl ? { imageUrl } : {}),
+					...(media ? { media } : {}),
 					aspectRatio,
 					duration: run.duration,
 				});
@@ -181,6 +197,11 @@ export function createGenerationRunner(
 			}
 			let result: Artifact;
 			try {
+				const media = run.resolvedInputs?.media?.length
+					? await inputMedia?.(run)
+					: undefined;
+				if (run.resolvedInputs?.media?.length && !media)
+					throw new Error("Media access unavailable");
 				if (run.kind === "speech") {
 					if (
 						!speech?.configured ||
@@ -240,6 +261,15 @@ export function createGenerationRunner(
 							size,
 							...(quality ? { quality } : {}),
 							...(referenceImage ? { referenceImage } : {}),
+							...(media
+								? {
+										referenceImages: media.map((input) => {
+											if (!input.bytes || input.kind !== "image")
+												throw new Error("Invalid reference");
+											return input.bytes;
+										}),
+									}
+								: {}),
 						})),
 					};
 					if (!result.bytes.length || result.bytes.length > 10 * 1024 * 1024)
@@ -250,6 +280,7 @@ export function createGenerationRunner(
 					result = {
 						kind: "text",
 						...(await text.generate({
+							...(media ? { media } : {}),
 							modelId: run.modelId,
 							prompt: run.prompt,
 						})),

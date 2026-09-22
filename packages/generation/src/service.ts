@@ -14,7 +14,7 @@ import {
 	listGenerationsInput,
 	type PublicRun,
 } from "./contracts";
-import { resolveInputs } from "./freshness";
+import { canonical, resolveInputs } from "./freshness";
 import {
 	captureSettings,
 	historicalSettings,
@@ -36,6 +36,7 @@ import {
 	videoInputImageAssetId,
 	videoInputSnapshot,
 } from "./input";
+import { resolveSavedMedia, validateMediaAssets } from "./media-inputs";
 import { modelCreditCost, validateModelSettings } from "./model-catalog";
 
 export type { ImageProvider, TextProvider } from "./providers";
@@ -348,7 +349,11 @@ export function createGenerationService(
 								};
 			const settingsError = validateModelSettings(
 				{ ...snapshot, aspectRatio: node.data.aspectRatio },
-				"image" in snapshot && Boolean(snapshot.image),
+				("image" in snapshot && Boolean(snapshot.image)) ||
+					Boolean(
+						"media" in snapshot &&
+							snapshot.media?.some((input) => input.kind !== "audio"),
+					),
 			);
 			if (settingsError)
 				throw new GenerationError("BAD_REQUEST", settingsError);
@@ -407,6 +412,32 @@ export function createGenerationService(
 					"The connected image changed. Review it, then try again.",
 				);
 			}
+			const resolvedMedia = await resolveSavedMedia(
+				store,
+				input.projectId,
+				input.canvasId,
+				"media" in snapshot ? snapshot.media : [],
+			);
+			if (
+				canonical(input.mediaAssetIds ?? []) !==
+				canonical(resolvedMedia.map((input) => input.assetId))
+			)
+				throw new GenerationError(
+					"CONFLICT",
+					"Connected media changed. Review the inputs, then try again.",
+				);
+			await validateMediaAssets(
+				media,
+				input.projectId,
+				resolvedMedia,
+				snapshot.modelId,
+				kind === "video",
+			);
+			if (kind === "video" && resolvedMedia.length && !imageOrigin)
+				throw new GenerationError(
+					"SERVICE_UNAVAILABLE",
+					"Video references need a public HTTPS app URL so the provider can fetch the media.",
+				);
 			const outputs = await resolveTextOutputs(
 				store,
 				input.projectId,
@@ -426,19 +457,28 @@ export function createGenerationService(
 				snapshot.modelId,
 				snapshot.kind === "video" ? snapshot.duration : undefined,
 				snapshot.kind === "image" ? snapshot.imageQuality : undefined,
+				resolvedMedia.length,
 			);
 			const claim = await store.claim({
 				...input,
 				userId: actorId,
 				modelId: snapshot.modelId,
 				authoredSettings: captureSettings(node, snapshot.modelId),
-				resolvedInputs: resolveInputs(snapshot, outputs, resolvedImage),
+				resolvedInputs: resolveInputs(
+					snapshot,
+					outputs,
+					resolvedImage,
+					resolvedMedia,
+				),
 				prompt,
 				credits,
 				kind,
 				inputImageAssetId,
 				inputImageOrigin:
-					snapshot.kind === "video" && inputImageAssetId ? imageOrigin : null,
+					snapshot.kind === "video" &&
+					(inputImageAssetId || resolvedMedia.length)
+						? imageOrigin
+						: null,
 				duration: snapshot.kind === "video" ? snapshot.duration : null,
 				aspectRatio: snapshot.kind === "video" ? snapshot.aspectRatio : null,
 				size: snapshot.kind === "image" ? snapshot.size : null,

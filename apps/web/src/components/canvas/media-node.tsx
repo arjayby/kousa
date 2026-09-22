@@ -1,6 +1,14 @@
 "use client";
 
-import { runProgress } from "@kousa/generation/contracts";
+import {
+	defaultVideoModel,
+	resolveTextModel,
+	runProgress,
+} from "@kousa/generation/contracts";
+import {
+	textInputModalities,
+	videoProfile,
+} from "@kousa/generation/model-catalog";
 import {
 	imageOutputAssetId,
 	inputPorts,
@@ -206,22 +214,45 @@ export const MediaNode = memo(function MediaNode({
 							{kind === "video" && port.id === "audio"
 								? " · Composition"
 								: kind === "video" && port.id === "video"
-									? " · Unsupported"
+									? videoProfile(data.videoModel ?? defaultVideoModel)
+											.referenceVideo
+										? ""
+										: " · Choose model"
 									: kind === "text"
-										? " · Text only"
+										? ` · ${textInputModalities(
+												resolveTextModel(data.textModel),
+											)
+												.filter((type) =>
+													["text", "image", "video", "audio"].includes(type),
+												)
+												.join(", ")}`
 										: ""}
 						</span>
-						{index === 0 ? (
+						{index === 0 || (kind === "video" && index < 3) ? (
 							<>
-								<span className="ml-auto">{nodeLabels[kind]}</span>
+								<span className="ml-auto">
+									{index === 1
+										? "Last frame"
+										: index === 2
+											? "Audio"
+											: nodeLabels[kind]}
+								</span>
 								<Handle
-									id="output"
+									id={
+										index === 1 ? "lastFrame" : index === 2 ? "audio" : "output"
+									}
 									type="source"
 									position={Position.Right}
 									isConnectable={isConnectable}
 									style={{ top: "50%" }}
-									aria-label={`${data.label || nodeLabels[kind]} output`}
-									title={`${nodeLabels[kind]} output`}
+									aria-label={`${data.label || nodeLabels[kind]} ${index === 1 ? "last frame output" : index === 2 ? "audio output" : "output"}`}
+									title={
+										index === 1
+											? "Last saved video frame as an image"
+											: index === 2
+												? "Saved video audio track"
+												: `${nodeLabels[kind]} output`
+									}
 								/>
 							</>
 						) : null}

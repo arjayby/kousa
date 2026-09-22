@@ -12,6 +12,7 @@ import {
 	clipRenderer,
 	type RendererEnv,
 	rendererConfigured,
+	videoOutputExtractor,
 } from "./clip-renderer";
 
 export { ClipRendererContainer } from "./clip-renderer";
@@ -29,6 +30,7 @@ import {
 import { createGatewayVideoProvider } from "@kousa/generation/gateway-video";
 import { executeGraphWorkflow } from "@kousa/generation/graph-workflow";
 import { createGenerationImageAccess } from "@kousa/generation/image-access";
+import { createGenerationMediaAccess } from "@kousa/generation/media-access";
 import { createGenerationRunner } from "@kousa/generation/runner";
 import { executeGenerationWorkflow } from "@kousa/generation/workflow";
 import { mediaLifecycleRuntime } from "@kousa/media/lifecycle-runtime";
@@ -53,6 +55,11 @@ function runtime(env: JobsEnv) {
 		createProjectStore(db),
 		r2Storage(env.MEDIA),
 	);
+	const inputMedia = createGenerationMediaAccess(
+		store,
+		media,
+		videoOutputExtractor(env),
+	);
 	const runner = createGenerationRunner(
 		store,
 		r2Artifacts(env.MEDIA),
@@ -63,6 +70,7 @@ function runtime(env: JobsEnv) {
 		createGatewayVideoProvider(env.AI_GATEWAY_API_KEY),
 		createGenerationImageAccess(store, media).issue,
 		createGenerationImageAccess(store, media).bytes,
+		inputMedia.load,
 	);
 	const clips = createClipStore(db);
 	const clipRunner = createClipRunner(
@@ -76,7 +84,14 @@ function runtime(env: JobsEnv) {
 		},
 		clipRenderer(env),
 	);
-	return { store, runner, graphs: createGraphStore(db), clips, clipRunner };
+	return {
+		store,
+		runner,
+		inputMedia,
+		graphs: createGraphStore(db),
+		clips,
+		clipRunner,
+	};
 }
 export class GenerationWorkflow extends WorkflowEntrypoint<
 	JobsEnv,
@@ -146,6 +161,10 @@ export default {
 	// binding can dispatch runs. The body cannot supply a payer, model or prompt.
 	async fetch(request: Request, env: JobsEnv) {
 		const pathname = new URL(request.url).pathname;
+		const inputMatch = pathname.match(/^\/generation-inputs\/([^/]+)$/);
+		const inputId = z.uuid().safeParse(inputMatch?.[1]);
+		if (inputId.success)
+			return runtime(env).inputMedia.handle(request, inputId.data);
 		if (request.method === "GET" && pathname === "/clip-capabilities")
 			return Response.json({ configured: await rendererConfigured(env) });
 		const clipMatch = pathname.match(/^\/clips\/([^/]+)$/);

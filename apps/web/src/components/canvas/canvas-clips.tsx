@@ -250,7 +250,7 @@ export function ClipPanel({
 		>
 			<h3 className="font-medium text-sm">Clip with audio</h3>
 			<p className="text-muted-foreground text-xs">
-				Connect an Audio node to the Audio input. Choose existing outputs, then
+				Connect an Audio node to Clip soundtrack. Choose existing outputs, then
 				combine them into an MP4.
 			</p>
 			<FieldGroup>

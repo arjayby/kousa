@@ -58,6 +58,7 @@ export const generateInput = generationProjectInput.extend({
 	nodeId: z.uuid(),
 	inputHash: z.string().regex(/^[a-f0-9]{64}$/),
 	inputImageAssetId: z.uuid().optional(),
+	mediaAssetIds: z.array(z.uuid()).max(8).optional(),
 });
 
 export type PublicRun = {

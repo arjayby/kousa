@@ -165,7 +165,8 @@ export async function planGraph(
 				const snapshot = videoInputSnapshot(graph, nodeId);
 				const settingsError = validateModelSettings(
 					{ ...snapshot, kind: "video" },
-					Boolean(snapshot.image),
+					Boolean(snapshot.image) ||
+						Boolean(snapshot.media?.some((input) => input.kind !== "audio")),
 				);
 				if (settingsError)
 					throw new GenerationError("BAD_REQUEST", settingsError);
@@ -191,6 +192,8 @@ export async function planGraph(
 						"video",
 						snapshot.modelId,
 						snapshot.duration,
+						undefined,
+						snapshot.media?.length,
 					),
 					runId: "",
 					reused: false,
@@ -203,7 +206,11 @@ export async function planGraph(
 					: textInputSnapshot(graph, nodeId);
 			const modelError = validateModelSettings(
 				{ kind, modelId: snapshot.modelId, aspectRatio: node.data.aspectRatio },
-				"image" in snapshot && Boolean(snapshot.image),
+				("image" in snapshot && Boolean(snapshot.image)) ||
+					Boolean(
+						"media" in snapshot &&
+							snapshot.media?.some((input) => input.kind !== "audio"),
+					),
 			);
 			if (modelError) throw new GenerationError("BAD_REQUEST", modelError);
 			if (
@@ -237,6 +244,7 @@ export async function planGraph(
 					snapshot.modelId,
 					undefined,
 					node.data.imageQuality,
+					snapshot.media?.length,
 				),
 				runId: "",
 				reused: false,

@@ -25,18 +25,34 @@ export type InputPort = {
 	id: string;
 	label: string;
 	accepts: readonly NodeKind[];
+	maxConnections?: number;
 };
 export const inputPorts: Record<NodeKind, readonly InputPort[]> = {
-	text: [{ id: "context", label: "Context", accepts: nodeKinds }],
+	text: [
+		{ id: "context", label: "Context", accepts: nodeKinds, maxConnections: 8 },
+	],
 	image: [
 		{ id: "prompt", label: "Prompt", accepts: ["text"] },
-		{ id: "reference", label: "Reference", accepts: ["image"] },
+		{
+			id: "reference",
+			label: "Reference",
+			accepts: ["image"],
+			maxConnections: 4,
+		},
 	],
 	video: [
 		{ id: "prompt", label: "Prompt", accepts: ["text"] },
-		{ id: "image", label: "Image", accepts: ["image"] },
-		{ id: "video", label: "Video", accepts: ["video"] },
-		{ id: "audio", label: "Audio", accepts: ["audio"] },
+		{ id: "image", label: "Starting frame", accepts: ["image"] },
+		{ id: "lastFrame", label: "Last frame", accepts: ["image"] },
+		{
+			id: "reference",
+			label: "Reference images",
+			accepts: ["image"],
+			maxConnections: 4,
+		},
+		{ id: "video", label: "Reference video", accepts: ["video"] },
+		{ id: "audioReference", label: "Reference audio", accepts: ["audio"] },
+		{ id: "audio", label: "Clip soundtrack", accepts: ["audio"] },
 	],
 	audio: [{ id: "script", label: "Script", accepts: ["text"] }],
 };
@@ -82,7 +98,7 @@ export const canvasEdgeSchema = z.object({
 	id: z.uuid(),
 	source: z.uuid(),
 	target: z.uuid(),
-	sourceHandle: z.literal("output"),
+	sourceHandle: z.enum(["output", "lastFrame", "audio"]),
 	targetHandle: z.string().min(1).max(30),
 });
 export type CanvasNode = z.infer<typeof canvasNodeSchema>;
@@ -128,22 +144,32 @@ export function connectionError(
 	const target = graph.nodes.find((node) => node.id === connection.target);
 	if (!source || !target) return "Both nodes must exist.";
 	if (source.id === target.id) return "A node cannot connect to itself.";
-	if (connection.sourceHandle !== "output")
-		return "Connect from an output handle.";
+	const outputKind = sourceOutputKind(source.type, connection.sourceHandle);
+	if (!outputKind) return "Connect from an available output handle.";
 	const port = inputPorts[target.type].find(
 		(port) => port.id === connection.targetHandle,
 	);
 	if (!port)
 		return `${nodeLabels[target.type]} has no ${connection.targetHandle} input.`;
-	if (!port.accepts.includes(source.type))
+	if (!port.accepts.includes(outputKind))
 		return `${nodeLabels[source.type]} output cannot connect to ${nodeLabels[target.type]} ${port.label}. This input accepts ${port.accepts.map((kind) => nodeLabels[kind]).join(" or ")}.`;
 	const edges = graph.edges.filter((edge) => edge.id !== ignoreEdgeId);
 	if (
-		edges.some(
+		edges.filter(
 			(edge) => edge.target === target.id && edge.targetHandle === port.id,
-		)
+		).length >= (port.maxConnections ?? 1)
 	)
 		return "This input already has a connection. Remove it first.";
+	if (
+		edges.some(
+			(edge) =>
+				edge.source === source.id &&
+				edge.sourceHandle === connection.sourceHandle &&
+				edge.target === target.id &&
+				edge.targetHandle === port.id,
+		)
+	)
+		return "This output is already connected to this input.";
 	const outgoing = new Map<string, string[]>();
 	for (const edge of edges)
 		outgoing.set(edge.source, [
@@ -226,4 +252,14 @@ export function imageOutputAssetId(
 	return source === "generated"
 		? (generatedAssetId ?? data.assetId)
 		: data.assetId;
+}
+
+export function sourceOutputKind(
+	kind: NodeKind,
+	handle: string,
+): NodeKind | null {
+	if (handle === "output") return kind;
+	if (kind === "video" && handle === "lastFrame") return "image";
+	if (kind === "video" && handle === "audio") return "audio";
+	return null;
 }

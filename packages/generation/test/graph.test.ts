@@ -290,7 +290,7 @@ it("rejects cycles, unsupported connections and empty prompts before charging", 
 	graph.edges.pop();
 	a.type = "audio";
 	await expect(planGraph(graph, c.id)).rejects.toThrow(
-		"connected text nodes only",
+		"does not accept audio context",
 	);
 	a.type = "text";
 	a.data.content = "";

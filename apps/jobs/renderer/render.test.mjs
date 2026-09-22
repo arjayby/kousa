@@ -179,3 +179,21 @@ test("rejects invalid media, out-of-range controls and offsets after video ends"
 		renderClip(video, new TextEncoder().encode("not audio"), settings),
 	);
 });
+
+test("extracts the last video frame and audio, and rejects audio from silent video", async () => {
+	const { extractVideoOutput } = await import("./render.mjs");
+	const video = await readFile(
+		new URL(
+			"../../../packages/media/test/fixtures/narrated-clip.mp4",
+			import.meta.url,
+		),
+	);
+	const frame = await extractVideoOutput(video, "lastFrame");
+	assert.equal(frame.subarray(1, 4).toString(), "PNG");
+	const audio = await extractVideoOutput(video, "audio");
+	assert.ok(audio.length > 100);
+	const silent = await readFile(
+		new URL("../../../packages/media/test/fixtures/clip.mp4", import.meta.url),
+	);
+	await assert.rejects(extractVideoOutput(silent, "audio"), /no audio track/);
+});

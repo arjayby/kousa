@@ -23,6 +23,7 @@ import {
 	buildVideoPrompt,
 	GenerationError,
 } from "./input";
+import { resolveSavedMedia, validateMediaAssets } from "./media-inputs";
 
 export function createGraphService(
 	store: GraphStore,
@@ -68,6 +69,37 @@ export function createGraphService(
 				else if (step.kind === "video") buildVideoPrompt(step, pinned);
 				else if (step.kind === "image") buildImagePrompt(step, pinned);
 				else buildPrompt(step, pinned);
+			}
+			if (step.media?.length) {
+				const fixed = step.media.filter(
+					(input) => input.source !== "generated",
+				);
+				const resolved = await resolveSavedMedia(
+					generations,
+					projectId,
+					canvasId,
+					fixed,
+				);
+				await validateMediaAssets(
+					media,
+					projectId,
+					resolved,
+					step.modelId,
+					step.kind === "video",
+				);
+				for (const input of step.media) {
+					const saved = resolved.find(
+						(saved) =>
+							saved.nodeId === input.nodeId && saved.role === input.role,
+					);
+					if (saved) input.assetId = saved.assetId;
+				}
+				if (step.kind === "video") {
+					step.inputImageOrigin = imageOrigin;
+					if (!imageOrigin)
+						step.blocker =
+							"Video references need a public HTTPS app URL so the provider can fetch the media.";
+				}
 			}
 			if ((step.kind !== "video" && step.kind !== "image") || !step.image)
 				continue;
@@ -115,6 +147,10 @@ export function createGraphService(
 					(step.sources.some(
 						(input) => !input.runId && input.id === source.nodeId,
 					) ||
+						step.media?.some(
+							(input) =>
+								input.source === "generated" && input.nodeId === source.nodeId,
+						) ||
 						((step.kind === "video" || step.kind === "image") &&
 							step.image?.imageSource === "generated" &&
 							step.image.nodeId === source.nodeId)),
@@ -293,6 +329,7 @@ export function createGraphService(
 					nodeId: source.id,
 					runId: source.runId ?? null,
 				})),
+				media: step.media,
 				image:
 					step.kind === "video" || step.kind === "image" ? step.image : null,
 			})),

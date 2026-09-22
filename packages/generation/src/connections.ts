@@ -6,6 +6,7 @@ import {
 	inputPorts,
 	nodeGenerationKind,
 	nodeLabels,
+	sourceOutputKind,
 } from "@kousa/projects/canvas";
 import {
 	defaultImageModel,
@@ -20,6 +21,7 @@ import {
 import {
 	imageProfile,
 	resolveSpeechModel,
+	textInputModalities,
 	videoProfile,
 } from "./model-catalog";
 
@@ -45,7 +47,7 @@ export function connectionCapability(
 	}[target.type];
 	const model = models.find((model) => model.id === modelId)?.name ?? modelId;
 	const result = (
-		usage: "text" | "image" | "composition" | "unsupported",
+		usage: "text" | "image" | "media" | "composition" | "unsupported",
 		description: string,
 	) => ({ usage, description, model });
 	if (!port?.accepts.includes(source.type))
@@ -64,10 +66,15 @@ export function connectionCapability(
 			`Choose an available ${nodeLabels[target.type]} model before connecting. ${modelId} is not supported.`,
 		);
 	if (target.type === "text" && source.type !== "text")
-		return result(
-			"unsupported",
-			`${model} currently accepts connected text nodes only in Kousa. ${nodeLabels[source.type]} context is not sent to this generator. Connect a Text node instead.`,
-		);
+		return textInputModalities(modelId).includes(source.type)
+			? result(
+					"media",
+					`Sends this saved ${source.type} to ${model} with the prompt.`,
+				)
+			: result(
+					"unsupported",
+					`${model} does not accept ${source.type} context. Choose a model that supports ${source.type}.`,
+				);
 	if (
 		target.type === "image" &&
 		handle === "reference" &&
@@ -82,11 +89,31 @@ export function connectionCapability(
 			"image",
 			"Edits this reference image using the destination node's prompt. Describe what to change and what to keep.",
 		);
-	if (target.type === "video" && handle === "video")
-		return result(
-			"unsupported",
-			`${model} does not support video-to-video in Kousa. Disconnect video inputs before generating. Connect one Image as a starting frame, or Text to Prompt.`,
-		);
+	if (
+		target.type === "video" &&
+		["lastFrame", "reference", "video", "audioReference"].includes(handle)
+	) {
+		const profile = videoProfile(modelId);
+		const supported =
+			handle === "lastFrame"
+				? profile.lastFrame
+				: handle === "reference"
+					? profile.referenceImages
+					: handle === "video"
+						? profile.referenceVideo
+						: profile.referenceAudio;
+		return supported
+			? result(
+					"media",
+					handle === "lastFrame"
+						? "Ends the generated video at this image. Connect a starting frame too."
+						: `Sends this ${source.type} as a generation reference. Describe how to use it in the prompt.`,
+				)
+			: result(
+					"unsupported",
+					`${model} does not support ${port.label.toLowerCase()}. Choose a compatible video model.`,
+				);
+	}
 	if (
 		target.type === "video" &&
 		handle === "image" &&
@@ -122,10 +149,34 @@ export function resolveConnection(
 	const source = graph.nodes.find((node) => node.id === connection.source);
 	const target = graph.nodes.find((node) => node.id === connection.target);
 	if (!source || !target) return null;
+	const kind = sourceOutputKind(source.type, connection.sourceHandle);
+	const capability = connectionCapability(
+		kind ? { ...source, type: kind } : source,
+		target,
+		connection.targetHandle,
+	);
+	// Derived video outputs are resolved from the original saved video, then extracted.
+	const derived =
+		source.type === "video" && connection.sourceHandle !== "output";
+	if (derived && capability.usage === "composition")
+		return {
+			source,
+			target,
+			...capability,
+			usage: "unsupported" as const,
+			description:
+				"Use Reference audio to send this video audio to generation. Clip soundtrack accepts Audio nodes.",
+		};
 	return {
 		source,
 		target,
-		...connectionCapability(source, target, connection.targetHandle),
+		...capability,
+		...(derived && capability.usage !== "unsupported"
+			? {
+					usage: "media" as const,
+					description: `${connection.sourceHandle === "lastFrame" ? "Extracts the last frame" : "Extracts the audio track"} from the selected saved video. ${capability.description}`,
+				}
+			: {}),
 	};
 }
 

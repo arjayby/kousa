@@ -1,3 +1,4 @@
+import type { MediaInput } from "@kousa/db/schema/generation-inputs";
 import {
 	type CanvasDocument,
 	imageOutputAssetId,
@@ -11,6 +12,7 @@ import {
 	resolveTextModel,
 	textInputByteLimit,
 } from "./contracts";
+import { mediaInput } from "./media-inputs";
 
 import {
 	defaultVoiceFor,
@@ -18,6 +20,7 @@ import {
 	imageQualityFor,
 	imageSizeFor,
 	resolveSpeechModel,
+	videoProfile,
 } from "./model-catalog";
 
 export class GenerationError extends Error {
@@ -72,6 +75,7 @@ export function textInputSnapshot(graph: CanvasDocument, nodeId: string) {
 	return {
 		nodeId,
 		modelId: resolveTextModel(node.data.textModel),
+		...mediaSnapshot(graph, nodeId),
 		content: node.data.content,
 		sources,
 	};
@@ -130,6 +134,7 @@ export function imageInputSnapshot(graph: CanvasDocument, nodeId: string) {
 		content: node.data.content,
 		sources,
 		image: connectedImage(graph, nodeId),
+		...mediaSnapshot(graph, nodeId),
 		size: imageSizeFor(
 			node.data.imageModel ?? defaultImageModel,
 			node.data.aspectRatio,
@@ -267,11 +272,7 @@ function connectedImage(graph: CanvasDocument, nodeId: string) {
 	const inputs = resolvedConnections(graph, nodeId);
 	for (const { source, usage } of inputs) {
 		if (usage !== "image") continue;
-		if (images.length)
-			throw new GenerationError(
-				"BAD_REQUEST",
-				"Connect only one image to this node.",
-			);
+		if (images.length) continue;
 		images.push({
 			nodeId: source.id,
 			runId: source.data.selectedRunId ?? undefined,
@@ -301,6 +302,7 @@ export function videoInputSnapshot(graph: CanvasDocument, nodeId: string) {
 		aspectRatio: node.data.aspectRatio,
 		duration: Number(node.data.duration),
 		image: connectedImage(graph, nodeId),
+		...mediaSnapshot(graph, nodeId),
 	};
 }
 
@@ -323,7 +325,8 @@ export function buildVideoPrompt(
 	outputs: Array<{ nodeId: string; output: string | null }>,
 ) {
 	if (
-		snapshot.image &&
+		(snapshot.image ||
+			snapshot.media?.some((input) => input.role === "firstFrame")) &&
 		!snapshot.content.trim() &&
 		snapshot.sources.every(
 			(source) =>
@@ -335,4 +338,125 @@ export function buildVideoPrompt(
 	)
 		return "";
 	return buildImagePrompt(snapshot, outputs);
+}
+
+function mediaSnapshot(
+	graph: CanvasDocument,
+	nodeId: string,
+): { media?: MediaInput[] } {
+	const node = graph.nodes.find((node) => node.id === nodeId);
+	if (!node) return {};
+	const inputs = resolvedConnections(graph, nodeId);
+	const images = inputs.filter((input) => input.usage === "image");
+	if (
+		node.type === "image" &&
+		images.length >
+			imageProfile(node.data.imageModel ?? defaultImageModel).maxReferences
+	)
+		throw new GenerationError(
+			"BAD_REQUEST",
+			`This model accepts up to ${imageProfile(node.data.imageModel ?? defaultImageModel).maxReferences} reference images.`,
+		);
+	if (node.type === "video" && images.length > 1)
+		throw new GenerationError(
+			"BAD_REQUEST",
+			"Connect only one starting frame.",
+		);
+	const media = inputs.flatMap((input) =>
+		input.usage === "media"
+			? [
+					mediaInput(
+						input.source,
+						node.type === "text"
+							? "context"
+							: input.edge.targetHandle === "image"
+								? "firstFrame"
+								: (input.edge.targetHandle as MediaInput["role"]),
+						input.edge.sourceHandle === "output"
+							? undefined
+							: input.edge.sourceHandle,
+					),
+				]
+			: node.type === "image" && input.usage === "image" && input !== images[0]
+				? [mediaInput(input.source, "reference")]
+				: [],
+	);
+	if (
+		node.type === "image" &&
+		(images.length ? 1 : 0) + media.length >
+			imageProfile(node.data.imageModel ?? defaultImageModel).maxReferences
+	)
+		throw new GenerationError(
+			"BAD_REQUEST",
+			"Too many reference images for this model.",
+		);
+	if (media.length > 8)
+		throw new GenerationError(
+			"BAD_REQUEST",
+			"Connect up to eight media inputs.",
+		);
+	if (node.type === "video") {
+		const profile = videoProfile(node.data.videoModel ?? defaultVideoModel);
+		const first =
+			images.length +
+			media.filter((input) => input.role === "firstFrame").length;
+		if (first > 1)
+			throw new GenerationError(
+				"BAD_REQUEST",
+				"Connect only one starting frame.",
+			);
+		const last = media.filter((input) => input.role === "lastFrame");
+		const references = media.filter(
+			(input) => input.role !== "lastFrame" && input.role !== "firstFrame",
+		);
+		if (last.length > 1 || (last.length && !first))
+			throw new GenerationError(
+				"BAD_REQUEST",
+				"Last frame needs one connected starting frame.",
+			);
+		if (((first && !profile.referenceOnly) || last.length) && references.length)
+			throw new GenerationError(
+				"BAD_REQUEST",
+				"Use starting/last frames or reference media in a run, without mixing them.",
+			);
+		if (
+			node.data.videoModel === "minimax/minimax-h3" &&
+			references.some((input) => input.kind === "audio") &&
+			!references.some((input) => input.kind !== "audio")
+		)
+			throw new GenerationError(
+				"BAD_REQUEST",
+				"Audio references need a reference image or video with this model.",
+			);
+		const totalLimit = profile.inputLimits.max_total_inputs;
+		if (
+			typeof totalLimit === "number" &&
+			images.length + media.length > totalLimit
+		)
+			throw new GenerationError(
+				"BAD_REQUEST",
+				`This model accepts up to ${totalLimit} reference inputs.`,
+			);
+		for (const kind of ["image", "video", "audio"] as const) {
+			const limit = profile.inputLimits[kind];
+			const count =
+				media.filter((input) => input.kind === kind).length +
+				(kind === "image" ? images.length : 0);
+			if (limit && typeof limit === "object" && count > (limit.max_count ?? 1))
+				throw new GenerationError(
+					"BAD_REQUEST",
+					`Too many ${kind} references for this model.`,
+				);
+		}
+		if (
+			node.data.videoModel?.startsWith("google/veo-") &&
+			references.length &&
+			node.data.duration !== 8
+		)
+			throw new GenerationError(
+				"BAD_REQUEST",
+				"Veo reference generation requires an 8-second duration.",
+			);
+	}
+	return media.length ? { media } : {};
 }

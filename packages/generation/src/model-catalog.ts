@@ -144,6 +144,14 @@ export function imageProfile(id: string) {
 	const vector = provider === "quiverai";
 	return {
 		language,
+		maxReferences:
+			language ||
+			vector ||
+			provider === "openai" ||
+			provider === "bytedance" ||
+			id.startsWith("bfl/flux-2-")
+				? 4
+				: 1,
 		vector,
 		automaticSize: vector || provider === "meta",
 		// The application exports Arrow's SVG as PNG for storage and downstream models.
@@ -200,6 +208,21 @@ type VideoCapabilities = {
 	supported_aspect_ratios: string[];
 	supported_durations_seconds: number[];
 	generate_audio?: boolean;
+	input_limits?: Record<
+		string,
+		| {
+				supported_sources?: string[];
+				max_chars?: number;
+				max_count?: number;
+				min_duration_seconds?: number;
+				max_duration_seconds?: number;
+				max_file_size_mb?: number;
+				min_dimension_pixels?: number;
+				max_dimension_pixels?: number;
+				supported_formats?: string[];
+		  }
+		| number
+	>;
 };
 const videoCapabilities: Record<string, VideoCapabilities> = videoData;
 export function videoProfile(id: string) {
@@ -211,6 +234,19 @@ export function videoProfile(id: string) {
 			: (caps?.supported_resolutions[0] ?? "720p");
 	return {
 		operations,
+		inputLimits: caps?.input_limits ?? {},
+		lastFrame: operations.includes("first-last-frame"),
+		referenceImages: operations.includes("reference-to-video"),
+		referenceVideo:
+			operations.includes("reference-to-video") &&
+			(id.startsWith("bytedance/") ||
+				id.startsWith("alibaba/") ||
+				id === "minimax/minimax-h3"),
+		referenceAudio:
+			(id.startsWith("bytedance/seedance-2.") ||
+				id.startsWith("alibaba/") ||
+				id === "minimax/minimax-h3") &&
+			Boolean(caps?.input_limits?.audio),
 		generatesAudio: caps?.generate_audio === true,
 		aspectRatios: aspectRatios.filter((ratio) =>
 			caps?.supported_aspect_ratios.includes(ratio),
@@ -355,19 +391,28 @@ export function modelCreditCost(
 	id: string,
 	duration = 5,
 	quality?: ImageQuality,
+	mediaCount = 0,
 ) {
 	const model = findModel(id, kind);
 	if (!model || model.unavailableReason) return 0;
 	if (kind === "speech") return id === "openai/tts-1-hd" ? 4 : 2;
 	if (kind === "video")
-		return Math.ceil((videoCreditsPerSecond[id] ?? 0) * duration);
+		return Math.ceil(
+			(videoCreditsPerSecond[id] ?? 0) * duration * (1 + mediaCount),
+		);
 	if (kind === "image")
-		return model.provider === "openai"
-			? { low: 20, medium: 40, high: 80 }[quality ?? "medium"]
-			: (imageCredits[id] ?? 0);
+		return (
+			(model.provider === "openai"
+				? { low: 20, medium: 40, high: 80 }[quality ?? "medium"]
+				: (imageCredits[id] ?? 0)) *
+			(1 + mediaCount)
+		);
 	const input = Number(model.pricing.input);
 	const output = Number(model.pricing.output);
-	return Math.max(1, Math.ceil((input * 12_000 + output * 2_048) * 200));
+	return Math.max(
+		1,
+		Math.ceil((input * (12_000 + mediaCount * 16_384) + output * 2_048) * 200),
+	);
 }
 
 export function modelSettingsPatch(
@@ -464,4 +509,13 @@ export function validateModelSettings(
 	)
 		return "This model does not support reference images. Choose an image editing model or disconnect the reference.";
 	return null;
+}
+
+// Gateway's audio-input guide explicitly supports this route although the
+// models endpoint currently omits audio from its input_modalities field.
+export function textInputModalities(id: string) {
+	const inputs = findModel(id, "text")?.inputModalities ?? [];
+	return id === "google/gemini-3.6-flash"
+		? [...new Set([...inputs, "audio"])]
+		: inputs;
 }

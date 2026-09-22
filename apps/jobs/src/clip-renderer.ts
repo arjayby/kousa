@@ -78,3 +78,52 @@ export function clipRenderer(env: RendererEnv): ClipRenderer {
 		return result;
 	};
 }
+
+export function videoOutputExtractor(env: RendererEnv) {
+	return async (
+		id: string,
+		bytes: Uint8Array<ArrayBuffer>,
+		output: "lastFrame" | "audio",
+	) => {
+		const body = new FormData();
+		body.set("video", new Blob([bytes], { type: "video/mp4" }), "video.mp4");
+		body.set("output", output);
+		const init = { method: "POST", body, signal: AbortSignal.timeout(180_000) };
+		const response = env.CLIP_RENDERER
+			? await env.CLIP_RENDERER.get(env.CLIP_RENDERER.idFromName(id)).fetch(
+					"http://container/extract",
+					init,
+				)
+			: env.CLIP_RENDERER_URL
+				? await fetch(`${env.CLIP_RENDERER_URL}/extract`, init)
+				: null;
+		if (!response?.ok || !response.body)
+			throw new Error("Video output extraction unavailable");
+		const reader = response.body.getReader();
+		const chunks: Uint8Array[] = [];
+		let length = 0;
+		try {
+			while (true) {
+				const { value, done } = await reader.read();
+				if (done) break;
+				length += value.length;
+				if (length > 10 * 1024 * 1024)
+					throw new Error("Extracted output too large");
+				chunks.push(value);
+			}
+		} finally {
+			await reader.cancel();
+			reader.releaseLock();
+		}
+		const result = new Uint8Array(length);
+		let offset = 0;
+		for (const chunk of chunks) {
+			result.set(chunk, offset);
+			offset += chunk.length;
+		}
+		return {
+			bytes: result,
+			mimeType: output === "lastFrame" ? "image/png" : "audio/mpeg",
+		};
+	};
+}

@@ -281,3 +281,97 @@ it("accepts inline bytes and base64 but refuses multiple clips and wrong media t
 	});
 	expect(await poll()).toEqual({ status: "failed" });
 });
+
+it("sends first and last frames without dropping the last frame", async () => {
+	await provider().start({
+		id: "run",
+		modelId: "bytedance/seedance-2.0",
+		prompt: "Move",
+		imageUrl: "https://kousa.app/first",
+		media: [
+			{
+				kind: "image",
+				role: "lastFrame",
+				url: "https://kousa.app/last",
+				mediaType: "image/png",
+			},
+		],
+		aspectRatio: "16:9",
+		duration: 5,
+	});
+	expect(mocks.start).toHaveBeenCalledWith(
+		expect.objectContaining({
+			prompt: "Move",
+			frameImages: [
+				{ frameType: "first_frame", image: "https://kousa.app/first" },
+				{ frameType: "last_frame", image: "https://kousa.app/last" },
+			],
+		}),
+	);
+});
+
+it("sends typed image/video references and native audio references to Seedance", async () => {
+	await provider().start({
+		id: "run",
+		modelId: "bytedance/seedance-2.0",
+		prompt: "Match the motion",
+		media: [
+			{
+				kind: "image",
+				role: "reference",
+				url: "https://kousa.app/image",
+				mediaType: "image/png",
+			},
+			{
+				kind: "video",
+				role: "video",
+				url: "https://kousa.app/video",
+				mediaType: "video/mp4",
+			},
+			{
+				kind: "audio",
+				role: "audioReference",
+				url: "https://kousa.app/audio",
+				mediaType: "audio/mpeg",
+			},
+		],
+		aspectRatio: "16:9",
+		duration: 5,
+	});
+	expect(mocks.start).toHaveBeenCalledWith(
+		expect.objectContaining({
+			inputReferences: [
+				{ data: "https://kousa.app/image", mediaType: "image/png" },
+				{ data: "https://kousa.app/video", mediaType: "video/mp4" },
+			],
+			providerOptions: {
+				bytedance: {
+					resolution: "480p",
+					referenceAudio: ["https://kousa.app/audio"],
+					generateAudio: true,
+				},
+			},
+		}),
+	);
+});
+
+it("rejects unsupported media before any paid video call", async () => {
+	await expect(
+		provider().start({
+			id: "run",
+			modelId: defaultVideoModel,
+			prompt: "Move",
+			media: [
+				{
+					kind: "video",
+					role: "video",
+					url: "https://kousa.app/video",
+					mediaType: "video/mp4",
+				},
+			],
+			aspectRatio: "16:9",
+			duration: 5,
+		}),
+	).rejects.toThrow("Unsupported video reference");
+	expect(mocks.start).not.toHaveBeenCalled();
+});
