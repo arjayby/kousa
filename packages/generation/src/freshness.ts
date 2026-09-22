@@ -23,6 +23,7 @@ type Snapshot = {
 	content: string;
 	sources: { id: string; content: string; runId?: string }[];
 	size?: string | null;
+	imageQuality?: string;
 	voiceId?: string;
 	voiceDirection?: string;
 	duration?: number;
@@ -52,6 +53,7 @@ export function resolveInputs(
 		version: 1,
 		settings: {
 			kind: snapshot.kind,
+			...(snapshot.imageQuality ? { imageQuality: snapshot.imageQuality } : {}),
 			modelId: snapshot.modelId,
 			content: snapshot.content,
 			size: snapshot.kind === "image" ? (snapshot.size ?? null) : null,

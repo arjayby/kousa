@@ -1,0 +1,2 @@
+ALTER TABLE "generation_run" DROP CONSTRAINT "generation_video_settings";--> statement-breakpoint
+ALTER TABLE "generation_run" ADD CONSTRAINT "generation_video_settings" CHECK ("generation_run"."kind" <> 'video' or ("generation_run"."duration" is not null and "generation_run"."duration" between 1 and 12 and "generation_run"."aspect_ratio" is not null and "generation_run"."aspect_ratio" in ('1:1','16:9','9:16','4:3')));

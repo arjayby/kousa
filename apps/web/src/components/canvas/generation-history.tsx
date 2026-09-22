@@ -314,6 +314,13 @@ export function GenerationHistory({
 										<dd>{inspected.size}</dd>
 									</>
 								) : null}
+								{inspected.settings?.kind === "image" &&
+								inspected.settings.imageQuality ? (
+									<>
+										<dt>Quality</dt>
+										<dd>{inspected.settings.imageQuality}</dd>
+									</>
+								) : null}
 								{inspected.duration ? (
 									<>
 										<dt>Video</dt>

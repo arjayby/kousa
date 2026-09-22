@@ -1,5 +1,13 @@
 "use client";
-
+import {
+	defaultImageModel,
+	defaultVideoModel,
+} from "@kousa/generation/contracts";
+import {
+	imageProfile,
+	imageQualityFor,
+	videoProfile,
+} from "@kousa/generation/model-catalog";
 import type { PublicAsset } from "@kousa/media/contracts";
 import {
 	aspectRatios,
@@ -28,6 +36,7 @@ import {
 	UnplugIcon,
 	XIcon,
 } from "lucide-react";
+import { OptionField } from "@/components/playground/option-field";
 import { ClipPanel } from "./canvas-clips";
 import { GenerationPanel, useNodeImage } from "./canvas-generation";
 import { ImageMediaPanel } from "./canvas-media";
@@ -80,6 +89,16 @@ export function NodeInspector({
 	const graph = documentFromGraph({ nodes, edges });
 	const kind = node.type ?? "text";
 	const Icon = nodeIcons[kind];
+	const imageSettings = imageProfile(node.data.imageModel ?? defaultImageModel);
+	const videoSettings = videoProfile(node.data.videoModel ?? defaultVideoModel);
+	const ratioFromImage =
+		kind === "video" &&
+		videoSettings.imageDeterminesRatio &&
+		edges.some(
+			(edge) => edge.target === node.id && edge.targetHandle === "image",
+		);
+	const ratios =
+		kind === "video" ? videoSettings.aspectRatios : imageSettings.aspectRatios;
 	const attached = edges.filter(
 		(edge) => edge.source === node.id || edge.target === node.id,
 	);
@@ -205,13 +224,18 @@ export function NodeInspector({
 										: "Describe a scene and its motion, or connect an Image node and add optional motion instructions. You can also connect Text."}
 						</FieldDescription>
 					</Field>
-					{kind === "image" || kind === "video" ? (
+					{(kind === "image" && !imageSettings.automaticSize) ||
+					kind === "video" ? (
 						<Field>
-							<FieldLabel>Aspect ratio</FieldLabel>
+							<FieldLabel>
+								{ratioFromImage
+									? "Aspect ratio from connected image"
+									: "Aspect ratio"}
+							</FieldLabel>
 							<ToggleGroup
 								variant="outline"
 								size="sm"
-								disabled={!canEdit}
+								disabled={!canEdit || ratioFromImage}
 								value={[node.data.aspectRatio]}
 								onValueChange={(values) => {
 									const value = aspectRatios.find(
@@ -221,7 +245,7 @@ export function NodeInspector({
 								}}
 								aria-label="Aspect ratio"
 							>
-								{aspectRatios.map((ratio) => (
+								{ratios.map((ratio) => (
 									<ToggleGroupItem key={ratio} value={ratio}>
 										{ratio}
 									</ToggleGroupItem>
@@ -230,28 +254,44 @@ export function NodeInspector({
 						</Field>
 					) : null}
 					{kind === "video" ? (
-						<Field>
-							<FieldLabel>Duration</FieldLabel>
-							<ToggleGroup
-								variant="outline"
-								size="sm"
-								disabled={!canEdit}
-								value={[String(node.data.duration)]}
-								onValueChange={(values) => {
-									if (values[0] === "5" || values[0] === "10")
-										update(
-											{ duration: values[0] === "5" ? 5 : 10 },
-											"duration",
-										);
-								}}
-								aria-label="Video duration"
-							>
-								<ToggleGroupItem value="5">5 seconds</ToggleGroupItem>
-								<ToggleGroupItem value="10">10 seconds</ToggleGroupItem>
-							</ToggleGroup>
-						</Field>
+						<OptionField
+							id="video-duration"
+							label="Duration"
+							disabled={!canEdit}
+							value={String(node.data.duration)}
+							items={videoSettings.durations.map((duration) => ({
+								value: String(duration),
+								label: `${duration} seconds`,
+							}))}
+							onChange={(value) =>
+								update({ duration: Number(value) }, "duration")
+							}
+						/>
 					) : null}
-					{kind === "audio" ? (
+					{kind === "image" && imageSettings.qualityOptions.length ? (
+						<OptionField
+							id="image-quality"
+							label="Quality"
+							disabled={!canEdit}
+							value={
+								imageQualityFor(
+									node.data.imageModel ?? defaultImageModel,
+									node.data.imageQuality,
+								) ?? "medium"
+							}
+							items={imageSettings.qualityOptions.map((value) => ({
+								value,
+								label: value[0].toUpperCase() + value.slice(1),
+							}))}
+							onChange={(value) => {
+								const quality = imageSettings.qualityOptions.find(
+									(q) => q === value,
+								);
+								if (quality) update({ imageQuality: quality }, "imageQuality");
+							}}
+						/>
+					) : null}
+					{kind === "audio" && node.data.speechModel !== "spacexai/grok-tts" ? (
 						<Field>
 							<FieldLabel htmlFor="voice-direction">Voice direction</FieldLabel>
 							{model ? (

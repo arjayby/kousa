@@ -134,9 +134,9 @@ export function CanvasGuide({
 						</li>
 					</ol>
 					<p>
-						Video output is silent. Audio → Video Audio is composition: generate
-						or upload both files, then open Clip with audio. It does not send
-						audio to the video model.
+						Some video models include audio. Audio → Video Audio is composition:
+						generate or upload both files, then open Clip with audio. It does
+						not send audio to the video model.
 					</p>
 				</section>
 				<section

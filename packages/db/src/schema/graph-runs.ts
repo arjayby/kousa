@@ -26,6 +26,7 @@ type GraphStepBase = {
 	sources: { id: string; content: string; runId?: string }[];
 	authoredSettings?: unknown;
 	size: string | null;
+	imageQuality?: "low" | "medium" | "high";
 	inputHash: string;
 	credits: number;
 	reused: boolean;

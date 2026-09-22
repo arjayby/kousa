@@ -1,19 +1,7 @@
 import type { GraphStep } from "@kousa/db/schema/graph-runs";
 import type { CanvasDocument } from "@kousa/projects/canvas";
 import { z } from "zod";
-import {
-	imageCreditCost,
-	imageModels,
-	speechCreditCost,
-	speechModels,
-	speechVoices,
-	textCreditCost,
-	textModels,
-	videoAspectRatios,
-	videoCreditCost,
-	videoDurations,
-	videoModels,
-} from "./contracts";
+import { imageModels, textModels } from "./contracts";
 import { graphDependencies } from "./graph-selection";
 import { captureSettings } from "./history";
 import {
@@ -28,6 +16,7 @@ import {
 	textInputSnapshot,
 	videoInputSnapshot,
 } from "./input";
+import { modelCreditCost, validateModelSettings } from "./model-catalog";
 
 export const graphProjectInput = z.object({
 	projectId: z.uuid(),
@@ -151,14 +140,12 @@ export async function planGraph(
 			if (!node) throw new Error("Missing planned node");
 			if (node.type === "audio") {
 				const snapshot = speechInputSnapshot(graph, nodeId);
-				if (
-					!speechModels.some((model) => model.id === snapshot.modelId) ||
-					!speechVoices.some((voice) => voice.id === snapshot.voiceId)
-				)
-					throw new GenerationError(
-						"BAD_REQUEST",
-						"Choose an available speech model and voice.",
-					);
+				const settingsError = validateModelSettings(
+					{ ...snapshot, kind: "speech" },
+					false,
+				);
+				if (settingsError)
+					throw new GenerationError("BAD_REQUEST", settingsError);
 				if (!snapshot.sources.some((source) => source.runId))
 					buildSpeechScript(snapshot, []);
 				return {
@@ -169,22 +156,19 @@ export async function planGraph(
 					label: node.data.label,
 					size: null,
 					inputHash: await generationInputHash(graph, nodeId),
-					credits: speechCreditCost,
+					credits: modelCreditCost("speech", snapshot.modelId),
 					runId: "",
 					reused: false,
 				};
 			}
 			if (node.type === "video") {
 				const snapshot = videoInputSnapshot(graph, nodeId);
-				if (
-					!videoModels.some((model) => model.id === snapshot.modelId) ||
-					!videoDurations.some((duration) => duration === snapshot.duration) ||
-					!videoAspectRatios.some((ratio) => ratio === snapshot.aspectRatio)
-				)
-					throw new GenerationError(
-						"BAD_REQUEST",
-						"Choose an available video model, duration, and aspect ratio.",
-					);
+				const settingsError = validateModelSettings(
+					{ ...snapshot, kind: "video" },
+					Boolean(snapshot.image),
+				);
+				if (settingsError)
+					throw new GenerationError("BAD_REQUEST", settingsError);
 				if (
 					snapshot.image?.imageSource === "project" &&
 					!snapshot.image.assetId
@@ -203,7 +187,11 @@ export async function planGraph(
 					label: node.data.label,
 					size: null,
 					inputHash: await generationInputHash(graph, nodeId),
-					credits: videoCreditCost(snapshot.duration),
+					credits: modelCreditCost(
+						"video",
+						snapshot.modelId,
+						snapshot.duration,
+					),
 					runId: "",
 					reused: false,
 				};
@@ -213,6 +201,11 @@ export async function planGraph(
 				kind === "image"
 					? imageInputSnapshot(graph, nodeId)
 					: textInputSnapshot(graph, nodeId);
+			const modelError = validateModelSettings(
+				{ kind, modelId: snapshot.modelId, aspectRatio: node.data.aspectRatio },
+				"image" in snapshot && Boolean(snapshot.image),
+			);
+			if (modelError) throw new GenerationError("BAD_REQUEST", modelError);
 			if (
 				!(kind === "image" ? imageModels : textModels).some(
 					(model) => model.id === snapshot.modelId,
@@ -239,7 +232,12 @@ export async function planGraph(
 						? snapshot.size
 						: null,
 				inputHash: await generationInputHash(graph, nodeId),
-				credits: kind === "image" ? imageCreditCost : textCreditCost,
+				credits: modelCreditCost(
+					kind,
+					snapshot.modelId,
+					undefined,
+					node.data.imageQuality,
+				),
 				runId: "",
 				reused: false,
 			};

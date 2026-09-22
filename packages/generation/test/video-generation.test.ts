@@ -125,6 +125,22 @@ beforeEach(async () => {
 		},
 	});
 });
+it("queues Veo's six-second duration and price through the migrated database", async () => {
+	await db.grant("owner", 500);
+	node.data.videoModel = "google/veo-3.1-generate-001";
+	node.data.duration = 6;
+	await db.setGraph(projectId, graph);
+	const input = await request();
+	expect(await service().generate("owner", input)).toMatchObject({
+		status: "queued",
+		credits: 480,
+	});
+	expect(await runner().generate(input.id)).toBe("pending");
+	expect(start).toHaveBeenCalledWith(
+		expect.objectContaining({ modelId: node.data.videoModel, duration: 6 }),
+	);
+	expect(await db.store.balance("owner")).toBe(70);
+});
 it("persists a single submission, resumes polling after restart, then publishes and charges once", async () => {
 	const input = await request();
 	expect(await service().generate("owner", input)).toMatchObject({

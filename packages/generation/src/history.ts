@@ -6,8 +6,9 @@ import type { GraphStep } from "@kousa/db/schema/graph-runs";
 import type { CanvasNode } from "@kousa/projects/canvas";
 import { nodeGenerationKind } from "@kousa/projects/canvas";
 import { z } from "zod";
-import { defaultSpeechVoice, imageSizes } from "./contracts";
+import { imageSizes } from "./contracts";
 import { GenerationError } from "./input";
+import { defaultVoiceFor, imageQualityFor } from "./model-catalog";
 
 const common = {
 	content: z.string().max(20_000),
@@ -16,12 +17,17 @@ const common = {
 const ratio = z.enum(["1:1", "16:9", "9:16", "4:3"]);
 export const authoredSettingsSchema = z.discriminatedUnion("kind", [
 	z.object({ ...common, kind: z.literal("text") }),
-	z.object({ ...common, kind: z.literal("image"), aspectRatio: ratio }),
+	z.object({
+		...common,
+		kind: z.literal("image"),
+		aspectRatio: ratio,
+		imageQuality: z.enum(["low", "medium", "high"]).optional(),
+	}),
 	z.object({
 		...common,
 		kind: z.literal("video"),
 		aspectRatio: ratio,
-		duration: z.union([z.literal(5), z.literal(10)]),
+		duration: z.number().int().min(1).max(12),
 	}),
 	z.object({
 		...common,
@@ -42,7 +48,8 @@ export function captureSettings(
 		modelId,
 		aspectRatio: node.data.aspectRatio,
 		duration: node.data.duration,
-		voiceId: node.data.voiceId ?? defaultSpeechVoice,
+		voiceId: node.data.voiceId ?? defaultVoiceFor(modelId),
+		imageQuality: imageQualityFor(modelId, node.data.imageQuality),
 		voiceDirection: node.data.voiceDirection,
 	});
 }
@@ -57,6 +64,9 @@ export function settingsPatch(
 			? { aspectRatio: settings.aspectRatio }
 			: {}),
 		...(settings.kind === "video" ? { duration: settings.duration } : {}),
+		...(settings.kind === "image"
+			? { imageQuality: settings.imageQuality }
+			: {}),
 		...(settings.kind === "speech"
 			? { voiceId: settings.voiceId, voiceDirection: settings.voiceDirection }
 			: {}),

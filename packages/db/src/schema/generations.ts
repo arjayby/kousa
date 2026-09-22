@@ -113,7 +113,7 @@ export const generationRun = pgTable(
 		),
 		check(
 			"generation_video_settings",
-			sql`${t.kind} <> 'video' or (${t.duration} is not null and ${t.duration} in (5,10) and ${t.aspectRatio} is not null and ${t.aspectRatio} in ('1:1','16:9','9:16','4:3'))`,
+			sql`${t.kind} <> 'video' or (${t.duration} is not null and ${t.duration} between 1 and 12 and ${t.aspectRatio} is not null and ${t.aspectRatio} in ('1:1','16:9','9:16','4:3'))`,
 		),
 		check(
 			"generation_credits_positive",

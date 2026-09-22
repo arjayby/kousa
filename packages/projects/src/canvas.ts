@@ -47,6 +47,7 @@ const nodeDataSchema = z.object({
 	label: z.string().max(80),
 	textModel: z.string().max(120).optional(),
 	imageModel: z.string().max(120).optional(),
+	imageQuality: z.enum(["low", "medium", "high"]).optional(),
 	videoModel: z.string().max(120).optional(),
 	speechModel: z.string().max(120).optional(),
 	voiceId: z.string().max(120).optional(),
@@ -62,7 +63,7 @@ const nodeDataSchema = z.object({
 	assetId: z.uuid().nullable().optional(),
 	content: z.string().max(20_000),
 	aspectRatio: z.enum(aspectRatios),
-	duration: z.union([z.literal(5), z.literal(10)]),
+	duration: z.number().int().min(1).max(12),
 	voiceDirection: z.string().max(500),
 });
 export const canvasNodeSchema = z.object({

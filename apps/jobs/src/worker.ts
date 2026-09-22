@@ -36,6 +36,7 @@ import { createMediaService } from "@kousa/media/service";
 import { r2Storage } from "@kousa/media/storage";
 import { z } from "zod";
 import { r2Artifacts } from "./artifacts";
+import { rasterizeSvg } from "./svg";
 
 interface JobsEnv extends RendererEnv {
 	DATABASE_URL: string;
@@ -56,7 +57,7 @@ function runtime(env: JobsEnv) {
 		store,
 		r2Artifacts(env.MEDIA),
 		createGatewayProvider(env.AI_GATEWAY_API_KEY),
-		createGatewayImageProvider(env.AI_GATEWAY_API_KEY),
+		createGatewayImageProvider(env.AI_GATEWAY_API_KEY, rasterizeSvg),
 		media,
 		createGatewaySpeechProvider(env.AI_GATEWAY_API_KEY),
 		createGatewayVideoProvider(env.AI_GATEWAY_API_KEY),

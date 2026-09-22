@@ -9,13 +9,14 @@ import {
 	nodeLabels,
 } from "@kousa/projects/canvas";
 import type { ProjectService } from "@kousa/projects/service";
-import { imageSizes, isRunActive } from "./contracts";
+import { isRunActive } from "./contracts";
 import {
 	type AuthoredSettings,
 	authoredSettingsSchema,
 	settingsPatch,
 } from "./history";
 import { GenerationError, generationInputHash } from "./input";
+import { imageSizeFor } from "./model-catalog";
 import {
 	playgroundCost,
 	playgroundGenerateInput,
@@ -144,7 +145,9 @@ export function createPlaygroundService(
 				kind: settings.kind,
 				authoredSettings: settings,
 				size:
-					settings.kind === "image" ? imageSizes[settings.aspectRatio] : null,
+					settings.kind === "image"
+						? imageSizeFor(settings.modelId, settings.aspectRatio)
+						: null,
 				duration: settings.kind === "video" ? settings.duration : null,
 				aspectRatio: settings.kind === "video" ? settings.aspectRatio : null,
 				voiceId: settings.kind === "speech" ? settings.voiceId : null,

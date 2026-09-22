@@ -38,8 +38,8 @@ export const starterExamples: Record<
 	video: {
 		title: "Text to video",
 		description:
-			"Create a silent video from a motion prompt. Video-to-video is not supported by current generators.",
-		next: "Edit The idea, then choose Generate video on The scene. Video generation produces a silent clip.",
+			"Create a video from a motion prompt. Video-to-video generation is not yet available.",
+		next: "Edit The idea, then choose Generate video on The scene. Some models include generated audio.",
 	},
 	"image-video": {
 		title: "Image to video",

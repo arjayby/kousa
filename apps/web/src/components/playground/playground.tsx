@@ -6,9 +6,17 @@ import {
 	defaultSpeechVoice,
 	defaultTextModel,
 	defaultVideoModel,
-	speechVoices,
 } from "@kousa/generation/contracts";
 import type { AuthoredSettings } from "@kousa/generation/history";
+import {
+	defaultVoiceFor,
+	imageProfile,
+	imageQualityFor,
+	modelSettingsPatch,
+	resolveSpeechModel,
+	videoProfile,
+	voicesFor,
+} from "@kousa/generation/model-catalog";
 import {
 	playgroundCost,
 	playgroundGenerateInput,
@@ -69,6 +77,7 @@ import {
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
+import { ModelPicker } from "@/components/model-picker";
 import { authClient } from "@/lib/auth-client";
 import { client } from "@/utils/orpc";
 import { AddToCanvas } from "./add-to-canvas";
@@ -91,7 +100,8 @@ const draftSchema = z.object({
 		speech: z.string(),
 	}),
 	aspectRatio: z.enum(["1:1", "16:9", "9:16", "4:3"]),
-	duration: z.union([z.literal(5), z.literal(10)]),
+	duration: z.number().int().min(1).max(12),
+	imageQuality: z.enum(["low", "medium", "high"]).default("medium"),
 	voiceId: z.string(),
 	voiceDirection: z.string().max(500),
 });
@@ -106,6 +116,7 @@ const defaults: z.infer<typeof draftSchema> = {
 	},
 	aspectRatio: "1:1",
 	duration: 5,
+	imageQuality: "medium",
 	voiceId: defaultSpeechVoice,
 	voiceDirection: "",
 };
@@ -164,11 +175,12 @@ export function Playground({
 			);
 			if (parsed.success) {
 				const next = parsed.data;
+				next.models.speech = resolveSpeechModel(next.models.speech);
 				for (const { id } of kinds)
 					if (!playgroundModels[id].some((m) => m.id === next.models[id]))
 						next.models[id] = defaults.models[id];
-				if (!speechVoices.some((v) => v.id === next.voiceId))
-					next.voiceId = defaultSpeechVoice;
+				if (!voicesFor(next.models.speech).some((v) => v.id === next.voiceId))
+					next.voiceId = defaultVoiceFor(next.models.speech);
 				setDraft(next);
 			}
 			const pending = playgroundGenerateInput.safeParse(
@@ -219,12 +231,31 @@ export function Playground({
 							content: draft.content,
 							modelId: draft.models.image,
 							aspectRatio: draft.aspectRatio,
+							imageQuality: imageQualityFor(
+								draft.models.image,
+								draft.imageQuality,
+							),
 						}
 					: {
 							kind: draft.kind,
 							content: draft.content,
 							modelId: draft.models.text,
 						};
+	function selectModel(kind: typeof draft.kind, modelId: string) {
+		setDraft((d) => {
+			const patch = modelSettingsPatch(kind, modelId, d);
+			return {
+				...d,
+				kind,
+				models: { ...d.models, [kind]: modelId },
+				aspectRatio: patch.aspectRatio ?? d.aspectRatio,
+				duration: patch.duration ?? d.duration,
+				imageQuality: patch.imageQuality ?? d.imageQuality,
+				voiceId: patch.voiceId ?? d.voiceId,
+				voiceDirection: patch.voiceDirection ?? d.voiceDirection,
+			};
+		});
+	}
 	const validation = playgroundSettings.safeParse(settings);
 	const cost = playgroundCost(settings);
 	const unavailable = !latest.configured[draft.kind];
@@ -311,9 +342,18 @@ export function Playground({
 			...current,
 			kind: saved.kind,
 			content: saved.content,
-			models: { ...current.models, [saved.kind]: saved.modelId },
+			models: {
+				...current.models,
+				[saved.kind]:
+					saved.kind === "speech"
+						? resolveSpeechModel(saved.modelId)
+						: saved.modelId,
+			},
 			...("aspectRatio" in saved ? { aspectRatio: saved.aspectRatio } : {}),
 			...("duration" in saved ? { duration: saved.duration } : {}),
+			...(saved.kind === "image"
+				? { imageQuality: saved.imageQuality ?? "medium" }
+				: {}),
 			...("voiceId" in saved
 				? { voiceId: saved.voiceId, voiceDirection: saved.voiceDirection }
 				: {}),
@@ -374,7 +414,7 @@ export function Playground({
 										onValueChange={(values) => {
 											const kind = kinds.find((k) => k.id === values[0])?.id;
 											if (kind) {
-												setDraft((d) => ({ ...d, kind }));
+												selectModel(kind, draft.models[kind]);
 												setError(null);
 											}
 										}}
@@ -394,21 +434,15 @@ export function Playground({
 										</FieldDescription>
 									) : null}
 								</Field>
-								<OptionField
-									id="playground-model"
-									label="Model"
-									value={draft.models[draft.kind]}
-									items={playgroundModels[draft.kind].map((m) => ({
-										value: m.id,
-										label: m.name,
-									}))}
-									onChange={(value) =>
-										setDraft((d) => ({
-											...d,
-											models: { ...d.models, [d.kind]: value },
-										}))
-									}
-								/>
+								<Field>
+									<FieldLabel htmlFor="playground-model">Model</FieldLabel>
+									<ModelPicker
+										id="playground-model"
+										kind={draft.kind}
+										value={draft.models[draft.kind]}
+										onChange={(value) => selectModel(draft.kind, value)}
+									/>
+								</Field>
 								<Field
 									data-invalid={draft.content.length > 0 && !validation.success}
 								>
@@ -441,12 +475,17 @@ export function Playground({
 												: "Switch models to try this same prompt again."}
 									</FieldDescription>
 								</Field>
-								{draft.kind === "image" || draft.kind === "video" ? (
+								{(draft.kind === "image" &&
+									!imageProfile(draft.models.image).automaticSize) ||
+								draft.kind === "video" ? (
 									<OptionField
 										id="playground-ratio"
 										label="Aspect ratio"
 										value={draft.aspectRatio}
-										items={["1:1", "16:9", "9:16", "4:3"].map((value) => ({
+										items={(draft.kind === "image"
+											? imageProfile(draft.models.image).aspectRatios
+											: videoProfile(draft.models.video).aspectRatios
+										).map((value) => ({
 											value,
 											label: value,
 										}))}
@@ -456,19 +495,42 @@ export function Playground({
 										}}
 									/>
 								) : null}
+								{draft.kind === "image" &&
+								imageProfile(draft.models.image).qualityOptions.length ? (
+									<OptionField
+										id="playground-quality"
+										label="Quality"
+										value={draft.imageQuality}
+										items={imageProfile(draft.models.image).qualityOptions.map(
+											(value) => ({
+												value,
+												label: value[0].toUpperCase() + value.slice(1),
+											}),
+										)}
+										onChange={(value) =>
+											setDraft((d) => ({
+												...d,
+												imageQuality:
+													draftSchema.shape.imageQuality.parse(value),
+											}))
+										}
+									/>
+								) : null}
 								{draft.kind === "video" ? (
 									<OptionField
 										id="playground-duration"
 										label="Duration"
 										value={String(draft.duration)}
-										items={[
-											{ value: "5", label: "5 seconds" },
-											{ value: "10", label: "10 seconds" },
-										]}
+										items={videoProfile(draft.models.video).durations.map(
+											(duration) => ({
+												value: String(duration),
+												label: `${duration} seconds`,
+											}),
+										)}
 										onChange={(value) =>
 											setDraft((d) => ({
 												...d,
-												duration: value === "10" ? 10 : 5,
+												duration: Number(value),
 											}))
 										}
 									/>
@@ -479,7 +541,7 @@ export function Playground({
 											id="playground-voice"
 											label="Voice"
 											value={draft.voiceId}
-											items={speechVoices.map((v) => ({
+											items={voicesFor(draft.models.speech).map((v) => ({
 												value: v.id,
 												label: v.name,
 											}))}
@@ -487,23 +549,30 @@ export function Playground({
 												setDraft((d) => ({ ...d, voiceId }))
 											}
 										/>
-										<Field>
-											<FieldLabel htmlFor="playground-direction">
-												Voice direction
-											</FieldLabel>
-											<Textarea
-												id="playground-direction"
-												value={draft.voiceDirection}
-												placeholder="Calm and conversational"
-												maxLength={500}
-												onChange={(e) =>
-													setDraft((d) => ({
-														...d,
-														voiceDirection: e.target.value,
-													}))
-												}
-											/>
-										</Field>
+										{draft.models.speech === "spacexai/grok-tts" ? (
+											<FieldDescription>
+												Add delivery tags such as [pause] or [laugh] in the
+												script.
+											</FieldDescription>
+										) : (
+											<Field>
+												<FieldLabel htmlFor="playground-direction">
+													Voice direction
+												</FieldLabel>
+												<Textarea
+													id="playground-direction"
+													value={draft.voiceDirection}
+													placeholder="Calm and conversational"
+													maxLength={500}
+													onChange={(e) =>
+														setDraft((d) => ({
+															...d,
+															voiceDirection: e.target.value,
+														}))
+													}
+												/>
+											</Field>
+										)}
 									</>
 								) : null}
 							</FieldGroup>

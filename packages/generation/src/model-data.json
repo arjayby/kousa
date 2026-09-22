@@ -1,0 +1,2414 @@
+[
+	{
+		"id": "amazon/nova-micro",
+		"kind": "text",
+		"name": "Nova Micro",
+		"provider": "amazon",
+		"pricing": {
+			"input": "0.000000035",
+			"output": "0.00000014",
+			"regional": {
+				"eu": {
+					"input": "0.000000046",
+					"output": "0.000000184"
+				}
+			}
+		}
+	},
+	{
+		"id": "amazon/nova-lite",
+		"kind": "text",
+		"name": "Nova Lite",
+		"provider": "amazon",
+		"pricing": {
+			"input": "0.00000006",
+			"output": "0.00000024",
+			"regional": {
+				"eu": {
+					"input": "0.000000078",
+					"output": "0.000000312"
+				}
+			}
+		}
+	},
+	{
+		"id": "openai/gpt-6-astra",
+		"kind": "text",
+		"name": "GPT-6 Astra",
+		"provider": "openai",
+		"pricing": {
+			"input": "0.00001",
+			"input_tiers": [
+				{
+					"cost": "0.00001",
+					"max": 272001
+				},
+				{
+					"cost": "0.00002",
+					"min": 272001
+				}
+			],
+			"output": "0.00005",
+			"output_tiers": [
+				{
+					"cost": "0.00005",
+					"max": 272001
+				},
+				{
+					"cost": "0.000075",
+					"min": 272001
+				}
+			],
+			"input_cache_read": "0.000001",
+			"input_cache_read_tiers": [
+				{
+					"cost": "0.000001",
+					"max": 272001
+				},
+				{
+					"cost": "0.000002",
+					"min": 272001
+				}
+			],
+			"input_cache_write": "0.0000125",
+			"input_cache_write_tiers": [
+				{
+					"cost": "0.0000125",
+					"max": 272001
+				},
+				{
+					"cost": "0.000025",
+					"min": 272001
+				}
+			],
+			"web_search": "10",
+			"service_tiers": {
+				"flex": {
+					"input": "0.000005",
+					"output": "0.000025",
+					"input_cache_read": "0.0000005",
+					"long_context": {
+						"threshold": 272001,
+						"input": "0.00001",
+						"output": "0.0000375",
+						"input_cache_read": "0.000001"
+					}
+				},
+				"priority": {
+					"input": "0.00002",
+					"output": "0.0001",
+					"input_cache_read": "0.000002",
+					"long_context": {
+						"threshold": 272001,
+						"input": "0.00004",
+						"output": "0.00015",
+						"input_cache_read": "0.000004"
+					}
+				}
+			},
+			"fast": {
+				"input": "0.00002",
+				"input_tiers": [
+					{
+						"cost": "0.00002",
+						"min": 0,
+						"max": 272001
+					},
+					{
+						"cost": "0.00004",
+						"min": 272001
+					}
+				],
+				"output": "0.0001",
+				"output_tiers": [
+					{
+						"cost": "0.0001",
+						"min": 0,
+						"max": 272001
+					},
+					{
+						"cost": "0.00015",
+						"min": 272001
+					}
+				],
+				"input_cache_read": "0.000002",
+				"input_cache_read_tiers": [
+					{
+						"cost": "0.000002",
+						"min": 0,
+						"max": 272001
+					},
+					{
+						"cost": "0.000004",
+						"min": 272001
+					}
+				],
+				"input_cache_write": "0.000025",
+				"input_cache_write_tiers": [
+					{
+						"cost": "0.000025",
+						"max": 272001
+					},
+					{
+						"cost": "0.00005",
+						"min": 272001
+					}
+				]
+			},
+			"regional": {
+				"us": {
+					"input": "0.000011",
+					"input_tiers": [
+						{
+							"cost": "0.000011",
+							"max": 272001
+						},
+						{
+							"cost": "0.000022",
+							"min": 272001
+						}
+					],
+					"output": "0.000055",
+					"output_tiers": [
+						{
+							"cost": "0.000055",
+							"max": 272001
+						},
+						{
+							"cost": "0.0000825",
+							"min": 272001
+						}
+					],
+					"input_cache_read": "0.0000011",
+					"input_cache_read_tiers": [
+						{
+							"cost": "0.0000011",
+							"max": 272001
+						},
+						{
+							"cost": "0.0000022",
+							"min": 272001
+						}
+					],
+					"input_cache_write": "0.00001375",
+					"input_cache_write_tiers": [
+						{
+							"cost": "0.00001375",
+							"max": 272001
+						},
+						{
+							"cost": "0.0000275",
+							"min": 272001
+						}
+					],
+					"fast": {
+						"input": "0.000022",
+						"input_tiers": [
+							{
+								"cost": "0.000022",
+								"min": 0,
+								"max": 272001
+							},
+							{
+								"cost": "0.000044",
+								"min": 272001
+							}
+						],
+						"output": "0.00011",
+						"output_tiers": [
+							{
+								"cost": "0.00011",
+								"min": 0,
+								"max": 272001
+							},
+							{
+								"cost": "0.000165",
+								"min": 272001
+							}
+						],
+						"input_cache_read": "0.0000022",
+						"input_cache_read_tiers": [
+							{
+								"cost": "0.0000022",
+								"min": 0,
+								"max": 272001
+							},
+							{
+								"cost": "0.0000044",
+								"min": 272001
+							}
+						],
+						"input_cache_write": "0.0000275",
+						"input_cache_write_tiers": [
+							{
+								"cost": "0.0000275",
+								"max": 272001
+							},
+							{
+								"cost": "0.000055",
+								"min": 272001
+							}
+						]
+					}
+				}
+			}
+		}
+	},
+	{
+		"id": "openai/gpt-5.6-luna",
+		"kind": "text",
+		"name": "GPT 5.6 Luna",
+		"provider": "openai",
+		"pricing": {
+			"input": "0.0000002",
+			"input_tiers": [
+				{
+					"cost": "0.0000002",
+					"min": 0,
+					"max": 272000
+				},
+				{
+					"cost": "0.0000004",
+					"min": 272000
+				}
+			],
+			"output": "0.0000012",
+			"output_tiers": [
+				{
+					"cost": "0.0000012",
+					"min": 0,
+					"max": 272000
+				},
+				{
+					"cost": "0.0000018",
+					"min": 272000
+				}
+			],
+			"input_cache_read": "0.00000002",
+			"input_cache_read_tiers": [
+				{
+					"cost": "0.00000002",
+					"max": 272000
+				},
+				{
+					"cost": "0.00000004",
+					"min": 272000
+				}
+			],
+			"input_cache_write": "0.00000025",
+			"input_cache_write_tiers": [
+				{
+					"cost": "0.00000025",
+					"min": 0,
+					"max": 272000
+				},
+				{
+					"cost": "0.0000005",
+					"min": 272000
+				}
+			],
+			"web_search": "10",
+			"service_tiers": {
+				"flex": {
+					"input": "0.0000001",
+					"output": "0.0000006",
+					"input_cache_read": "0.00000001",
+					"long_context": {
+						"threshold": 272000,
+						"input": "0.0000002",
+						"output": "0.0000009",
+						"input_cache_read": "0.00000002"
+					}
+				},
+				"priority": {
+					"input": "0.0000004",
+					"output": "0.0000024",
+					"input_cache_read": "0.00000004",
+					"long_context": {
+						"threshold": 272000,
+						"input": "0.0000008",
+						"output": "0.0000036",
+						"input_cache_read": "0.00000008"
+					}
+				}
+			},
+			"fast": {
+				"input": "0.0000004",
+				"input_tiers": [
+					{
+						"cost": "0.0000004",
+						"min": 0,
+						"max": 272000
+					},
+					{
+						"cost": "0.0000008",
+						"min": 272000
+					}
+				],
+				"output": "0.0000024",
+				"output_tiers": [
+					{
+						"cost": "0.0000024",
+						"min": 0,
+						"max": 272000
+					},
+					{
+						"cost": "0.0000036",
+						"min": 272000
+					}
+				],
+				"input_cache_read": "0.00000004",
+				"input_cache_read_tiers": [
+					{
+						"cost": "0.00000004",
+						"min": 0,
+						"max": 272000
+					},
+					{
+						"cost": "0.00000008",
+						"min": 272000
+					}
+				],
+				"input_cache_write": "0.0000005",
+				"input_cache_write_tiers": [
+					{
+						"cost": "0.0000005",
+						"min": 0,
+						"max": 272000
+					},
+					{
+						"cost": "0.000001",
+						"min": 272000
+					}
+				]
+			},
+			"regional": {
+				"us": {
+					"input": "0.00000022",
+					"input_tiers": [
+						{
+							"cost": "0.00000022",
+							"min": 0,
+							"max": 272000
+						},
+						{
+							"cost": "0.00000044",
+							"min": 272000
+						}
+					],
+					"output": "0.00000132",
+					"output_tiers": [
+						{
+							"cost": "0.00000132",
+							"min": 0,
+							"max": 272000
+						},
+						{
+							"cost": "0.00000198",
+							"min": 272000
+						}
+					],
+					"input_cache_read": "0.000000022",
+					"input_cache_read_tiers": [
+						{
+							"cost": "0.000000022",
+							"max": 272000
+						},
+						{
+							"cost": "0.000000044",
+							"min": 272000
+						}
+					],
+					"input_cache_write": "0.000000275",
+					"input_cache_write_tiers": [
+						{
+							"cost": "0.000000275",
+							"min": 0,
+							"max": 272000
+						},
+						{
+							"cost": "0.00000055",
+							"min": 272000
+						}
+					],
+					"fast": {
+						"input": "0.00000044",
+						"input_tiers": [
+							{
+								"cost": "0.00000044",
+								"min": 0,
+								"max": 272000
+							},
+							{
+								"cost": "0.00000088",
+								"min": 272000
+							}
+						],
+						"output": "0.00000264",
+						"output_tiers": [
+							{
+								"cost": "0.00000264",
+								"min": 0,
+								"max": 272000
+							},
+							{
+								"cost": "0.00000396",
+								"min": 272000
+							}
+						],
+						"input_cache_read": "0.000000044",
+						"input_cache_read_tiers": [
+							{
+								"cost": "0.000000044",
+								"min": 0,
+								"max": 272000
+							},
+							{
+								"cost": "0.000000088",
+								"min": 272000
+							}
+						],
+						"input_cache_write": "0.00000055",
+						"input_cache_write_tiers": [
+							{
+								"cost": "0.00000055",
+								"min": 0,
+								"max": 272000
+							},
+							{
+								"cost": "0.0000011",
+								"min": 272000
+							}
+						]
+					}
+				}
+			}
+		}
+	},
+	{
+		"id": "openai/gpt-5.6-terra",
+		"kind": "text",
+		"name": "GPT 5.6 Terra",
+		"provider": "openai",
+		"pricing": {
+			"input": "0.000002",
+			"input_tiers": [
+				{
+					"cost": "0.000002",
+					"min": 0,
+					"max": 272000
+				},
+				{
+					"cost": "0.000004",
+					"min": 272000
+				}
+			],
+			"output": "0.000012",
+			"output_tiers": [
+				{
+					"cost": "0.000012",
+					"min": 0,
+					"max": 272000
+				},
+				{
+					"cost": "0.000018",
+					"min": 272000
+				}
+			],
+			"input_cache_read": "0.0000002",
+			"input_cache_read_tiers": [
+				{
+					"cost": "0.0000002",
+					"min": 0,
+					"max": 272000
+				},
+				{
+					"cost": "0.0000004",
+					"min": 272000
+				}
+			],
+			"input_cache_write": "0.0000025",
+			"input_cache_write_tiers": [
+				{
+					"cost": "0.0000025",
+					"min": 0,
+					"max": 272000
+				},
+				{
+					"cost": "0.000005",
+					"min": 272000
+				}
+			],
+			"web_search": "10",
+			"service_tiers": {
+				"flex": {
+					"input": "0.000001",
+					"output": "0.000006",
+					"input_cache_read": "0.0000001",
+					"long_context": {
+						"threshold": 272000,
+						"input": "0.000002",
+						"output": "0.000009",
+						"input_cache_read": "0.0000002"
+					}
+				},
+				"priority": {
+					"input": "0.000004",
+					"output": "0.000024",
+					"input_cache_read": "0.0000004",
+					"long_context": {
+						"threshold": 272000,
+						"input": "0.000008",
+						"output": "0.000036",
+						"input_cache_read": "0.0000008"
+					}
+				}
+			},
+			"fast": {
+				"input": "0.000004",
+				"input_tiers": [
+					{
+						"cost": "0.000004",
+						"min": 0,
+						"max": 272000
+					},
+					{
+						"cost": "0.000008",
+						"min": 272000
+					}
+				],
+				"output": "0.000024",
+				"output_tiers": [
+					{
+						"cost": "0.000024",
+						"min": 0,
+						"max": 272000
+					},
+					{
+						"cost": "0.000036",
+						"min": 272000
+					}
+				],
+				"input_cache_read": "0.0000004",
+				"input_cache_read_tiers": [
+					{
+						"cost": "0.0000004",
+						"min": 0,
+						"max": 272000
+					},
+					{
+						"cost": "0.0000008",
+						"min": 272000
+					}
+				],
+				"input_cache_write": "0.000005",
+				"input_cache_write_tiers": [
+					{
+						"cost": "0.000005",
+						"min": 0,
+						"max": 272000
+					},
+					{
+						"cost": "0.00001",
+						"min": 272000
+					}
+				]
+			},
+			"regional": {
+				"us": {
+					"input": "0.0000022",
+					"input_tiers": [
+						{
+							"cost": "0.0000022",
+							"min": 0,
+							"max": 272000
+						},
+						{
+							"cost": "0.0000044",
+							"min": 272000
+						}
+					],
+					"output": "0.0000132",
+					"output_tiers": [
+						{
+							"cost": "0.0000132",
+							"min": 0,
+							"max": 272000
+						},
+						{
+							"cost": "0.0000198",
+							"min": 272000
+						}
+					],
+					"input_cache_read": "0.00000022",
+					"input_cache_read_tiers": [
+						{
+							"cost": "0.00000022",
+							"min": 0,
+							"max": 272000
+						},
+						{
+							"cost": "0.00000044",
+							"min": 272000
+						}
+					],
+					"input_cache_write": "0.00000275",
+					"input_cache_write_tiers": [
+						{
+							"cost": "0.00000275",
+							"min": 0,
+							"max": 272000
+						},
+						{
+							"cost": "0.0000055",
+							"min": 272000
+						}
+					],
+					"fast": {
+						"input": "0.0000044",
+						"input_tiers": [
+							{
+								"cost": "0.0000044",
+								"min": 0,
+								"max": 272000
+							},
+							{
+								"cost": "0.0000088",
+								"min": 272000
+							}
+						],
+						"output": "0.0000264",
+						"output_tiers": [
+							{
+								"cost": "0.0000264",
+								"min": 0,
+								"max": 272000
+							},
+							{
+								"cost": "0.0000396",
+								"min": 272000
+							}
+						],
+						"input_cache_read": "0.00000044",
+						"input_cache_read_tiers": [
+							{
+								"cost": "0.00000044",
+								"min": 0,
+								"max": 272000
+							},
+							{
+								"cost": "0.00000088",
+								"min": 272000
+							}
+						],
+						"input_cache_write": "0.0000055",
+						"input_cache_write_tiers": [
+							{
+								"cost": "0.0000055",
+								"min": 0,
+								"max": 272000
+							},
+							{
+								"cost": "0.000011",
+								"min": 272000
+							}
+						]
+					}
+				}
+			}
+		}
+	},
+	{
+		"id": "openai/gpt-5.6-sol",
+		"kind": "text",
+		"name": "GPT 5.6 Sol",
+		"provider": "openai",
+		"pricing": {
+			"input": "0.000004",
+			"input_tiers": [
+				{
+					"cost": "0.000004",
+					"min": 0,
+					"max": 272000
+				},
+				{
+					"cost": "0.000008",
+					"min": 272000
+				}
+			],
+			"output": "0.00002",
+			"output_tiers": [
+				{
+					"cost": "0.00002",
+					"min": 0,
+					"max": 272000
+				},
+				{
+					"cost": "0.00003",
+					"min": 272000
+				}
+			],
+			"input_cache_read": "0.0000004",
+			"input_cache_read_tiers": [
+				{
+					"cost": "0.0000004",
+					"min": 0,
+					"max": 272000
+				},
+				{
+					"cost": "0.0000008",
+					"min": 272000
+				}
+			],
+			"input_cache_write": "0.000005",
+			"input_cache_write_tiers": [
+				{
+					"cost": "0.000005",
+					"min": 0,
+					"max": 272000
+				},
+				{
+					"cost": "0.00001",
+					"min": 272000
+				}
+			],
+			"web_search": "10",
+			"service_tiers": {
+				"flex": {
+					"input": "0.000002",
+					"output": "0.00001",
+					"input_cache_read": "0.0000002",
+					"long_context": {
+						"threshold": 272000,
+						"input": "0.000004",
+						"output": "0.000015",
+						"input_cache_read": "0.0000004"
+					}
+				},
+				"priority": {
+					"input": "0.000008",
+					"output": "0.00004",
+					"input_cache_read": "0.0000008",
+					"long_context": {
+						"threshold": 272000,
+						"input": "0.000016",
+						"output": "0.00006",
+						"input_cache_read": "0.0000016"
+					}
+				}
+			},
+			"varies_by_provider": true,
+			"fast": {
+				"input": "0.000008",
+				"input_tiers": [
+					{
+						"cost": "0.000008",
+						"min": 0,
+						"max": 272000
+					},
+					{
+						"cost": "0.000016",
+						"min": 272000
+					}
+				],
+				"output": "0.00004",
+				"output_tiers": [
+					{
+						"cost": "0.00004",
+						"min": 0,
+						"max": 272000
+					},
+					{
+						"cost": "0.00006",
+						"min": 272000
+					}
+				],
+				"input_cache_read": "0.0000008",
+				"input_cache_read_tiers": [
+					{
+						"cost": "0.0000008",
+						"min": 0,
+						"max": 272000
+					},
+					{
+						"cost": "0.0000016",
+						"min": 272000
+					}
+				],
+				"input_cache_write": "0.00001",
+				"input_cache_write_tiers": [
+					{
+						"cost": "0.00001",
+						"min": 0,
+						"max": 272000
+					},
+					{
+						"cost": "0.00002",
+						"min": 272000
+					}
+				]
+			},
+			"regional": {
+				"us": {
+					"input": "0.0000044",
+					"input_tiers": [
+						{
+							"cost": "0.0000044",
+							"min": 0,
+							"max": 272000
+						},
+						{
+							"cost": "0.0000088",
+							"min": 272000
+						}
+					],
+					"output": "0.000022",
+					"output_tiers": [
+						{
+							"cost": "0.000022",
+							"min": 0,
+							"max": 272000
+						},
+						{
+							"cost": "0.000033",
+							"min": 272000
+						}
+					],
+					"input_cache_read": "0.00000044",
+					"input_cache_read_tiers": [
+						{
+							"cost": "0.00000044",
+							"min": 0,
+							"max": 272000
+						},
+						{
+							"cost": "0.00000088",
+							"min": 272000
+						}
+					],
+					"input_cache_write": "0.00000275",
+					"input_cache_write_tiers": [
+						{
+							"cost": "0.00000275",
+							"min": 0,
+							"max": 272000
+						},
+						{
+							"cost": "0.0000055",
+							"min": 272000
+						}
+					],
+					"fast": {
+						"input": "0.0000088",
+						"input_tiers": [
+							{
+								"cost": "0.0000088",
+								"min": 0,
+								"max": 272000
+							},
+							{
+								"cost": "0.0000176",
+								"min": 272000
+							}
+						],
+						"output": "0.000044",
+						"output_tiers": [
+							{
+								"cost": "0.000044",
+								"min": 0,
+								"max": 272000
+							},
+							{
+								"cost": "0.000066",
+								"min": 272000
+							}
+						],
+						"input_cache_read": "0.00000088",
+						"input_cache_read_tiers": [
+							{
+								"cost": "0.00000088",
+								"min": 0,
+								"max": 272000
+							},
+							{
+								"cost": "0.00000176",
+								"min": 272000
+							}
+						],
+						"input_cache_write": "0.0000055",
+						"input_cache_write_tiers": [
+							{
+								"cost": "0.0000055",
+								"min": 0,
+								"max": 272000
+							},
+							{
+								"cost": "0.000011",
+								"min": 272000
+							}
+						]
+					}
+				}
+			}
+		}
+	},
+	{
+		"id": "spacexai/grok-4.6",
+		"kind": "text",
+		"name": "Grok 4.6",
+		"provider": "spacexai",
+		"pricing": {
+			"input": "0.000002",
+			"input_tiers": [
+				{
+					"cost": "0.000002",
+					"min": 0,
+					"max": 200001
+				},
+				{
+					"cost": "0.000004",
+					"min": 200001
+				}
+			],
+			"output": "0.000006",
+			"output_tiers": [
+				{
+					"cost": "0.000006",
+					"min": 0,
+					"max": 200001
+				},
+				{
+					"cost": "0.000012",
+					"min": 200001
+				}
+			],
+			"input_cache_read": "0.0000005",
+			"input_cache_read_tiers": [
+				{
+					"cost": "0.0000005",
+					"min": 0,
+					"max": 200001
+				},
+				{
+					"cost": "0.000001",
+					"min": 200001
+				}
+			],
+			"web_search": "5",
+			"service_tiers": {
+				"priority": {
+					"input": "0.000004",
+					"output": "0.000012",
+					"input_cache_read": "0.000001",
+					"long_context": {
+						"threshold": 200001,
+						"input": "0.000008",
+						"output": "0.000024",
+						"input_cache_read": "0.000002"
+					}
+				}
+			}
+		}
+	},
+	{
+		"id": "spacexai/grok-4.5",
+		"kind": "text",
+		"name": "Grok 4.5",
+		"provider": "spacexai",
+		"pricing": {
+			"input": "0.000002",
+			"input_tiers": [
+				{
+					"cost": "0.000002",
+					"min": 0,
+					"max": 200001
+				},
+				{
+					"cost": "0.000004",
+					"min": 200001
+				}
+			],
+			"output": "0.000006",
+			"output_tiers": [
+				{
+					"cost": "0.000006",
+					"min": 0,
+					"max": 200001
+				},
+				{
+					"cost": "0.000012",
+					"min": 200001
+				}
+			],
+			"input_cache_read": "0.0000003",
+			"input_cache_read_tiers": [
+				{
+					"cost": "0.0000003",
+					"min": 0,
+					"max": 200001
+				},
+				{
+					"cost": "0.0000006",
+					"min": 200001
+				}
+			],
+			"web_search": "5",
+			"service_tiers": {
+				"priority": {
+					"input": "0.000004",
+					"output": "0.000012",
+					"input_cache_read": "0.0000006",
+					"long_context": {
+						"threshold": 200001,
+						"input": "0.000008",
+						"output": "0.000024",
+						"input_cache_read": "0.0000012"
+					}
+				}
+			}
+		}
+	},
+	{
+		"id": "deepseek/deepseek-v4-pro",
+		"kind": "text",
+		"name": "DeepSeek V4 Pro",
+		"provider": "deepseek",
+		"pricing": {
+			"input": "0.00000066",
+			"output": "0.00000198",
+			"input_cache_read": "0.000000022",
+			"peak_pricing": {
+				"multiplier": 2,
+				"windows": [
+					{
+						"start_minute_utc": 60,
+						"end_minute_utc": 240,
+						"days_of_week": [1, 2, 3, 4, 5]
+					},
+					{
+						"start_minute_utc": 360,
+						"end_minute_utc": 600,
+						"days_of_week": [1, 2, 3, 4, 5]
+					}
+				]
+			},
+			"varies_by_provider": true,
+			"regional": {
+				"us": {
+					"input": "0.00000132",
+					"output": "0.00000396",
+					"input_cache_read": "0.000000132"
+				}
+			}
+		}
+	},
+	{
+		"id": "meta/llama-4-maverick",
+		"kind": "text",
+		"name": "Llama 4 Maverick 17B Instruct",
+		"provider": "meta",
+		"pricing": {
+			"input": "0.00000024",
+			"output": "0.00000097",
+			"varies_by_provider": true
+		}
+	},
+	{
+		"id": "anthropic/claude-haiku-4.5",
+		"kind": "text",
+		"name": "Claude Haiku 4.5",
+		"provider": "anthropic",
+		"pricing": {
+			"input": "0.000001",
+			"output": "0.000005",
+			"input_cache_read": "0.0000001",
+			"input_cache_write": "0.00000125",
+			"web_search": "10",
+			"regional": {
+				"eu": {
+					"input": "0.0000011",
+					"output": "0.0000055",
+					"input_cache_read": "0.00000011",
+					"input_cache_write": "0.000001375"
+				},
+				"us": {
+					"input": "0.0000011",
+					"output": "0.0000055",
+					"input_cache_read": "0.00000011",
+					"input_cache_write": "0.000001375"
+				}
+			}
+		}
+	},
+	{
+		"id": "anthropic/claude-fable-5.1",
+		"kind": "text",
+		"name": "Claude Fable 5.1",
+		"provider": "anthropic",
+		"pricing": {
+			"input": "0.00001",
+			"output": "0.00005",
+			"input_cache_read": "0.00000025",
+			"input_cache_write": "0.0000125",
+			"web_search": "10",
+			"regional": {
+				"us": {
+					"input": "0.000011",
+					"output": "0.000055",
+					"input_cache_read": "0.000000275",
+					"input_cache_write": "0.00001375"
+				}
+			}
+		}
+	},
+	{
+		"id": "anthropic/claude-fable-5",
+		"kind": "text",
+		"name": "Claude Fable 5",
+		"provider": "anthropic",
+		"pricing": {
+			"input": "0.00001",
+			"output": "0.00005",
+			"input_cache_read": "0.000001",
+			"input_cache_write": "0.0000125",
+			"web_search": "10",
+			"regional": {
+				"us": {
+					"input": "0.000011",
+					"output": "0.000055",
+					"input_cache_read": "0.0000011",
+					"input_cache_write": "0.00001375"
+				}
+			}
+		}
+	},
+	{
+		"id": "anthropic/claude-sonnet-5",
+		"kind": "text",
+		"name": "Claude Sonnet 5",
+		"provider": "anthropic",
+		"pricing": {
+			"input": "0.000002",
+			"output": "0.00001",
+			"input_cache_read": "0.0000002",
+			"input_cache_write": "0.0000025",
+			"web_search": "10",
+			"regional": {
+				"eu": {
+					"input": "0.0000022",
+					"output": "0.000011",
+					"input_cache_read": "0.00000022",
+					"input_cache_write": "0.00000275"
+				},
+				"us": {
+					"input": "0.0000022",
+					"output": "0.000011",
+					"input_cache_read": "0.00000022",
+					"input_cache_write": "0.00000275"
+				}
+			}
+		}
+	},
+	{
+		"id": "anthropic/claude-opus-4.8",
+		"kind": "text",
+		"name": "Claude Opus 4.8",
+		"provider": "anthropic",
+		"pricing": {
+			"input": "0.000005",
+			"output": "0.000025",
+			"input_cache_read": "0.0000005",
+			"input_cache_write": "0.00000625",
+			"web_search": "10",
+			"fast": {
+				"input": "0.00001",
+				"output": "0.00005",
+				"input_cache_read": "0.000001",
+				"input_cache_write": "0.0000125"
+			},
+			"regional": {
+				"eu": {
+					"input": "0.0000055",
+					"output": "0.0000275",
+					"input_cache_read": "0.00000055",
+					"input_cache_write": "0.000006875"
+				},
+				"us": {
+					"input": "0.0000055",
+					"output": "0.0000275",
+					"input_cache_read": "0.00000055",
+					"input_cache_write": "0.000006875",
+					"fast": {
+						"input": "0.000011",
+						"output": "0.000055",
+						"input_cache_read": "0.0000011",
+						"input_cache_write": "0.00001375"
+					}
+				}
+			}
+		}
+	},
+	{
+		"id": "anthropic/claude-opus-5",
+		"kind": "text",
+		"name": "Claude Opus 5",
+		"provider": "anthropic",
+		"pricing": {
+			"input": "0.000005",
+			"output": "0.000025",
+			"input_cache_read": "0.0000005",
+			"input_cache_write": "0.00000625",
+			"web_search": "10",
+			"fast": {
+				"input": "0.00001",
+				"output": "0.00005",
+				"input_cache_read": "0.000001",
+				"input_cache_write": "0.0000125"
+			},
+			"regional": {
+				"eu": {
+					"input": "0.0000055",
+					"output": "0.0000275",
+					"input_cache_read": "0.00000055",
+					"input_cache_write": "0.000006875"
+				},
+				"us": {
+					"input": "0.0000055",
+					"output": "0.0000275",
+					"input_cache_read": "0.00000055",
+					"input_cache_write": "0.000006875",
+					"fast": {
+						"input": "0.000011",
+						"output": "0.000055",
+						"input_cache_read": "0.0000011",
+						"input_cache_write": "0.00001375"
+					}
+				}
+			}
+		}
+	},
+	{
+		"id": "mistral/mistral-large-3",
+		"kind": "text",
+		"name": "Mistral Large 3",
+		"provider": "mistral",
+		"pricing": {
+			"input": "0.0000005",
+			"output": "0.0000015",
+			"input_cache_read": "0.00000005"
+		}
+	},
+	{
+		"id": "alibaba/qwen3.6-plus",
+		"kind": "text",
+		"name": "Qwen 3.6 Plus",
+		"provider": "alibaba",
+		"pricing": {
+			"input": "0.0000005",
+			"input_tiers": [
+				{
+					"cost": "0.0000005",
+					"min": 0,
+					"max": 256000
+				},
+				{
+					"cost": "0.000002",
+					"min": 256000
+				}
+			],
+			"output": "0.000003",
+			"output_tiers": [
+				{
+					"cost": "0.000003",
+					"min": 0,
+					"max": 256000
+				},
+				{
+					"cost": "0.000006",
+					"min": 256000
+				}
+			],
+			"input_cache_read": "0.00000005",
+			"input_cache_read_tiers": [
+				{
+					"cost": "0.00000005",
+					"min": 0,
+					"max": 256000
+				},
+				{
+					"cost": "0.0000002",
+					"min": 256000
+				}
+			],
+			"input_cache_write": "0.000000625",
+			"input_cache_write_tiers": [
+				{
+					"cost": "0.000000625",
+					"min": 0,
+					"max": 256000
+				},
+				{
+					"cost": "0.0000025",
+					"min": 256000
+				}
+			]
+		}
+	},
+	{
+		"id": "alibaba/qwen3-vl-235b-a22b-instruct",
+		"kind": "text",
+		"name": "Qwen3 VL 235B A22B Instruct",
+		"provider": "alibaba",
+		"pricing": {
+			"input": "0.0000004",
+			"output": "0.0000016",
+			"varies_by_provider": true
+		}
+	},
+	{
+		"id": "google/gemini-3.1-pro-preview",
+		"kind": "text",
+		"name": "Gemini 3.1 Pro Preview",
+		"provider": "google",
+		"pricing": {
+			"input": "0.000002",
+			"input_tiers": [
+				{
+					"cost": "0.000002",
+					"min": 0,
+					"max": 200001
+				},
+				{
+					"cost": "0.000004",
+					"min": 200001
+				}
+			],
+			"output": "0.000012",
+			"output_tiers": [
+				{
+					"cost": "0.000012",
+					"min": 0,
+					"max": 200001
+				},
+				{
+					"cost": "0.000018",
+					"min": 200001
+				}
+			],
+			"input_cache_read": "0.0000002",
+			"input_cache_read_tiers": [
+				{
+					"cost": "0.0000002",
+					"min": 0,
+					"max": 200001
+				},
+				{
+					"cost": "0.0000004",
+					"min": 200001
+				}
+			],
+			"web_search": "14",
+			"maps_search": "14",
+			"service_tiers": {
+				"priority": {
+					"input": "0.0000036",
+					"output": "0.0000216",
+					"input_cache_read": "0.00000036",
+					"long_context": {
+						"threshold": 200001,
+						"input": "0.0000072",
+						"output": "0.0000324",
+						"input_cache_read": "0.00000072"
+					}
+				},
+				"flex": {
+					"input": "0.000001",
+					"output": "0.000006",
+					"long_context": {
+						"threshold": 200001,
+						"input": "0.000002",
+						"output": "0.000009"
+					}
+				}
+			}
+		}
+	},
+	{
+		"id": "google/gemini-3.8-flash",
+		"kind": "text",
+		"name": "Gemini 3.8 Flash",
+		"provider": "google",
+		"pricing": {
+			"input": "0.00000075",
+			"output": "0.00000375",
+			"input_cache_read": "0.000000075",
+			"web_search": "14",
+			"maps_search": "14",
+			"service_tiers": {
+				"flex": {
+					"input": "0.000000375",
+					"output": "0.000001875",
+					"input_cache_read": "0.0000000375"
+				},
+				"priority": {
+					"input": "0.00000135",
+					"output": "0.00000675",
+					"input_cache_read": "0.000000135"
+				}
+			},
+			"regional": {
+				"eu": {
+					"input": "0.000000825",
+					"output": "0.000004125",
+					"input_cache_read": "0.0000000825"
+				},
+				"us": {
+					"input": "0.000000825",
+					"output": "0.000004125",
+					"input_cache_read": "0.0000000825"
+				}
+			}
+		}
+	},
+	{
+		"id": "google/gemini-3.7-flash",
+		"kind": "text",
+		"name": "Gemini 3.7 Flash",
+		"provider": "google",
+		"pricing": {
+			"input": "0.00000075",
+			"output": "0.00000375",
+			"input_cache_read": "0.000000075",
+			"web_search": "14",
+			"maps_search": "14",
+			"service_tiers": {
+				"flex": {
+					"input": "0.000000375",
+					"output": "0.000001875",
+					"input_cache_read": "0.0000000375"
+				},
+				"priority": {
+					"input": "0.00000135",
+					"output": "0.00000675",
+					"input_cache_read": "0.000000135"
+				}
+			},
+			"regional": {
+				"eu": {
+					"input": "0.000000825",
+					"output": "0.000004125",
+					"input_cache_read": "0.0000000825"
+				},
+				"us": {
+					"input": "0.000000825",
+					"output": "0.000004125",
+					"input_cache_read": "0.0000000825"
+				}
+			}
+		}
+	},
+	{
+		"id": "google/gemini-3.6-flash",
+		"kind": "text",
+		"name": "Gemini 3.6 Flash",
+		"provider": "google",
+		"pricing": {
+			"input": "0.00000075",
+			"output": "0.00000375",
+			"input_cache_read": "0.000000075",
+			"web_search": "14",
+			"maps_search": "14",
+			"service_tiers": {
+				"priority": {
+					"input": "0.00000135",
+					"output": "0.00000675",
+					"input_cache_read": "0.000000135"
+				},
+				"flex": {
+					"input": "0.000000375",
+					"output": "0.000001875",
+					"input_cache_read": "0.00000004"
+				}
+			},
+			"regional": {
+				"eu": {
+					"input": "0.000000825",
+					"output": "0.000004125",
+					"input_cache_read": "0.0000000825"
+				},
+				"us": {
+					"input": "0.000000825",
+					"output": "0.000004125",
+					"input_cache_read": "0.0000000825"
+				}
+			}
+		}
+	},
+	{
+		"id": "google/gemini-3.5-flash",
+		"kind": "text",
+		"name": "Gemini 3.5 Flash",
+		"provider": "google",
+		"pricing": {
+			"input": "0.0000015",
+			"output": "0.000009",
+			"input_cache_read": "0.00000015",
+			"web_search": "14",
+			"maps_search": "14",
+			"service_tiers": {
+				"priority": {
+					"input": "0.0000027",
+					"output": "0.0000162",
+					"input_cache_read": "0.00000027"
+				},
+				"flex": {
+					"input": "0.00000075",
+					"output": "0.0000045",
+					"input_cache_read": "0.00000008"
+				}
+			},
+			"regional": {
+				"eu": {
+					"input": "0.00000165",
+					"output": "0.0000099",
+					"input_cache_read": "0.000000165"
+				},
+				"us": {
+					"input": "0.00000165",
+					"output": "0.0000099",
+					"input_cache_read": "0.000000165"
+				}
+			}
+		}
+	},
+	{
+		"id": "bfl/flux-2-klein-4b",
+		"kind": "image",
+		"name": "FLUX.2 [klein] 4B",
+		"provider": "bfl",
+		"pricing": {}
+	},
+	{
+		"id": "openai/gpt-image-2.5-sunburst",
+		"kind": "image",
+		"name": "GPT Image 2.5 Sunburst",
+		"provider": "openai",
+		"pricing": {
+			"input": "0.000005",
+			"output": "0.00003",
+			"input_cache_read": "0.00000125"
+		}
+	},
+	{
+		"id": "openai/gpt-image-2.5-flare",
+		"kind": "image",
+		"name": "GPT Image 2.5 Flare",
+		"provider": "openai",
+		"pricing": {
+			"input": "0.000005",
+			"output": "0.00003",
+			"input_cache_read": "0.00000125"
+		}
+	},
+	{
+		"id": "openai/gpt-image-2",
+		"kind": "image",
+		"name": "GPT Image 2",
+		"provider": "openai",
+		"pricing": {
+			"input": "0.000005",
+			"output": "0.00003",
+			"input_cache_read": "0.00000125"
+		}
+	},
+	{
+		"id": "google/gemini-3.1-flash-image",
+		"kind": "image",
+		"name": "Gemini 3.1 Flash Image (Nano Banana 2)",
+		"provider": "google",
+		"pricing": {
+			"input": "0.0000005",
+			"output": "0.000003",
+			"input_cache_read": "0.00000005",
+			"image_dimension_quality_pricing": [
+				{
+					"size": "512",
+					"cost": "0.045"
+				},
+				{
+					"size": "1K",
+					"cost": "0.067"
+				},
+				{
+					"size": "2K",
+					"cost": "0.101"
+				},
+				{
+					"size": "4K",
+					"cost": "0.151"
+				},
+				{
+					"size": "default",
+					"cost": "0.067"
+				}
+			],
+			"web_search": "14",
+			"maps_search": "14"
+		}
+	},
+	{
+		"id": "google/gemini-3.1-flash-lite-image",
+		"kind": "image",
+		"name": "Gemini 3.1 Flash Lite Image (Nano Banana 2 Lite)",
+		"provider": "google",
+		"pricing": {
+			"input": "0.00000025",
+			"output": "0.0000015",
+			"input_cache_read": "0.00000003",
+			"image_dimension_quality_pricing": [
+				{
+					"size": "default",
+					"cost": "0.034"
+				},
+				{
+					"size": "1K",
+					"cost": "0.034"
+				}
+			],
+			"web_search": "14",
+			"maps_search": "14"
+		}
+	},
+	{
+		"id": "google/gemini-3-pro-image",
+		"kind": "image",
+		"name": "Nano Banana Pro (Gemini 3 Pro Image)",
+		"provider": "google",
+		"pricing": {
+			"input": "0.000002",
+			"output": "0.000012",
+			"input_cache_read": "0.0000002",
+			"image_dimension_quality_pricing": [
+				{
+					"size": "1K",
+					"cost": "0.1344"
+				},
+				{
+					"size": "2K",
+					"cost": "0.1344"
+				},
+				{
+					"size": "4K",
+					"cost": "0.24"
+				},
+				{
+					"size": "default",
+					"cost": "0.1344"
+				}
+			],
+			"web_search": "14",
+			"maps_search": "14",
+			"service_tiers": {
+				"flex": {
+					"input": "0.000001",
+					"output": "0.000006"
+				}
+			}
+		}
+	},
+	{
+		"id": "quiverai/arrow-1.1",
+		"kind": "image",
+		"name": "Arrow 1.1",
+		"provider": "quiverai",
+		"pricing": {
+			"image_dimension_quality_pricing": [
+				{
+					"operation": "generate",
+					"cost": "0.2"
+				},
+				{
+					"operation": "vectorize",
+					"cost": "0.15"
+				}
+			]
+		}
+	},
+	{
+		"id": "meta/muse-image-1.0",
+		"kind": "image",
+		"name": "Muse Image 1.0",
+		"provider": "meta",
+		"pricing": {
+			"image": "0.01"
+		}
+	},
+	{
+		"id": "prodia/flux-fast-schnell",
+		"kind": "image",
+		"name": "Flux Schnell",
+		"provider": "prodia",
+		"pricing": {}
+	},
+	{
+		"id": "bfl/flux-pro-1.1-ultra",
+		"kind": "image",
+		"name": "FLUX1.1 [pro] Ultra",
+		"provider": "bfl",
+		"pricing": {
+			"image": "0.06"
+		}
+	},
+	{
+		"id": "bfl/flux-2-max",
+		"kind": "image",
+		"name": "FLUX.2 [max]",
+		"provider": "bfl",
+		"pricing": {}
+	},
+	{
+		"id": "bytedance/seedream-4.5",
+		"kind": "image",
+		"name": "Seedream 4.5",
+		"provider": "bytedance",
+		"pricing": {
+			"image": "0.04"
+		}
+	},
+	{
+		"id": "bytedance/seedream-5.0-lite",
+		"kind": "image",
+		"name": "Seedream 5.0 Lite",
+		"provider": "bytedance",
+		"pricing": {
+			"image": "0.035"
+		}
+	},
+	{
+		"id": "bytedance/seedream-5.0-pro",
+		"kind": "image",
+		"name": "Seedream 5.0 Pro",
+		"provider": "bytedance",
+		"pricing": {
+			"input": "0.000000003",
+			"image": "0.035"
+		}
+	},
+	{
+		"id": "recraft/recraft-v4.1",
+		"kind": "image",
+		"name": "Recraft V4.1",
+		"provider": "recraft",
+		"pricing": {
+			"image": "0.035",
+			"image_dimension_quality_pricing": [
+				{
+					"style": "vector_illustration",
+					"cost": "0.08"
+				}
+			]
+		}
+	},
+	{
+		"id": "recraft/recraft-v4.1-pro",
+		"kind": "image",
+		"name": "Recraft V4.1 Pro",
+		"provider": "recraft",
+		"pricing": {
+			"image": "0.21",
+			"image_dimension_quality_pricing": [
+				{
+					"style": "vector_illustration",
+					"cost": "0.3"
+				}
+			]
+		}
+	},
+	{
+		"id": "spacexai/grok-imagine-image",
+		"kind": "image",
+		"name": "Grok Imagine Image",
+		"provider": "spacexai",
+		"pricing": {
+			"image": "0.02"
+		}
+	},
+	{
+		"id": "spacexai/grok-imagine-image-2.0",
+		"kind": "image",
+		"name": "Grok Imagine Image 2.0",
+		"provider": "spacexai",
+		"pricing": {
+			"image": "0.06",
+			"image_dimension_quality_pricing": [
+				{
+					"quality": "low",
+					"cost": "0.04"
+				},
+				{
+					"size": "2048x2048",
+					"cost": "0.08"
+				},
+				{
+					"size": "2048x2048",
+					"quality": "low",
+					"cost": "0.06"
+				}
+			]
+		}
+	},
+	{
+		"id": "bytedance/seedance-v1.0-pro-fast",
+		"kind": "video",
+		"name": "Seedance v1.0 Pro Fast",
+		"provider": "bytedance",
+		"pricing": {
+			"video_duration_pricing": [
+				{
+					"resolution": "480p",
+					"cost_per_second": "0.0097"
+				},
+				{
+					"resolution": "720p",
+					"cost_per_second": "0.0206"
+				},
+				{
+					"resolution": "1080p",
+					"cost_per_second": "0.049"
+				}
+			]
+		}
+	},
+	{
+		"id": "bfl/flux-3-video",
+		"kind": "video",
+		"name": "Flux 3",
+		"provider": "bfl",
+		"pricing": {}
+	},
+	{
+		"id": "minimax/minimax-h3",
+		"kind": "video",
+		"name": "MiniMax H3",
+		"provider": "minimax",
+		"pricing": {
+			"video_duration_pricing": [
+				{
+					"resolution": "2k",
+					"cost_per_second": "0.13"
+				},
+				{
+					"resolution": "768p",
+					"cost_per_second": "0.08"
+				},
+				{
+					"cost_per_second": "0.13"
+				}
+			]
+		}
+	},
+	{
+		"id": "minimax/minimax-h3-max",
+		"kind": "video",
+		"name": "MiniMax H3 Max",
+		"provider": "minimax",
+		"pricing": {
+			"video_duration_pricing": [
+				{
+					"resolution": "480p",
+					"cost_per_second": "0.05"
+				},
+				{
+					"resolution": "768p",
+					"cost_per_second": "0.08"
+				},
+				{
+					"cost_per_second": "0.08"
+				}
+			]
+		}
+	},
+	{
+		"id": "google/veo-3.1-generate-001",
+		"kind": "video",
+		"name": "Veo 3.1",
+		"provider": "google",
+		"pricing": {
+			"video_duration_pricing": [
+				{
+					"resolution": "720p",
+					"audio": false,
+					"cost_per_second": "0.2"
+				},
+				{
+					"resolution": "720p",
+					"audio": true,
+					"cost_per_second": "0.4"
+				},
+				{
+					"resolution": "1080p",
+					"audio": false,
+					"cost_per_second": "0.2"
+				},
+				{
+					"resolution": "1080p",
+					"audio": true,
+					"cost_per_second": "0.4"
+				},
+				{
+					"resolution": "4k",
+					"audio": false,
+					"cost_per_second": "0.4"
+				},
+				{
+					"resolution": "4k",
+					"audio": true,
+					"cost_per_second": "0.6"
+				}
+			]
+		}
+	},
+	{
+		"id": "google/veo-3.1-fast-generate-001",
+		"kind": "video",
+		"name": "Veo 3.1 Fast Generate",
+		"provider": "google",
+		"pricing": {
+			"video_duration_pricing": [
+				{
+					"resolution": "720p",
+					"audio": false,
+					"cost_per_second": "0.1"
+				},
+				{
+					"resolution": "720p",
+					"audio": true,
+					"cost_per_second": "0.15"
+				},
+				{
+					"resolution": "1080p",
+					"audio": false,
+					"cost_per_second": "0.1"
+				},
+				{
+					"resolution": "1080p",
+					"audio": true,
+					"cost_per_second": "0.15"
+				},
+				{
+					"resolution": "4k",
+					"audio": false,
+					"cost_per_second": "0.3"
+				},
+				{
+					"resolution": "4k",
+					"audio": true,
+					"cost_per_second": "0.35"
+				}
+			]
+		}
+	},
+	{
+		"id": "google/gemini-omni-flash-preview",
+		"kind": "video",
+		"name": "Gemini Omni Flash Preview",
+		"provider": "google",
+		"pricing": {
+			"input": "0.0000015",
+			"output": "0.000009",
+			"audio_input_token_cost": "0.0000015"
+		}
+	},
+	{
+		"id": "bytedance/seedance-2.0-fast",
+		"kind": "video",
+		"name": "Seedance 2.0 Fast",
+		"provider": "bytedance",
+		"pricing": {
+			"video_token_pricing": {
+				"tiers": [
+					{
+						"resolution": "480p",
+						"no_video_input": {
+							"cost_per_million_tokens": "5.6"
+						},
+						"with_video_input": {
+							"cost_per_million_tokens": "3.3"
+						}
+					},
+					{
+						"resolution": "720p",
+						"no_video_input": {
+							"cost_per_million_tokens": "5.6"
+						},
+						"with_video_input": {
+							"cost_per_million_tokens": "3.3"
+						}
+					}
+				],
+				"notes": "Pricing varies based on whether the input contains video. When video is included in the input, all tokens are billed at the reduced rate. Token count includes both input and output video and is subject to minimum token floors based on output duration."
+			}
+		}
+	},
+	{
+		"id": "bytedance/seedance-2.0",
+		"kind": "video",
+		"name": "Seedance 2.0",
+		"provider": "bytedance",
+		"pricing": {
+			"video_token_pricing": {
+				"tiers": [
+					{
+						"resolution": "480p",
+						"no_video_input": {
+							"cost_per_million_tokens": "7"
+						},
+						"with_video_input": {
+							"cost_per_million_tokens": "4.3"
+						}
+					},
+					{
+						"resolution": "720p",
+						"no_video_input": {
+							"cost_per_million_tokens": "7"
+						},
+						"with_video_input": {
+							"cost_per_million_tokens": "4.3"
+						}
+					},
+					{
+						"resolution": "1080p",
+						"no_video_input": {
+							"cost_per_million_tokens": "7.7"
+						},
+						"with_video_input": {
+							"cost_per_million_tokens": "4.7"
+						}
+					},
+					{
+						"resolution": "4k",
+						"no_video_input": {
+							"cost_per_million_tokens": "4"
+						},
+						"with_video_input": {
+							"cost_per_million_tokens": "2.4"
+						}
+					}
+				],
+				"notes": "Pricing varies based on whether the input contains video. When video is included in the input, all tokens are billed at the reduced rate. Token count includes both input and output video and is subject to minimum token floors based on output duration."
+			}
+		}
+	},
+	{
+		"id": "bytedance/seedance-2.0-mini",
+		"kind": "video",
+		"name": "Seedance 2.0 Mini",
+		"provider": "bytedance",
+		"pricing": {
+			"video_token_pricing": {
+				"tiers": [
+					{
+						"resolution": "480p",
+						"no_video_input": {
+							"cost_per_million_tokens": "3.5"
+						},
+						"with_video_input": {
+							"cost_per_million_tokens": "2.1"
+						}
+					},
+					{
+						"resolution": "720p",
+						"no_video_input": {
+							"cost_per_million_tokens": "3.5"
+						},
+						"with_video_input": {
+							"cost_per_million_tokens": "2.1"
+						}
+					}
+				],
+				"notes": "Pricing varies based on whether the input contains video. When video is included in the input, all tokens are billed at the reduced rate. Token count includes both input and output video and is subject to minimum token floors based on output duration."
+			}
+		}
+	},
+	{
+		"id": "bytedance/seedance-2.5",
+		"kind": "video",
+		"name": "Seedance 2.5",
+		"provider": "bytedance",
+		"pricing": {
+			"video_token_pricing": {
+				"tiers": [
+					{
+						"resolution": "480p",
+						"no_video_input": {
+							"cost_per_million_tokens": "10.7"
+						},
+						"with_video_input": {
+							"cost_per_million_tokens": "6.4"
+						}
+					},
+					{
+						"resolution": "720p",
+						"no_video_input": {
+							"cost_per_million_tokens": "10.7"
+						},
+						"with_video_input": {
+							"cost_per_million_tokens": "6.4"
+						}
+					},
+					{
+						"resolution": "1080p",
+						"no_video_input": {
+							"cost_per_million_tokens": "11.7"
+						},
+						"with_video_input": {
+							"cost_per_million_tokens": "7"
+						}
+					}
+				],
+				"notes": "Pricing varies based on whether the input contains video. When video is included in the input, all tokens are billed at the reduced rate. Token count includes both input and output video and is subject to minimum token floors based on output duration."
+			}
+		}
+	},
+	{
+		"id": "klingai/kling-v3.0-t2v",
+		"kind": "video",
+		"name": "Kling v3.0 Text-to-Video",
+		"provider": "klingai",
+		"pricing": {
+			"video_duration_pricing": [
+				{
+					"audio": false,
+					"mode": "std",
+					"cost_per_second": "0.168"
+				},
+				{
+					"audio": true,
+					"mode": "std",
+					"cost_per_second": "0.252"
+				},
+				{
+					"audio": true,
+					"mode": "std",
+					"voice_control": true,
+					"cost_per_second": "0.308"
+				},
+				{
+					"audio": false,
+					"mode": "pro",
+					"cost_per_second": "0.224"
+				},
+				{
+					"audio": true,
+					"mode": "pro",
+					"cost_per_second": "0.336"
+				},
+				{
+					"audio": true,
+					"mode": "pro",
+					"voice_control": true,
+					"cost_per_second": "0.392"
+				}
+			]
+		}
+	},
+	{
+		"id": "klingai/kling-v3.0-i2v",
+		"kind": "video",
+		"name": "Kling v3.0 Image-to-Video",
+		"provider": "klingai",
+		"pricing": {
+			"video_duration_pricing": [
+				{
+					"audio": false,
+					"mode": "std",
+					"cost_per_second": "0.168"
+				},
+				{
+					"audio": true,
+					"mode": "std",
+					"cost_per_second": "0.252"
+				},
+				{
+					"audio": true,
+					"mode": "std",
+					"voice_control": true,
+					"cost_per_second": "0.308"
+				},
+				{
+					"audio": false,
+					"mode": "pro",
+					"cost_per_second": "0.224"
+				},
+				{
+					"audio": true,
+					"mode": "pro",
+					"cost_per_second": "0.336"
+				},
+				{
+					"audio": true,
+					"mode": "pro",
+					"voice_control": true,
+					"cost_per_second": "0.392"
+				}
+			]
+		}
+	},
+	{
+		"id": "klingai/kling-v2.5-turbo-t2v",
+		"kind": "video",
+		"name": "Kling v2.5 Turbo Text-to-Video",
+		"provider": "klingai",
+		"pricing": {
+			"video_duration_pricing": [
+				{
+					"mode": "std",
+					"cost_per_second": "0.042"
+				},
+				{
+					"mode": "pro",
+					"cost_per_second": "0.07"
+				}
+			]
+		}
+	},
+	{
+		"id": "klingai/kling-v2.5-turbo-i2v",
+		"kind": "video",
+		"name": "Kling v2.5 Turbo Image-to-Video",
+		"provider": "klingai",
+		"pricing": {
+			"video_duration_pricing": [
+				{
+					"mode": "std",
+					"cost_per_second": "0.042"
+				},
+				{
+					"mode": "pro",
+					"cost_per_second": "0.07"
+				}
+			]
+		}
+	},
+	{
+		"id": "alibaba/wan-v3.0-video",
+		"kind": "video",
+		"name": "Wan v3.0 Video",
+		"provider": "alibaba",
+		"pricing": {
+			"video_duration_pricing": [
+				{
+					"resolution": "480p",
+					"cost_per_second": "0.05"
+				},
+				{
+					"resolution": "720p",
+					"cost_per_second": "0.1"
+				},
+				{
+					"resolution": "1080p",
+					"cost_per_second": "0.2"
+				},
+				{
+					"cost_per_second": "0.2"
+				}
+			]
+		}
+	},
+	{
+		"id": "alibaba/wan-v2.7-t2v",
+		"kind": "video",
+		"name": "Wan v2.7 Text-to-Video",
+		"provider": "alibaba",
+		"pricing": {
+			"video_duration_pricing": [
+				{
+					"resolution": "720p",
+					"cost_per_second": "0.1"
+				},
+				{
+					"resolution": "1080p",
+					"cost_per_second": "0.15"
+				}
+			]
+		}
+	},
+	{
+		"id": "alibaba/wan-v2.7-r2v",
+		"kind": "video",
+		"name": "Wan v2.7 Reference-to-Video",
+		"provider": "alibaba",
+		"pricing": {
+			"video_duration_pricing": [
+				{
+					"resolution": "720p",
+					"cost_per_second": "0.1"
+				},
+				{
+					"resolution": "1080p",
+					"cost_per_second": "0.15"
+				}
+			]
+		}
+	},
+	{
+		"id": "spacexai/grok-imagine-video",
+		"kind": "video",
+		"name": "Grok Imagine",
+		"provider": "spacexai",
+		"pricing": {
+			"video_duration_pricing": [
+				{
+					"resolution": "480p",
+					"cost_per_second": "0.05"
+				},
+				{
+					"resolution": "720p",
+					"cost_per_second": "0.07"
+				}
+			]
+		}
+	},
+	{
+		"id": "spacexai/grok-imagine-video-1.5",
+		"kind": "video",
+		"name": "Grok Imagine Video 1.5",
+		"provider": "spacexai",
+		"pricing": {
+			"video_duration_pricing": [
+				{
+					"resolution": "480p",
+					"cost_per_second": "0.08"
+				},
+				{
+					"resolution": "720p",
+					"cost_per_second": "0.14"
+				},
+				{
+					"resolution": "1080p",
+					"cost_per_second": "0.25"
+				}
+			]
+		}
+	},
+	{
+		"id": "fish-audio/s2.1-pro",
+		"kind": "speech",
+		"name": "S2.1 Pro",
+		"provider": "fish-audio",
+		"pricing": {
+			"input": "0.000015",
+			"speech_input_character_cost": "0.000015"
+		}
+	},
+	{
+		"id": "spacexai/grok-tts",
+		"kind": "speech",
+		"name": "Grok TTS",
+		"provider": "spacexai",
+		"pricing": {
+			"input": "0.000015",
+			"speech_input_character_cost": "0.000015"
+		}
+	}
+]

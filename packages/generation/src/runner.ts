@@ -5,15 +5,18 @@ import type {
 import type { MediaService } from "@kousa/media/service";
 import {
 	imageModels,
-	imageSizes,
 	isRunActive,
-	speechModels,
-	speechVoices,
 	textModels,
 	videoAspectRatios,
-	videoDurations,
 	videoModels,
 } from "./contracts";
+import { authoredSettingsSchema } from "./history";
+import {
+	imageProfile,
+	imageQualityFor,
+	resolveSpeechModel,
+	validateModelSettings,
+} from "./model-catalog";
 import type {
 	ImageProvider,
 	SpeechProvider,
@@ -70,7 +73,15 @@ export function createGenerationRunner(
 			!video?.configured ||
 			!videoModels.some((m) => m.id === run.modelId) ||
 			!aspectRatio ||
-			!videoDurations.some((d) => d === run.duration) ||
+			validateModelSettings(
+				{
+					kind: "video",
+					modelId: run.modelId,
+					duration: run.duration ?? undefined,
+					aspectRatio: run.aspectRatio ?? undefined,
+				},
+				Boolean(run.inputImageAssetId),
+			) ||
 			!run.duration
 		) {
 			await fail(run.id);
@@ -173,15 +184,19 @@ export function createGenerationRunner(
 				if (run.kind === "speech") {
 					if (
 						!speech?.configured ||
-						!speechModels.some((m) => m.id === run.modelId) ||
-						!speechVoices.some((v) => v.id === run.voiceId) ||
+						validateModelSettings({
+							kind: "speech",
+							modelId: resolveSpeechModel(run.modelId),
+							voiceId: run.voiceId ?? undefined,
+							voiceDirection: run.voiceDirection ?? undefined,
+						}) ||
 						!run.voiceId
 					)
 						throw new Error("Unavailable speech model or voice");
 					result = {
 						kind: "speech",
 						...(await speech.generate({
-							modelId: run.modelId,
+							modelId: resolveSpeechModel(run.modelId),
 							text: run.prompt,
 							voiceId: run.voiceId,
 							voiceDirection: run.voiceDirection ?? "",
@@ -199,12 +214,21 @@ export function createGenerationRunner(
 						!imageModels.some((m) => m.id === run.modelId)
 					)
 						throw new Error("Unavailable image model");
-					const size = Object.values(imageSizes).find(
+					const size = Object.values(imageProfile(run.modelId).sizes).find(
 						(size) => size === run.size,
 					);
 					if (!size) throw new Error("Invalid image size");
 					if (run.inputImageAssetId && !inputImageBytes)
 						throw new Error("Reference image access unavailable");
+					const savedSettings = authoredSettingsSchema.safeParse(
+						run.authoredSettings,
+					);
+					const quality = imageQualityFor(
+						run.modelId,
+						savedSettings.success && savedSettings.data.kind === "image"
+							? savedSettings.data.imageQuality
+							: undefined,
+					);
 					const referenceImage = run.inputImageAssetId
 						? await inputImageBytes?.(run)
 						: undefined;
@@ -214,6 +238,7 @@ export function createGenerationRunner(
 							modelId: run.modelId,
 							prompt: run.prompt,
 							size,
+							...(quality ? { quality } : {}),
 							...(referenceImage ? { referenceImage } : {}),
 						})),
 					};
@@ -267,10 +292,15 @@ export function createGenerationRunner(
 				};
 			if (result.kind === "video") {
 				if (!media.stageVideo) throw new Error("Video storage unavailable");
-				const asset = await media.stageVideo(run.userId, run.projectId, {
-					...result,
-					name: `Generated video ${id.slice(0, 8)}.mp4`,
-				});
+				const asset = await media.stageVideo(
+					run.userId,
+					run.projectId,
+					{
+						...result,
+						name: `Generated video ${id.slice(0, 8)}.mp4`,
+					},
+					"optional",
+				);
 				if (
 					!asset.durationMs ||
 					!run.duration ||

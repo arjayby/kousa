@@ -1,17 +1,18 @@
 import type { ResolvedInputs } from "@kousa/db/schema/generation-inputs";
 import { z } from "zod";
 
-export const textModels = [
-	// Verified against Vercel's Free Tier filter on 2026-09-17.
-	// https://vercel.com/ai-gateway/models?freeTier=true&q=nova
-	{ id: "amazon/nova-micro", name: "Amazon Nova Micro" },
-	{ id: "amazon/nova-lite", name: "Amazon Nova Lite" },
-] as const;
-export const defaultTextModel = textModels[0].id;
+export { resolveSpeechModel } from "./model-catalog";
 
-// Existing canvases may still store a model from the initial paid-model picker.
-// Resolve those selections consistently on the client and server without rewriting
-// shared documents. Unknown IDs still reach the service's allowlist validation.
+import { fishVoices, modelsFor, standardImageSizes } from "./model-catalog";
+
+export const textModels = modelsFor("text");
+export const imageModels = modelsFor("image");
+export const speechModels = modelsFor("speech");
+export const videoModels = modelsFor("video");
+export const defaultTextModel = "amazon/nova-micro";
+export const defaultImageModel = "bfl/flux-2-klein-4b";
+export const defaultSpeechModel = "fish-audio/s2.1-pro";
+export const defaultVideoModel = "bytedance/seedance-v1.0-pro-fast";
 export function resolveTextModel(modelId: string | undefined): string {
 	return !modelId ||
 		modelId === "openai/gpt-4.1-mini" ||
@@ -19,45 +20,17 @@ export function resolveTextModel(modelId: string | undefined): string {
 		? defaultTextModel
 		: modelId;
 }
+// Legacy exports describe the existing defaults. New quotations use modelCreditCost.
 export const textCreditCost = 1;
-// Verified in Vercel's Free Tier image catalog on 2026-09-17.
-export const imageModels = [
-	{ id: "bfl/flux-2-klein-4b", name: "FLUX.2 [klein] 4B" },
-] as const;
-export const defaultImageModel = imageModels[0].id;
 export const imageCreditCost = 3;
-export const imageSizes = {
-	"1:1": "1024x1024",
-	"16:9": "1024x576",
-	"9:16": "576x1024",
-	"4:3": "1024x768",
-} as const;
-// Requires a Gateway account with paid credits enabled, even though the model
-// currently has zero provider cost. https://vercel.com/ai-gateway/models/s2.1-pro-free
-export const speechModels = [
-	{ id: "fish-audio/s2.1-pro-free", name: "Fish Audio S2.1 Pro" },
-] as const;
-export const defaultSpeechModel = speechModels[0].id;
-// Stock voices from the model's Gateway playground; no user voice cloning.
-export const speechVoices = [
-	{ id: "933563129e564b19a115bedd57b7406a", name: "Sarah" },
-	{ id: "f48d143a59a946ab87c0130fd081f349", name: "Polo" },
-	{ id: "b347db033a6549378b48d00acb0d06cd", name: "Selene" },
-	{ id: "bf322df2096a46f18c579d0baa36f41d", name: "Adrian" },
-	{ id: "536d3a5e000945adb7038665781a4aca", name: "Ethan" },
-] as const;
-export const defaultSpeechVoice = speechVoices[0].id;
 export const speechCreditCost = 2;
+export const videoCreditCost = (duration: number) => duration * 2;
+export const imageSizes = standardImageSizes;
+export const speechVoices = fishVoices;
+export const defaultSpeechVoice = fishVoices[0].id;
 export const maxSpeechCharacters = 1_000;
-// Gateway catalog verified 2026-09-17. Paid Gateway credits required.
-export const videoModels = [
-	{ id: "bytedance/seedance-v1.0-pro-fast", name: "Seedance v1.0 Pro Fast" },
-] as const;
-export const defaultVideoModel = videoModels[0].id;
 export const videoAspectRatios = ["1:1", "16:9", "9:16", "4:3"] as const;
-export const videoDurations = [5, 10] as const;
-export const videoCreditCost = (duration: number) =>
-	duration === 10 ? 20 : 10;
+export const videoDurations = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 export const maxInputBytes = 12_000;
 export const maxOutputTokens = 2_048;
 export const generationProjectInput = z.object({

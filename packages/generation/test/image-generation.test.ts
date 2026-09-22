@@ -160,6 +160,38 @@ it("uses the connected text's successful output even with an empty image prompt"
 	);
 	expect(await db.store.balance("owner")).toBe(6);
 });
+
+it("reserves the selected quality price and executes the immutable image settings", async () => {
+	await db.grant("owner", 100);
+	target.data.imageModel = "openai/gpt-image-2.5-flare";
+	target.data.imageQuality = "high";
+	target.data.aspectRatio = "16:9";
+	await db.setGraph(projectId, graph);
+	const run = await service().generate("owner", await request());
+	expect(run).toMatchObject({ status: "succeeded", credits: 80 });
+	expect(generate).toHaveBeenCalledWith({
+		modelId: "openai/gpt-image-2.5-flare",
+		prompt: target.data.content,
+		size: "1536x864",
+		quality: "high",
+	});
+	expect((await db.store.get(run.id))?.authoredSettings).toMatchObject({
+		imageQuality: "high",
+		aspectRatio: "16:9",
+	});
+	expect(await db.store.balance("owner")).toBe(30);
+});
+
+it("rejects GPT Image 2's unsupported ratio before reserving credits", async () => {
+	target.data.imageModel = "openai/gpt-image-2";
+	target.data.aspectRatio = "16:9";
+	await db.setGraph(projectId, graph);
+	await expect(service().generate("owner", await request())).rejects.toThrow(
+		"aspect ratio",
+	);
+	expect(generate).not.toHaveBeenCalled();
+	expect(await db.store.balance("owner")).toBe(10);
+});
 it("denies viewers, outsiders and unfunded editors before any provider call", async () => {
 	for (const actor of ["viewer", "outsider", "editor"])
 		await expect(service().generate(actor, await request())).rejects.toThrow();

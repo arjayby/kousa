@@ -1,18 +1,14 @@
 import { z } from "zod";
 import {
-	imageCreditCost,
 	imageModels,
 	maxInputBytes,
 	maxSpeechCharacters,
-	speechCreditCost,
 	speechModels,
-	speechVoices,
-	textCreditCost,
 	textModels,
-	videoCreditCost,
 	videoModels,
 } from "./contracts";
 import { authoredSettingsSchema } from "./history";
+import { modelCreditCost, validateModelSettings } from "./model-catalog";
 
 export const playgroundModels = {
 	text: textModels,
@@ -34,15 +30,21 @@ export const playgroundSettings = authoredSettingsSchema.superRefine(
 				path: ["content"],
 				message: "Shorten your prompt to 12 KB or less.",
 			});
+		const settingsError = validateModelSettings(settings);
 		if (
-			!playgroundModels[settings.kind].some(
-				(model) => model.id === settings.modelId,
-			)
+			settings.modelId.startsWith("recraft/") &&
+			settings.content.length > 10_000
 		)
 			ctx.addIssue({
 				code: "custom",
+				path: ["content"],
+				message: "Recraft prompts must be 10,000 characters or fewer.",
+			});
+		if (settingsError)
+			ctx.addIssue({
+				code: "custom",
 				path: ["modelId"],
-				message: "Choose an available model.",
+				message: settingsError,
 			});
 		if (settings.kind === "speech") {
 			if (settings.content.length > maxSpeechCharacters)
@@ -50,12 +52,6 @@ export const playgroundSettings = authoredSettingsSchema.superRefine(
 					code: "custom",
 					path: ["content"],
 					message: "Keep your script to 1,000 characters or fewer.",
-				});
-			if (!speechVoices.some((voice) => voice.id === settings.voiceId))
-				ctx.addIssue({
-					code: "custom",
-					path: ["voiceId"],
-					message: "Choose an available voice.",
 				});
 		}
 	},
@@ -78,13 +74,12 @@ export const playgroundImportInput = z.object({
 export function playgroundCost(
 	settings: z.infer<typeof authoredSettingsSchema>,
 ) {
-	return settings.kind === "video"
-		? videoCreditCost(settings.duration)
-		: {
-				text: textCreditCost,
-				image: imageCreditCost,
-				speech: speechCreditCost,
-			}[settings.kind];
+	return modelCreditCost(
+		settings.kind,
+		settings.modelId,
+		settings.kind === "video" ? settings.duration : undefined,
+		settings.kind === "image" ? settings.imageQuality : undefined,
+	);
 }
 export function playgroundMediaUrl(assetId: string) {
 	return `/api/playground/media/${encodeURIComponent(assetId)}`;

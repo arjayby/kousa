@@ -8,6 +8,7 @@ import {
 import { z } from "zod";
 import { defaultImageModel, imageModels, maxInputBytes } from "./contracts";
 import { canonical } from "./freshness";
+import { validateModelSettings } from "./model-catalog";
 
 export const maxImageVariations = 8;
 export const imageVariationsSchema = z.object({
@@ -79,6 +80,16 @@ function prepareImageVariations(
 			"These variations would exceed the 600-connection canvas limit.",
 		);
 	const contents = request.variations.map((variation, index) => {
+		const error = validateModelSettings(
+			{
+				kind: "image",
+				modelId: source.data.imageModel ?? defaultImageModel,
+				aspectRatio: variation.aspectRatio,
+			},
+			request.mode === "image" ||
+				incoming.some((edge) => edge.targetHandle === "reference"),
+		);
+		if (error) throw new Error(error);
 		const content = [request.prompt.trim(), variation.instructions.trim()]
 			.filter(Boolean)
 			.join("\n\n");

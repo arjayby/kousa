@@ -136,6 +136,11 @@ export function GenerationCard({
 								Duration: {run.settings.duration} seconds
 							</p>
 						) : null}
+						{run.settings.kind === "image" && run.settings.imageQuality ? (
+							<p className="text-muted-foreground">
+								Quality: {run.settings.imageQuality}
+							</p>
+						) : null}
 						{"voiceDirection" in run.settings && run.settings.voiceDirection ? (
 							<p className="text-muted-foreground">
 								Voice direction: {run.settings.voiceDirection}

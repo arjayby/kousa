@@ -2,23 +2,11 @@
 
 import {
 	defaultImageModel,
-	defaultSpeechModel,
-	defaultSpeechVoice,
 	defaultVideoModel,
-	imageCreditCost,
-	imageModels,
-	imageSizes,
 	isRunActive,
 	type PublicRun,
 	resolveTextModel,
 	runProgress,
-	speechCreditCost,
-	speechModels,
-	speechVoices,
-	textCreditCost,
-	textModels,
-	videoCreditCost,
-	videoModels,
 } from "@kousa/generation/contracts";
 import { type Freshness, graphFreshness } from "@kousa/generation/freshness";
 import {
@@ -29,6 +17,16 @@ import {
 	videoInputImageAssetId,
 	videoInputSnapshot,
 } from "@kousa/generation/input";
+import {
+	defaultVoiceFor,
+	imageSizeFor,
+	modelCreditCost,
+	modelSettingsPatch,
+	resolveSpeechModel,
+	validateModelSettings,
+	videoProfile,
+	voicesFor,
+} from "@kousa/generation/model-catalog";
 import { generationBlockReason } from "@kousa/generation/readiness";
 import type { CanvasNode } from "@kousa/projects/canvas";
 import { nodeGenerationKind } from "@kousa/projects/canvas";
@@ -51,6 +49,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CopyIcon, LoaderCircleIcon, PlayIcon } from "lucide-react";
 import { createContext, useContext, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { ModelPicker } from "@/components/model-picker";
 import { client, orpc } from "@/utils/orpc";
 import {
 	AssetDownload,
@@ -311,44 +310,34 @@ export function GenerationPanel({
 	const kind = nodeGenerationKind(node.type ?? "text");
 	const settings = {
 		video: {
-			cost: videoCreditCost(node.data.duration),
-			models: videoModels,
 			configured: generation.videoConfigured,
 			model: node.data.videoModel ?? defaultVideoModel,
-			field: "videoModel",
 			snapshot: videoInputSnapshot,
 		},
 		text: {
-			cost: textCreditCost,
-			models: textModels,
 			configured: generation.configured,
 			model: resolveTextModel(node.data.textModel),
-			field: "textModel",
 			snapshot: textInputSnapshot,
 		},
 		image: {
-			cost: imageCreditCost,
-			models: imageModels,
 			configured: generation.imageConfigured,
 			model: node.data.imageModel ?? defaultImageModel,
-			field: "imageModel",
 			snapshot: imageInputSnapshot,
 		},
 		speech: {
-			cost: speechCreditCost,
-			models: speechModels,
 			configured: generation.speechConfigured,
-			model: node.data.speechModel ?? defaultSpeechModel,
-			field: "speechModel",
+			model: resolveSpeechModel(node.data.speechModel),
 			snapshot: speechInputSnapshot,
 		},
 	}[kind];
-	const { cost, configured } = settings;
-	const modelItems = settings.models.map((model) => ({
-		value: model.id,
-		label: model.name,
-	}));
-	const voiceItems = speechVoices.map((voice) => ({
+	const { configured } = settings;
+	const cost = modelCreditCost(
+		kind,
+		settings.model,
+		node.data.duration,
+		node.data.imageQuality,
+	);
+	const voiceItems = voicesFor(settings.model).map((voice) => ({
 		value: voice.id,
 		label: voice.name,
 	}));
@@ -387,6 +376,15 @@ export function GenerationPanel({
 	} catch (error) {
 		inputError = error instanceof Error ? error.message : "Invalid input.";
 	}
+	inputError ??= validateModelSettings(
+		{
+			kind,
+			modelId: settings.model,
+			...node.data,
+			voiceId: node.data.voiceId ?? defaultVoiceFor(settings.model),
+		},
+		Boolean(imageNode),
+	);
 	const error = pending
 		? null
 		: generation.error?.nodeId === node.id
@@ -431,42 +429,32 @@ export function GenerationPanel({
 			) : null}
 			<Field>
 				<FieldLabel htmlFor={`${kind}-model`}>Model</FieldLabel>
-				<Select
-					items={modelItems}
+				<ModelPicker
+					id={`${kind}-model`}
+					kind={kind}
 					value={settings.model}
 					disabled={!canEdit || pending}
-					onValueChange={(value) => {
-						if (value) update({ [settings.field]: value }, `${kind}Model`);
-					}}
-				>
-					<SelectTrigger id={`${kind}-model`} className="w-full">
-						<SelectValue />
-					</SelectTrigger>
-					<SelectContent>
-						<SelectGroup>
-							{modelItems.map((item) => (
-								<SelectItem key={item.value} value={item.value}>
-									{item.label}
-								</SelectItem>
-							))}
-						</SelectGroup>
-					</SelectContent>
-				</Select>
+					onChange={(value) =>
+						update(modelSettingsPatch(kind, value, node.data), `${kind}Model`)
+					}
+				/>
 				<FieldDescription>
 					{cost} Kousa {cost === 1 ? "credit" : "credits"} per successful run ·{" "}
 					{kind === "video"
-						? `Silent MP4 · 480p · ${node.data.duration} seconds`
+						? `MP4 · ${videoProfile(settings.model).resolutionLabel} · ${node.data.duration} seconds`
 						: kind === "image"
-							? `${imageSizes[node.data.aspectRatio].replace("x", " × ")} pixels`
+							? settings.model === "quiverai/arrow-1.1"
+								? "Vector rendered as PNG"
+								: settings.model === "meta/muse-image-1.0"
+									? "Automatic dimensions"
+									: `${imageSizeFor(settings.model, node.data.aspectRatio).replace("x", " × ")} target pixels`
 							: kind === "speech"
 								? "MP3 · Up to 1,000 script characters"
 								: "Up to 2,048 output tokens"}
 					.
 				</FieldDescription>
 				<FieldDescription>
-					{kind === "speech" || kind === "video"
-						? "Requires paid credits enabled on your Vercel AI Gateway account."
-						: "Models eligible for Vercel free credits."}
+					Credits are reserved when you start and charged on success.
 				</FieldDescription>
 			</Field>
 			{imageNode ? (
@@ -490,7 +478,7 @@ export function GenerationPanel({
 					<FieldLabel htmlFor="speech-voice">Voice</FieldLabel>
 					<Select
 						items={voiceItems}
-						value={node.data.voiceId ?? defaultSpeechVoice}
+						value={node.data.voiceId ?? defaultVoiceFor(settings.model)}
 						disabled={!canEdit || pending}
 						onValueChange={(value) => {
 							if (value) update({ voiceId: value }, "voiceId");
@@ -510,8 +498,9 @@ export function GenerationPanel({
 						</SelectContent>
 					</Select>
 					<FieldDescription>
-						Voice direction controls delivery, such as calm or excited. Results
-						can vary.
+						{settings.model === "spacexai/grok-tts"
+							? "Add delivery tags such as [pause] or [laugh] in the script."
+							: "Voice direction controls delivery, such as calm or excited. Results can vary."}
 					</FieldDescription>
 				</Field>
 			) : null}
@@ -645,10 +634,10 @@ export function GenerationPanel({
 			{kind === "video" ? (
 				<div className="flex flex-col gap-3">
 					<p className="text-muted-foreground text-xs">
-						Creates a silent clip from your prompt and, optionally, one
-						connected image. Connected text uses its last successful output, or
-						its written text. Add connected audio afterward with Clip with
-						audio. Video inputs are not supported by this generation model.
+						Creates a clip from text or a connected image, depending on the
+						model. Some models include generated audio. Connect an Audio node to
+						replace it with your own soundtrack using Create clip.
+						Video-to-video generation is not yet available.
 					</p>
 					{videoResult?.assetId ? (
 						<>

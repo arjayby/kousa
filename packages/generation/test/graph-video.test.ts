@@ -427,10 +427,10 @@ it("blocks missing project images, extra images, unsupported video edges, and in
 		"only one image",
 	);
 	graph.edges.pop();
-	// @ts-expect-error Exercise malformed persisted settings before any reservation.
-	videoNode.data.duration = 7;
+	// Exercise malformed persisted settings before any reservation.
+	videoNode.data.duration = 13;
 	await expect(planGraph(graph, videoNode.id)).rejects.toThrow(
-		"available video",
+		"supported by this model",
 	);
 	videoNode.data.duration = 5;
 	const upstream = createCanvasNode("video", { x: 0, y: 500 });

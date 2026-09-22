@@ -7,6 +7,7 @@ export type ResolvedInputs = {
 		modelId: string;
 		content: string;
 		size: string | null;
+		imageQuality?: string;
 		voiceId: string | null;
 		voiceDirection: string | null;
 		duration: number | null;

@@ -167,6 +167,7 @@ export function createGraphService(
 			steps: run.plan.map((step) => ({
 				nodeId: step.nodeId,
 				isOutput: targets.includes(step.nodeId),
+				modelId: step.modelId,
 				label: step.label,
 				kind: step.kind,
 				credits: step.credits,
@@ -346,6 +347,7 @@ export function createGraphService(
 				steps: plan.map((step) => ({
 					nodeId: step.nodeId,
 					isOutput: targets.includes(step.nodeId),
+					modelId: step.modelId,
 					label: step.label,
 					kind: step.kind,
 					credits: step.credits,

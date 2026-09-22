@@ -1,7 +1,7 @@
 "use client";
 
-import { speechVoices } from "@kousa/generation/contracts";
 import { planGraph } from "@kousa/generation/graph-plan";
+import { voicesFor } from "@kousa/generation/model-catalog";
 import { Badge } from "@kousa/ui/components/badge";
 import { Button } from "@kousa/ui/components/button";
 import {
@@ -300,7 +300,7 @@ export function WorkflowMonitor({ workflow }: { workflow: Workflow }) {
 									{step.speech ? (
 										<span className="mt-1 block text-muted-foreground text-xs">
 											Voice:{" "}
-											{speechVoices.find(
+											{voicesFor(step.modelId).find(
 												(voice) => voice.id === step.speech?.voiceId,
 											)?.name ?? step.speech.voiceId}
 											{step.speech.voiceDirection

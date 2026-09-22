@@ -11,19 +11,8 @@ import {
 	generateInput,
 	generationHistoryActionInput,
 	generationHistoryInput,
-	imageCreditCost,
-	imageModels,
 	listGenerationsInput,
 	type PublicRun,
-	speechCreditCost,
-	speechModels,
-	speechVoices,
-	textCreditCost,
-	textModels,
-	videoAspectRatios,
-	videoCreditCost,
-	videoDurations,
-	videoModels,
 } from "./contracts";
 import { resolveInputs } from "./freshness";
 import {
@@ -47,6 +36,7 @@ import {
 	videoInputImageAssetId,
 	videoInputSnapshot,
 } from "./input";
+import { modelCreditCost, validateModelSettings } from "./model-catalog";
 
 export type { ImageProvider, TextProvider } from "./providers";
 
@@ -356,31 +346,12 @@ export function createGenerationService(
 									kind: "text" as const,
 									...textInputSnapshot(document, input.nodeId),
 								};
-			const models = {
-				text: textModels,
-				image: imageModels,
-				speech: speechModels,
-				video: videoModels,
-			}[kind];
-			if (
-				snapshot.kind === "speech" &&
-				!speechVoices.some((voice) => voice.id === snapshot.voiceId)
-			)
-				throw new GenerationError("BAD_REQUEST", "Choose an available voice.");
-			if (!models.some((model) => model.id === snapshot.modelId))
-				throw new GenerationError(
-					"BAD_REQUEST",
-					`Choose an available ${kind} model.`,
-				);
-			if (
-				snapshot.kind === "video" &&
-				(!videoDurations.some((d) => d === snapshot.duration) ||
-					!videoAspectRatios.some((r) => r === snapshot.aspectRatio))
-			)
-				throw new GenerationError(
-					"BAD_REQUEST",
-					"Choose an available video duration and aspect ratio.",
-				);
+			const settingsError = validateModelSettings(
+				{ ...snapshot, aspectRatio: node.data.aspectRatio },
+				"image" in snapshot && Boolean(snapshot.image),
+			);
+			if (settingsError)
+				throw new GenerationError("BAD_REQUEST", settingsError);
 			let inputImageAssetId: string | null = null;
 			let resolvedImage: GenerationRun | undefined;
 			if (
@@ -450,13 +421,12 @@ export function createGenerationService(
 						: snapshot.kind === "image"
 							? buildImagePrompt(snapshot, outputs)
 							: buildPrompt(snapshot, outputs);
-			const credits = {
-				text: textCreditCost,
-				image: imageCreditCost,
-				speech: speechCreditCost,
-				video:
-					snapshot.kind === "video" ? videoCreditCost(snapshot.duration) : 0,
-			}[kind];
+			const credits = modelCreditCost(
+				kind,
+				snapshot.modelId,
+				snapshot.kind === "video" ? snapshot.duration : undefined,
+				snapshot.kind === "image" ? snapshot.imageQuality : undefined,
+			);
 			const claim = await store.claim({
 				...input,
 				userId: actorId,

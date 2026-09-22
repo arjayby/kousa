@@ -13,6 +13,7 @@ export interface ImageProvider {
 		prompt: string;
 		size: `${number}x${number}`;
 		referenceImage?: Uint8Array<ArrayBuffer>;
+		quality?: "low" | "medium" | "high";
 	}): Promise<{ bytes: Uint8Array<ArrayBuffer>; mimeType: string }>;
 }
 

@@ -78,6 +78,99 @@ it("sends a hosted starting image with an optional motion prompt", async () => {
 	);
 	expect(fetchMock).not.toHaveBeenCalled();
 });
+
+it.each([
+	[
+		"bfl/flux-3-video",
+		5,
+		"1280x720",
+		{ blackForestLabs: { resolution: "hd" } },
+	],
+	["minimax/minimax-h3", 4, "1366x768", { minimax: { resolution: "768P" } }],
+	["minimax/minimax-h3-max", 5, "854x480", { minimax: { resolution: "480P" } }],
+	["google/veo-3.1-generate-001", 6, "1280x720", undefined],
+	["klingai/kling-v3.0-t2v", 7, undefined, { klingai: { mode: "pro" } }],
+	["alibaba/wan-v3.0-video", 2, "832x480", undefined],
+	[
+		"spacexai/grok-imagine-video-1.5",
+		1,
+		"854x480",
+		{ xai: { resolution: "480p" } },
+	],
+] as const)(
+	"builds the %s video request",
+	async (modelId, duration, resolution, providerOptions) => {
+		await provider().start({
+			id: "id",
+			modelId,
+			prompt: "Rain",
+			duration,
+			aspectRatio: "16:9",
+		});
+		expect(mocks.model).toHaveBeenCalledWith(modelId);
+		if (!resolution)
+			expect(mocks.start.mock.calls[0]?.[0]).not.toHaveProperty("resolution");
+		expect(mocks.start).toHaveBeenCalledWith(
+			expect.objectContaining({
+				duration,
+				...(resolution ? { resolution } : {}),
+				providerOptions,
+				headers: { "idempotency-key": "id" },
+				maxRetries: 0,
+			}),
+		);
+	},
+);
+
+it("inherits the starting image ratio for Kling instead of sending an ignored option", async () => {
+	await provider().start({
+		id: "id",
+		modelId: "klingai/kling-v3.0-i2v",
+		prompt: "Rain",
+		imageUrl: "https://kousa.app/image.png",
+		aspectRatio: "16:9",
+		duration: 5,
+	});
+	expect(mocks.start.mock.calls[0]?.[0]).not.toHaveProperty("aspectRatio");
+	expect(mocks.start.mock.calls[0]?.[0]).not.toHaveProperty("resolution");
+});
+
+it("uses Wan reference media rather than a starting frame", async () => {
+	const imageUrl = "https://kousa.app/reference.png";
+	await provider().start({
+		id: "id",
+		modelId: "alibaba/wan-v2.7-r2v",
+		prompt: "Rain",
+		imageUrl,
+		aspectRatio: "16:9",
+		duration: 5,
+	});
+	expect(mocks.start).toHaveBeenCalledWith(
+		expect.objectContaining({ prompt: "Rain", inputReferences: [imageUrl] }),
+	);
+});
+
+it("rejects unsupported settings before making a video request", async () => {
+	await expect(
+		provider().start({
+			id: "id",
+			modelId: "google/veo-3.1-generate-001",
+			prompt: "Rain",
+			aspectRatio: "16:9",
+			duration: 5,
+		}),
+	).rejects.toThrow("duration");
+	await expect(
+		provider().start({
+			id: "id",
+			modelId: "klingai/kling-v3.0-i2v",
+			prompt: "Rain",
+			aspectRatio: "16:9",
+			duration: 5,
+		}),
+	).rejects.toThrow("Connect an Image");
+	expect(mocks.start).not.toHaveBeenCalled();
+});
 it("polls the persisted operation and hides provider errors", async () => {
 	expect(await poll()).toEqual({ status: "pending" });
 	expect(mocks.status).toHaveBeenCalledWith(

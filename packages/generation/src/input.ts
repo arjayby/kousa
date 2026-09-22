@@ -5,14 +5,18 @@ import {
 import { resolveConnection } from "./connections";
 import {
 	defaultImageModel,
-	defaultSpeechModel,
-	defaultSpeechVoice,
 	defaultVideoModel,
-	imageSizes,
 	maxInputBytes,
 	maxSpeechCharacters,
 	resolveTextModel,
 } from "./contracts";
+
+import {
+	defaultVoiceFor,
+	imageQualityFor,
+	imageSizeFor,
+	resolveSpeechModel,
+} from "./model-catalog";
 
 export class GenerationError extends Error {
 	constructor(
@@ -121,7 +125,21 @@ export function imageInputSnapshot(graph: CanvasDocument, nodeId: string) {
 		content: node.data.content,
 		sources,
 		image: connectedImage(graph, nodeId),
-		size: imageSizes[node.data.aspectRatio],
+		size: imageSizeFor(
+			node.data.imageModel ?? defaultImageModel,
+			node.data.aspectRatio,
+		),
+		...(imageQualityFor(
+			node.data.imageModel ?? defaultImageModel,
+			node.data.imageQuality,
+		)
+			? {
+					imageQuality: imageQualityFor(
+						node.data.imageModel ?? defaultImageModel,
+						node.data.imageQuality,
+					),
+				}
+			: {}),
 	};
 }
 
@@ -153,7 +171,10 @@ export async function generationInputHash(
 }
 
 export function buildImagePrompt(
-	snapshot: Pick<ReturnType<typeof imageInputSnapshot>, "content" | "sources">,
+	snapshot: Pick<
+		ReturnType<typeof imageInputSnapshot>,
+		"content" | "sources"
+	> & { modelId?: string },
 	outputs: Array<{ nodeId: string; output: string | null }>,
 ) {
 	const prompt = [
@@ -170,6 +191,11 @@ export function buildImagePrompt(
 		throw new GenerationError(
 			"BAD_REQUEST",
 			"Write a prompt or connect a text node before generating.",
+		);
+	if (snapshot.modelId?.startsWith("recraft/") && prompt.length > 10_000)
+		throw new GenerationError(
+			"BAD_REQUEST",
+			"Recraft prompts must be 10,000 characters or fewer.",
 		);
 	if (new TextEncoder().encode(prompt).length > maxInputBytes)
 		throw new GenerationError(
@@ -189,8 +215,10 @@ export function speechInputSnapshot(graph: CanvasDocument, nodeId: string) {
 	const sources = connectedText(graph, nodeId);
 	return {
 		nodeId,
-		modelId: node.data.speechModel ?? defaultSpeechModel,
-		voiceId: node.data.voiceId ?? defaultSpeechVoice,
+		modelId: resolveSpeechModel(node.data.speechModel),
+		voiceId:
+			node.data.voiceId ??
+			defaultVoiceFor(resolveSpeechModel(node.data.speechModel)),
 		voiceDirection: node.data.voiceDirection.trim(),
 		content: node.data.content,
 		sources,

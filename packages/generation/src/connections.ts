@@ -9,7 +9,6 @@ import {
 } from "@kousa/projects/canvas";
 import {
 	defaultImageModel,
-	defaultSpeechModel,
 	defaultVideoModel,
 	imageModels,
 	type PublicRun,
@@ -18,6 +17,11 @@ import {
 	textModels,
 	videoModels,
 } from "./contracts";
+import {
+	imageProfile,
+	resolveSpeechModel,
+	videoProfile,
+} from "./model-catalog";
 
 export function connectionCapability(
 	source: CanvasNode,
@@ -31,7 +35,7 @@ export function connectionCapability(
 			: target.type === "image"
 				? (target.data.imageModel ?? defaultImageModel)
 				: target.type === "audio"
-					? (target.data.speechModel ?? defaultSpeechModel)
+					? resolveSpeechModel(target.data.speechModel)
 					: (target.data.videoModel ?? defaultVideoModel);
 	const models = {
 		text: textModels,
@@ -64,6 +68,15 @@ export function connectionCapability(
 			"unsupported",
 			`${model} currently accepts connected text nodes only in Kousa. ${nodeLabels[source.type]} context is not sent to this generator. Connect a Text node instead.`,
 		);
+	if (
+		target.type === "image" &&
+		handle === "reference" &&
+		!imageProfile(modelId).reference
+	)
+		return result(
+			"unsupported",
+			`${model} does not support reference images. Disconnect the reference or choose an image editing model.`,
+		);
 	if (target.type === "image" && handle === "reference")
 		return result(
 			"image",
@@ -74,10 +87,21 @@ export function connectionCapability(
 			"unsupported",
 			`${model} does not support video-to-video in Kousa. Disconnect video inputs before generating. Connect one Image as a starting frame, or Text to Prompt.`,
 		);
+	if (
+		target.type === "video" &&
+		handle === "image" &&
+		!videoProfile(modelId).reference
+	)
+		return result(
+			"unsupported",
+			`${model} accepts text only. Choose its image-to-video variant or disconnect the image.`,
+		);
 	if (target.type === "video" && handle === "image")
 		return result(
 			"image",
-			"Uses this image as the starting frame. The video prompt describes its motion.",
+			videoProfile(modelId).referenceOnly
+				? "Uses this image as a reference for the video prompt."
+				: "Uses this image as the starting frame. The video prompt describes its motion.",
 		);
 	return result(
 		"text",

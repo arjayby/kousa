@@ -1,6 +1,6 @@
 "use client";
 
-import { imageCreditCost, imageModels } from "@kousa/generation/contracts";
+import { defaultImageModel, imageModels } from "@kousa/generation/contracts";
 import { planGraph } from "@kousa/generation/graph-plan";
 import {
 	createImageVariations,
@@ -9,6 +9,7 @@ import {
 	imageVariationsError,
 	maxImageVariations,
 } from "@kousa/generation/image-variations";
+import { imageProfile, modelCreditCost } from "@kousa/generation/model-catalog";
 import { retainProjectMedia } from "@kousa/media/upload";
 import {
 	aspectRatios,
@@ -320,7 +321,7 @@ export function ImageVariationsDialog({
 								Model:{" "}
 								{imageModels.find(
 									(model) => model.id === initial.source.data.imageModel,
-								)?.name ?? imageModels[0].name}
+								)?.name ?? imageModels[0]?.name}
 							</p>
 							{variations.map((variation, index) => (
 								<FieldSet
@@ -347,7 +348,13 @@ export function ImageVariationsDialog({
 											/>
 										</Field>
 										<Field>
-											<FieldLabel>Aspect ratio</FieldLabel>
+											<FieldLabel>
+												{imageProfile(
+													initial.source.data.imageModel ?? defaultImageModel,
+												).automaticSize
+													? "Automatic dimensions"
+													: "Aspect ratio"}
+											</FieldLabel>
 											<ToggleGroup
 												aria-label={`Variation ${index + 1} aspect ratio`}
 												variant="outline"
@@ -361,7 +368,9 @@ export function ImageVariationsDialog({
 														});
 												}}
 											>
-												{aspectRatios.map((ratio) => (
+												{imageProfile(
+													initial.source.data.imageModel ?? defaultImageModel,
+												).aspectRatios.map((ratio) => (
 													<ToggleGroupItem key={ratio} value={ratio}>
 														{ratio}
 													</ToggleGroupItem>
@@ -404,10 +413,16 @@ export function ImageVariationsDialog({
 							</Button>
 						</FieldGroup>
 						<p>
-							{variations.length * imageCreditCost} credits for{" "}
-							{variations.length} new images, plus any shared inputs that need
-							generation. The next review shows the final total. Creating nodes
-							costs no credits.
+							{variations.length *
+								modelCreditCost(
+									"image",
+									initial.source.data.imageModel ?? defaultImageModel,
+									undefined,
+									initial.source.data.imageQuality,
+								)}{" "}
+							credits for {variations.length} new images, plus any shared inputs
+							that need generation. The next review shows the final total.
+							Creating nodes costs no credits.
 						</p>
 						{changed ? (
 							<Alert variant="destructive">

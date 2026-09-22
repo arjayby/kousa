@@ -195,7 +195,7 @@ describe("connection contributions", () => {
 		target.data.textModel = "openai/gpt-4.1-mini";
 		expect(connectionCapability(source, target, "context")).toMatchObject({
 			usage: "text",
-			model: "Amazon Nova Micro",
+			model: "Nova Micro",
 		});
 	});
 });

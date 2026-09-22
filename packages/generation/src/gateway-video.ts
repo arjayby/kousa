@@ -5,6 +5,7 @@ import {
 	experimental_startVideo as startVideo,
 } from "ai";
 import { z } from "zod";
+import { validateModelSettings, videoProfile } from "./model-catalog";
 import type { VideoProvider } from "./providers";
 
 // Only provider-returned HTTPS URLs reach this downloader. Never forward the
@@ -75,11 +76,47 @@ export function createGatewayVideoProvider(
 	return {
 		configured: Boolean(apiKey?.trim()),
 		async start({ id, modelId, prompt, imageUrl, aspectRatio, duration }) {
+			const error = validateModelSettings(
+				{ kind: "video", modelId, aspectRatio, duration },
+				Boolean(imageUrl),
+			);
+			if (error) throw new Error(error);
+			const profile = videoProfile(modelId);
+			// Explicit native tiers avoid each provider interpreting WxH differently.
+			const tier = profile.resolution;
+			const resolution =
+				tier === "480p"
+					? modelId.startsWith("alibaba/")
+						? "832x480"
+						: "854x480"
+					: tier === "768p"
+						? "1366x768"
+						: "1280x720";
+			const providerOptions: Parameters<
+				typeof startVideo
+			>[0]["providerOptions"] = modelId.startsWith("bfl/")
+				? { blackForestLabs: { resolution: "hd" } }
+				: modelId.startsWith("minimax/")
+					? { minimax: { resolution: tier.toUpperCase() } }
+					: modelId.startsWith("bytedance/")
+						? { bytedance: { resolution: tier } }
+						: modelId.startsWith("klingai/")
+							? { klingai: { mode: "pro" } }
+							: modelId.startsWith("spacexai/")
+								? { xai: { resolution: tier } }
+								: undefined;
 			const result = await startVideo({
 				model: createGateway({ apiKey }).videoModel(modelId),
-				prompt: imageUrl ? { text: prompt, image: imageUrl } : prompt,
-				aspectRatio,
-				resolution: "854x480",
+				prompt:
+					imageUrl && !profile.referenceOnly
+						? { text: prompt, image: imageUrl }
+						: prompt,
+				...(imageUrl && profile.referenceOnly
+					? { inputReferences: [imageUrl] }
+					: {}),
+				...(imageUrl && profile.imageDeterminesRatio ? {} : { aspectRatio }),
+				...(modelId.startsWith("klingai/") ? {} : { resolution }),
+				providerOptions,
 				duration,
 				n: 1,
 				headers: { "idempotency-key": id },

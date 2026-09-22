@@ -93,7 +93,7 @@ it("requests MP3 speech with a fixed voice, Fish delivery cue and no paid-call r
 			voiceDirection: "[warm]\ncalm",
 		}),
 	).toEqual({ bytes, mimeType: "audio/mpeg" });
-	expect(mocks.speechModel).toHaveBeenCalledWith("fish-audio/s2.1-pro-free");
+	expect(mocks.speechModel).toHaveBeenCalledWith("fish-audio/s2.1-pro");
 	expect(mocks.generateSpeech).toHaveBeenCalledWith(
 		expect.objectContaining({
 			model: "speech-model",
@@ -124,6 +124,149 @@ it("sends private reference bytes through the SDK image-edit prompt", async () =
 			prompt: { text: "Replace the background", images: [bytes] },
 			n: 1,
 			maxRetries: 0,
+		}),
+	);
+});
+
+it("uses the language image route for Nano Banana and reads an image file", async () => {
+	const bytes = new Uint8Array([1, 2, 3]);
+	mocks.generateText.mockResolvedValue({
+		files: [{ mediaType: "image/png", uint8Array: bytes }],
+	});
+	expect(
+		await createGatewayImageProvider("test-key").generate({
+			modelId: "google/gemini-3.1-flash-image",
+			prompt: "A balloon",
+			size: "1024x576",
+			referenceImage: bytes,
+		}),
+	).toEqual({ bytes, mimeType: "image/png" });
+	expect(mocks.model).toHaveBeenCalledWith("google/gemini-3.1-flash-image");
+	expect(mocks.generateText).toHaveBeenCalledWith(
+		expect.objectContaining({
+			messages: [
+				{
+					role: "user",
+					content: [
+						{ type: "text", text: "A balloon" },
+						{ type: "image", image: bytes },
+					],
+				},
+			],
+			providerOptions: {
+				google: {
+					responseModalities: ["TEXT", "IMAGE"],
+					imageConfig: { aspectRatio: "16:9", imageSize: "1K" },
+				},
+			},
+			maxRetries: 0,
+		}),
+	);
+	expect(mocks.generateImage).not.toHaveBeenCalled();
+	mocks.generateText.mockResolvedValue({ files: [] });
+	await expect(
+		createGatewayImageProvider("key").generate({
+			modelId: "google/gemini-3-pro-image",
+			prompt: "x",
+			size: "1024x1024",
+		}),
+	).rejects.toThrow("did not return an image");
+});
+
+it("rasterizes Arrow SVG instead of treating it as PNG bytes", async () => {
+	const svg = new TextEncoder().encode(
+		'<svg xmlns="http://www.w3.org/2000/svg"/>',
+	);
+	const png = new Uint8Array([137, 80, 78, 71]);
+	mocks.createGateway.mockReturnValue({ imageModel: mocks.imageModel });
+	mocks.generateImage.mockResolvedValue({
+		image: { uint8Array: svg, mediaType: "image/svg+xml" },
+	});
+	const rasterize = vi.fn().mockResolvedValue(png);
+	expect(
+		await createGatewayImageProvider("key", rasterize).generate({
+			modelId: "quiverai/arrow-1.1",
+			prompt: "A vector logo",
+			size: "1024x1024",
+		}),
+	).toEqual({ bytes: png, mimeType: "image/png" });
+	expect(rasterize).toHaveBeenCalledWith(svg);
+	expect(mocks.generateImage.mock.calls[0]?.[0]).not.toHaveProperty("size");
+	await expect(
+		createGatewayImageProvider("key").generate({
+			modelId: "quiverai/arrow-1.1",
+			prompt: "x",
+			size: "1024x1024",
+		}),
+	).rejects.toThrow("SVG rendering is unavailable");
+});
+
+it.each([
+	[
+		"openai/gpt-image-2.5-flare",
+		"1536x864",
+		{ openai: { quality: "high", outputFormat: "png" } },
+	],
+	[
+		"bfl/flux-2-max",
+		"1024x576",
+		{ blackForestLabs: { width: 1024, height: 576 } },
+	],
+] as const)(
+	"sends %s native settings",
+	async (modelId, size, providerOptions) => {
+		mocks.createGateway.mockReturnValue({ imageModel: mocks.imageModel });
+		mocks.generateImage.mockResolvedValue({
+			image: { uint8Array: new Uint8Array([1]), mediaType: "image/png" },
+		});
+		await createGatewayImageProvider("key").generate({
+			modelId,
+			size,
+			prompt: "x",
+			quality: "high",
+		});
+		expect(mocks.generateImage).toHaveBeenCalledWith(
+			expect.objectContaining({ size, providerOptions }),
+		);
+	},
+);
+
+it.each(["bfl/flux-pro-1.1-ultra", "spacexai/grok-imagine-image-2.0"])(
+	"uses aspect ratio instead of unsupported dimensions for %s",
+	async (modelId) => {
+		mocks.createGateway.mockReturnValue({ imageModel: mocks.imageModel });
+		mocks.generateImage.mockResolvedValue({
+			image: { uint8Array: new Uint8Array([1]), mediaType: "image/png" },
+		});
+		await createGatewayImageProvider("key").generate({
+			modelId,
+			size: "576x1024",
+			prompt: "x",
+		});
+		expect(mocks.generateImage.mock.calls[0]?.[0]).toMatchObject({
+			aspectRatio: "9:16",
+		});
+		expect(mocks.generateImage.mock.calls[0]?.[0]).not.toHaveProperty("size");
+	},
+);
+
+it("does not send Fish delivery directions to Grok TTS", async () => {
+	mocks.createGateway.mockReturnValue({ speechModel: mocks.speechModel });
+	mocks.generateSpeech.mockResolvedValue({
+		audio: { uint8Array: new Uint8Array([1]), mediaType: "audio/mpeg" },
+	});
+	await createGatewaySpeechProvider("key").generate({
+		modelId: "spacexai/grok-tts",
+		voiceId: "eve",
+		voiceDirection: "",
+		text: "Hello [pause] world",
+	});
+	expect(mocks.speechModel).toHaveBeenCalledWith("spacexai/grok-tts");
+	expect(mocks.generateSpeech).toHaveBeenCalledWith(
+		expect.objectContaining({
+			voice: "eve",
+			text: "Hello [pause] world",
+			outputFormat: "mp3",
 		}),
 	);
 });
