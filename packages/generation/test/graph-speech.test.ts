@@ -27,7 +27,7 @@ let db: Awaited<ReturnType<typeof createGenerationTestDatabase>>;
 let projectId: string;
 let graph: CanvasDocument;
 let textNode = createCanvasNode("text", { x: 0, y: 0 });
-let speechNode = createCanvasNode("speech", { x: 300, y: 0 });
+let speechNode = createCanvasNode("audio", { x: 300, y: 0 });
 let media: ReturnType<typeof createMediaService>;
 let artifacts = memoryArtifacts();
 const objects = new Map<string, Uint8Array<ArrayBuffer>>();
@@ -98,7 +98,7 @@ beforeEach(async () => {
 	await db.grant("owner", 20);
 	textNode = createCanvasNode("text", { x: 0, y: 0 });
 	textNode.data.content = "Write a short narration about a quiet street.";
-	speechNode = createCanvasNode("speech", { x: 300, y: 0 });
+	speechNode = createCanvasNode("audio", { x: 300, y: 0 });
 	speechNode.data.content = "Welcome to Kousa.";
 	speechNode.data.voiceDirection = "Warm and calm";
 	graph = {
@@ -464,7 +464,7 @@ it("preserves previous audio and refunds speech when a later workflow produces i
 });
 
 it("rejects image, video and speech inputs to a speech node before spending", async () => {
-	for (const kind of ["image", "video", "speech"] as const) {
+	for (const kind of ["image", "video", "audio"] as const) {
 		const source = createCanvasNode(kind, { x: 0, y: 0 });
 		source.data.content = "Source";
 		const invalid: CanvasDocument = {

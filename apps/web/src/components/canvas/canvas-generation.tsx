@@ -31,6 +31,7 @@ import {
 } from "@kousa/generation/input";
 import { generationBlockReason } from "@kousa/generation/readiness";
 import type { CanvasNode } from "@kousa/projects/canvas";
+import { nodeGenerationKind } from "@kousa/projects/canvas";
 import { Button } from "@kousa/ui/components/button";
 import {
 	Field,
@@ -94,7 +95,7 @@ export function useCanvasGeneration({
 			(n) =>
 				n.type === "text" ||
 				n.type === "image" ||
-				n.type === "speech" ||
+				n.type === "audio" ||
 				n.type === "video",
 		)
 		.map((n) => n.id)
@@ -148,7 +149,8 @@ export function useCanvasGeneration({
 	function outputs(kind: PublicRun["kind"], latest: PublicRun[] = []) {
 		const results = new Map(latest.map((run) => [run.nodeId, run]));
 		for (const node of graph.nodes) {
-			if (node.type !== kind || !node.data.selectedRunId) continue;
+			if (nodeGenerationKind(node.type) !== kind || !node.data.selectedRunId)
+				continue;
 			results.delete(node.id);
 			const run = selected.get(node.data.selectedRunId);
 			if (run?.nodeId === node.id && run.kind === kind)
@@ -306,10 +308,7 @@ export function GenerationPanel({
 }) {
 	const generation = useContext(GenerationContext);
 	if (!generation) return null;
-	const kind =
-		node.type === "image" || node.type === "speech" || node.type === "video"
-			? node.type
-			: "text";
+	const kind = nodeGenerationKind(node.type ?? "text");
 	const settings = {
 		video: {
 			cost: videoCreditCost(node.data.duration),
@@ -627,7 +626,7 @@ export function GenerationPanel({
 					</p>
 					{speechResult?.assetId ? (
 						<>
-							<h3 className="font-medium text-xs">Selected speech output</h3>
+							<h3 className="font-medium text-xs">Selected audio output</h3>
 							<AudioPreview
 								key={speechResult.assetId}
 								assetId={speechResult.assetId}
@@ -648,8 +647,8 @@ export function GenerationPanel({
 					<p className="text-muted-foreground text-xs">
 						Creates a silent clip from your prompt and, optionally, one
 						connected image. Connected text uses its last successful output, or
-						its written text. Add connected speech afterward with Narrated clip.
-						Video inputs are not supported by this generation model.
+						its written text. Add connected audio afterward with Clip with
+						audio. Video inputs are not supported by this generation model.
 					</p>
 					{videoResult?.assetId ? (
 						<>

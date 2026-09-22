@@ -418,13 +418,13 @@ export function AudioPreview({
 					</Button>
 				</div>
 			) : (
-				// biome-ignore lint/a11y/useMediaCaption: Prerecorded speech has its complete text alternative in the adjacent transcript.
+				// biome-ignore lint/a11y/useMediaCaption: Audio with a transcript has its text alternative adjacent to the player.
 				<audio
 					key={source}
 					controls
 					preload={compact ? "none" : "metadata"}
 					src={source}
-					aria-label="Project speech"
+					aria-label="Project audio"
 					className="h-10 w-full min-w-0"
 					onError={() => setFailedSource(source)}
 				/>

@@ -108,7 +108,7 @@ export function GenerationCard({
 						controls
 						preload="none"
 						className="w-full"
-						aria-label="Generated speech"
+						aria-label="Generated audio"
 					>
 						<track kind="captions" />
 					</audio>

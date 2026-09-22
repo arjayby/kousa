@@ -1,14 +1,25 @@
 import { z } from "zod";
 import { imageLayoutSchema } from "./image-layout";
 
-export const nodeKinds = ["text", "image", "video", "speech"] as const;
+export const nodeKinds = ["text", "image", "video", "audio"] as const;
 export type NodeKind = (typeof nodeKinds)[number];
+
+// Audio is the media node. Speech remains the current generation operation and
+// the persisted run kind, so old jobs, receipts, and history keep their identity.
+export function nodeGenerationKind(kind: NodeKind) {
+	return kind === "audio" ? "speech" : kind;
+}
+export function generationNodeKind(
+	kind: ReturnType<typeof nodeGenerationKind>,
+): NodeKind {
+	return kind === "speech" ? "audio" : kind;
+}
 export const aspectRatios = ["1:1", "16:9", "9:16", "4:3"] as const;
 export const nodeLabels: Record<NodeKind, string> = {
 	text: "Text",
 	image: "Image",
 	video: "Video",
-	speech: "Speech",
+	audio: "Audio",
 };
 export type InputPort = {
 	id: string;
@@ -25,9 +36,9 @@ export const inputPorts: Record<NodeKind, readonly InputPort[]> = {
 		{ id: "prompt", label: "Prompt", accepts: ["text"] },
 		{ id: "image", label: "Image", accepts: ["image"] },
 		{ id: "video", label: "Video", accepts: ["video"] },
-		{ id: "audio", label: "Audio", accepts: ["speech"] },
+		{ id: "audio", label: "Audio", accepts: ["audio"] },
 	],
-	speech: [{ id: "script", label: "Script", accepts: ["text"] }],
+	audio: [{ id: "script", label: "Script", accepts: ["text"] }],
 };
 
 const nodeDataSchema = z.object({
@@ -56,7 +67,10 @@ const nodeDataSchema = z.object({
 });
 export const canvasNodeSchema = z.object({
 	id: z.uuid(),
-	type: z.enum(nodeKinds),
+	// Normalize legacy canvases, templates, clipboard payloads, and Yjs records.
+	type: z
+		.enum([...nodeKinds, "speech"])
+		.transform((kind) => (kind === "speech" ? "audio" : kind)),
 	position: z.object({
 		x: z.number().min(-100_000).max(100_000),
 		y: z.number().min(-100_000).max(100_000),

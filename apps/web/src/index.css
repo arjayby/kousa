@@ -15,7 +15,7 @@
 .studio-node { width: 270px; overflow: visible; border: 1px solid var(--border); border-radius: 12px; background: var(--card); color: var(--card-foreground); box-shadow: 0 4px 18px color-mix(in oklch, var(--foreground), transparent 94%); --node-color: var(--chart-1); }
 .studio-node[data-kind=image] { --node-color: var(--chart-3); }
 .studio-node[data-kind=video] { --node-color: var(--chart-2); }
-.studio-node[data-kind=speech] { --node-color: var(--chart-5); }
+.studio-node[data-kind=audio] { --node-color: var(--chart-5); }
 .studio-node-selected { border-color: var(--ring); box-shadow: 0 0 0 2px color-mix(in oklch, var(--ring), transparent 60%), 0 8px 28px color-mix(in oklch, var(--foreground), transparent 92%); }
 .studio-node-header { display: flex; align-items: center; gap: 10px; padding: 14px 16px 10px; cursor: grab; }
 .studio-node-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; color: var(--foreground); background: color-mix(in oklch, var(--node-color), transparent 78%); }

@@ -133,6 +133,20 @@ export function NodeInspector({
 						</Button>
 					</section>
 				) : null}
+				{kind === "audio" ? (
+					<>
+						<p className="text-muted-foreground text-xs">
+							Generate speech, or upload music, ambience, and sound effects as
+							MP3 audio.
+						</p>
+						<StoredMediaPanel
+							key={node.id}
+							node={node}
+							canEdit={canEdit}
+							update={update}
+						/>
+					</>
+				) : null}
 				<GenerationHistory
 					key={`history:${node.id}`}
 					node={node}
@@ -156,7 +170,7 @@ export function NodeInspector({
 					</Field>
 					<Field>
 						<FieldLabel htmlFor="node-content">
-							{kind === "speech"
+							{kind === "audio"
 								? "Script"
 								: kind === "text"
 									? "Text / prompt"
@@ -174,7 +188,7 @@ export function NodeInspector({
 								maxLength={20_000}
 								readOnly={!canEdit}
 								placeholder={
-									kind === "speech"
+									kind === "audio"
 										? "What should the voice say?"
 										: "Describe your idea…"
 								}
@@ -186,7 +200,7 @@ export function NodeInspector({
 								? "Connect this output to a prompt or script input."
 								: kind === "image"
 									? "Write a prompt here, connect a Text node, or use both."
-									: kind === "speech"
+									: kind === "audio"
 										? "Write the words to speak, connect a Text node, or use both."
 										: "Describe a scene and its motion, or connect an Image node and add optional motion instructions. You can also connect Text."}
 						</FieldDescription>
@@ -237,7 +251,7 @@ export function NodeInspector({
 							</ToggleGroup>
 						</Field>
 					) : null}
-					{kind === "speech" ? (
+					{kind === "audio" ? (
 						<Field>
 							<FieldLabel htmlFor="voice-direction">Voice direction</FieldLabel>
 							{model ? (
@@ -256,7 +270,7 @@ export function NodeInspector({
 						</Field>
 					) : null}
 				</FieldGroup>
-				{kind === "video" || kind === "speech" ? (
+				{kind === "video" ? (
 					<StoredMediaPanel
 						key={node.id}
 						node={node}
@@ -292,7 +306,7 @@ export function NodeInspector({
 											: kind === "video" && port.id === "video"
 												? "Video-to-video is not supported by the current generator."
 												: kind === "video" && port.id === "audio"
-													? "Speech is used by Create clip for composition only."
+													? "Audio is used by Create clip for composition only."
 													: kind === "text"
 														? "The current generator consumes Text context only."
 														: `Connect ${port.accepts.map((kind) => nodeLabels[kind]).join(" or ")}.`}

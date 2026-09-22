@@ -2,9 +2,9 @@
 
 **Status: implementation complete, live verification pending.** Gateway paid credits are unavailable for now, so the real-provider check is deferred. Other development can continue. Complete the checks below before releasing speech generation to users.
 
-Select a Speech node, write its script or connect a Text output to its Script input, then choose a voice and optional delivery direction. Wait for the canvas to finish saving and click **Generate speech**. Saved MP3 audio appears on the node and in the inspector, with native playback, seeking, a transcript, and **Download audio**. Viewers can play and download; only owners and editors can generate.
+Select an Audio node, write its script or connect a Text output to its Script input, then choose a voice and optional delivery direction. Wait for the canvas to finish saving and click **Generate speech**. Saved MP3 audio appears on the node and in the inspector, with native playback, seeking, a transcript, and **Download audio**. Viewers can play and download; only owners and editors can generate.
 
-With **Generate speech**, connected text contributes its last successful output, or its written text if it has no output. That text is followed by the speech node's own script. Kousa reads this script verbatim rather than asking an LLM to rewrite it. Upstream nodes do not run automatically for this action.
+With **Generate speech**, connected text contributes its last successful output, or its written text if it has no output. That text is followed by the Audio node's own script. Kousa reads this script verbatim rather than asking an LLM to rewrite it. Upstream nodes do not run automatically for this action.
 
 Choose **Run to this node** to generate the connected Text steps first, then narrate their new output. The preview shows execution order, voice, delivery direction, and the total cost. Text → Speech costs 3 Kousa credits; Text → Text → Speech costs 4. The person who starts the workflow pays. Completed text is reused for zero additional credits when resuming failed speech. See [speech workflows](graph-execution.md#speech-workflows) for saved inputs, script limits, and recovery.
 

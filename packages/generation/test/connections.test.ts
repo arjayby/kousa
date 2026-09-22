@@ -4,6 +4,7 @@ import {
 	emptyCanvas,
 	inputPorts,
 	type NodeKind,
+	nodeGenerationKind,
 	nodeKinds,
 } from "@kousa/projects/canvas";
 import { describe, expect, it } from "vitest";
@@ -25,7 +26,7 @@ const run = (
 ): PublicRun => ({
 	id: crypto.randomUUID(),
 	nodeId: source.id,
-	kind: source.type,
+	kind: nodeGenerationKind(source.type),
 	status: "succeeded",
 	output: "Saved output",
 	assetId: crypto.randomUUID(),
@@ -47,7 +48,7 @@ describe("connection contributions", () => {
 			text: textInputSnapshot,
 			image: imageInputSnapshot,
 			video: videoInputSnapshot,
-			speech: speechInputSnapshot,
+			audio: speechInputSnapshot,
 		};
 		for (const kind of nodeKinds)
 			for (const port of inputPorts[kind])
@@ -153,7 +154,7 @@ describe("connection contributions", () => {
 		expect(connectedOutput(source).assetId).toBeNull();
 	});
 	it("identifies speech as composition without adding it to video generation inputs", () => {
-		const source = node("speech");
+		const source = node("audio");
 		const target = node("video");
 		const graph = {
 			...emptyCanvas(),

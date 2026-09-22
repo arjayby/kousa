@@ -4,6 +4,7 @@ import {
 	type CanvasNode,
 	imageOutputAssetId,
 	inputPorts,
+	nodeGenerationKind,
 	nodeLabels,
 } from "@kousa/projects/canvas";
 import {
@@ -29,13 +30,13 @@ export function connectionCapability(
 			? resolveTextModel(target.data.textModel)
 			: target.type === "image"
 				? (target.data.imageModel ?? defaultImageModel)
-				: target.type === "speech"
+				: target.type === "audio"
 					? (target.data.speechModel ?? defaultSpeechModel)
 					: (target.data.videoModel ?? defaultVideoModel);
 	const models = {
 		text: textModels,
 		image: imageModels,
-		speech: speechModels,
+		audio: speechModels,
 		video: videoModels,
 	}[target.type];
 	const model = models.find((model) => model.id === modelId)?.name ?? modelId;
@@ -46,12 +47,12 @@ export function connectionCapability(
 	if (!port?.accepts.includes(source.type))
 		return result(
 			"unsupported",
-			`${nodeLabels[target.type]} ${port?.label ?? handle} accepts ${port?.accepts.map((kind) => nodeLabels[kind]).join(" or ") ?? "no output"}, not ${nodeLabels[source.type]}.${target.type === "speech" ? " Speech generation accepts connected text scripts only." : ""}`,
+			`${nodeLabels[target.type]} ${port?.label ?? handle} accepts ${port?.accepts.map((kind) => nodeLabels[kind]).join(" or ") ?? "no output"}, not ${nodeLabels[source.type]}.${target.type === "audio" ? " Speech generation accepts connected text scripts only." : ""}`,
 		);
 	if (target.type === "video" && handle === "audio")
 		return result(
 			"composition",
-			"Composition only. Create clip combines this saved speech with the saved video. Generate video does not send audio to the model or regenerate speech.",
+			"Composition only. Create clip combines this saved audio with the saved video. Generate video does not send audio to the model or regenerate audio.",
 		);
 	if (!models.some((model) => model.id === modelId))
 		return result(
@@ -82,7 +83,7 @@ export function connectionCapability(
 		"text",
 		target.type === "text"
 			? "Uses this text as context before the destination node's task."
-			: target.type === "speech"
+			: target.type === "audio"
 				? "Reads this text first, followed by the destination node's script."
 				: "Adds this text before the destination node's prompt.",
 	);
@@ -107,7 +108,7 @@ export function resolveConnection(
 export function connectedOutput(source: CanvasNode, candidate?: PublicRun) {
 	const run =
 		candidate?.nodeId === source.id &&
-		candidate.kind === source.type &&
+		candidate.kind === nodeGenerationKind(source.type) &&
 		candidate.status === "succeeded" &&
 		(!source.data.selectedRunId || candidate.id === source.data.selectedRunId)
 			? candidate
@@ -156,7 +157,7 @@ export function connectedOutput(source: CanvasNode, candidate?: PublicRun) {
 		error: unavailable
 			? "The selected historical output is unavailable. Choose another output in History."
 			: source.type !== "text" && !assetId
-				? `Upload or generate ${source.type === "speech" ? "speech" : source.type === "image" ? "an image" : "a video"} on this node first.`
+				? `Upload or generate ${source.type === "audio" ? "audio" : source.type === "image" ? "an image" : "a video"} on this node first.`
 				: null,
 	};
 }

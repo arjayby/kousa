@@ -123,7 +123,7 @@ const nodeTypes: NodeTypes = {
 	text: MediaNode,
 	image: MediaNode,
 	video: MediaNode,
-	speech: MediaNode,
+	audio: MediaNode,
 };
 const edgeOptions = {
 	type: "smoothstep",
@@ -430,7 +430,7 @@ function Editor({
 							asset.mimeType === "video/mp4"
 								? "video"
 								: asset.mimeType === "audio/mpeg"
-									? "speech"
+									? "audio"
 									: "image";
 						const position = { ...origin };
 						for (let slot = 0; slot < 500; slot++) {
@@ -929,7 +929,7 @@ function Editor({
 								asset.mimeType === "video/mp4"
 									? "video"
 									: asset.mimeType === "audio/mpeg"
-										? "speech"
+										? "audio"
 										: "image",
 								{
 									label: asset.name.slice(0, 80),

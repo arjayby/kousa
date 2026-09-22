@@ -1,10 +1,10 @@
-# Narrated clips
+# Clips with audio
 
-Connect a Speech node's output to a Video node's **Audio** input. Open the Video settings, set **Narration start**, **Narration volume**, and **Original video volume**, then choose **Review clip → Create clip**. The review uses the saved project graph and freezes the selected files and settings. If they change before starting, review again.
+Connect an Audio node's output to a Video node's **Audio** input. Open the Video settings, set **Audio start**, **Audio volume**, and **Original video volume**, then choose **Review clip → Create clip**. The review uses the saved project graph and freezes the selected files and settings. If they change before starting, review again.
 
-Both nodes need completed media. Use their latest successful generation, choose an existing project file, or upload a supported MP4/MP3 through **Video source** or **Speech source**. **Add to canvas** in the media library supports images, videos, speech, and finished clips. Uploaded speech has no transcript; generated speech retains its saved script.
+Both nodes need completed media. Use their latest successful generation, choose an existing project file, or upload a supported MP4/MP3 through **Video source** or **Audio source**. **Add to canvas** in the media library supports images, videos, audio, and finished clips. Uploaded music, effects, or speech have no transcript; generated speech retains its saved script.
 
-The export is H.264 MP4 with stereo AAC audio. The video stream is copied without re-encoding. Narration can start at any nonnegative offset before the video ends; volume ranges from 0% to 200%. Original audio is muted by default. Narration beyond the end is trimmed, and short narration leaves the remaining video playing. The clip keeps the source video's duration, dimensions, and frame rate. This version handles one video and one narration track, up to 12 seconds and 20 MiB per video.
+The export is H.264 MP4 with stereo AAC audio. The video stream is copied without re-encoding. Audio can start at any nonnegative offset before the video ends; volume ranges from 0% to 200%. Original audio is muted by default. Audio beyond the end is trimmed, and short audio leaves the remaining video playing. The clip keeps the source video's duration, dimensions, and frame rate. This version handles one video and one audio track, up to 12 seconds and 20 MiB per video.
 
 Progress appears as Queued, Rendering, Saving, or Complete. Rendering runs on the server and survives closing the tab. Return to the Video node to preview/download the saved clip, or find it in the project media library. Inputs remain available. A new export is required to apply later edits. If a clip fails, its error is shown and the previous successful clip remains available.
 
@@ -12,7 +12,7 @@ Clip creation uses no AI generation credits. This does not mean hosted rendering
 
 ## How it relates to workflow runs
 
-**Run workflow** and **Run to this node** generate AI outputs. Speech → Video Audio is a composition connection, so it does not cause an AI video model to consume audio, regenerate speech, or merge those two output selections. **All outputs** includes both the video and narration branches. After they finish, use **Create clip** to combine the saved results. Automatic composition inside a workflow run is future work.
+**Run workflow** and **Run to this node** generate AI outputs. Audio → Video Audio is a composition connection, so it does not cause an AI video model to consume audio, regenerate speech, or merge those two output selections. **All outputs** includes both the video and narration branches. After they finish, use **Create clip** to combine the saved results. Automatic composition inside a workflow run is future work.
 
 ## Local development
 

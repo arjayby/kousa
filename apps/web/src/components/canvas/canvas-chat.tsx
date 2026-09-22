@@ -306,8 +306,8 @@ export function CanvasChat({
 										Describe it. Build it on the canvas.
 									</p>
 									<p className="text-muted-foreground">
-										Create connected text, image, video, and speech nodes.
-										Refine the proposal here, then add it to your canvas.
+										Create connected text, image, video, and audio nodes. Refine
+										the proposal here, then add it to your canvas.
 									</p>
 									{examples.map((example) => (
 										<Button

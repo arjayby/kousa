@@ -20,7 +20,7 @@ function fixture() {
 	video.data.content = "Pan slowly.";
 	const script = createCanvasNode("text", { x: 200, y: 300 });
 	script.data.content = "Write a short narration.";
-	const voice = createCanvasNode("speech", { x: 400, y: 300 });
+	const voice = createCanvasNode("audio", { x: 400, y: 300 });
 	const graph: CanvasDocument = {
 		version: 1,
 		nodes: [brief, prompt, scene, video, script, voice],

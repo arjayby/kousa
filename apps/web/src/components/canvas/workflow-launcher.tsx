@@ -115,7 +115,7 @@ export function WorkflowLauncher({
 					</div>
 					<p className="text-muted-foreground text-xs">
 						All outputs selects endpoints of AI generation. Audio connections
-						used for clips do not hide speech outputs. You can also choose any
+						used for clips do not hide audio outputs. You can also choose any
 						intermediate node. Inputs marked “Included automatically” will run
 						with your selected outputs.
 					</p>

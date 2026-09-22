@@ -2,6 +2,7 @@ import type { ClipRun, ClipStore } from "@kousa/db/clip-store";
 import type { GenerationStore } from "@kousa/db/generation-store";
 import type { MediaStore } from "@kousa/db/media-store";
 import type { ClipPlan } from "@kousa/db/schema/clip-runs";
+import { nodeGenerationKind } from "@kousa/projects/canvas";
 import type { ProjectService } from "@kousa/projects/service";
 import {
 	clipActive,
@@ -66,12 +67,12 @@ export function createClipService(
 			(e) => e.target === node.id && e.targetHandle === "audio",
 		);
 		const audioNode = document.nodes.find(
-			(n) => n.id === audioEdge?.source && n.type === "speech",
+			(n) => n.id === audioEdge?.source && n.type === "audio",
 		);
 		if (!audioNode)
 			throw new ClipError(
 				"BAD_REQUEST",
-				"Connect a Speech node to this video's Audio input.",
+				"Connect an Audio node to this video's Audio input.",
 			);
 		const [videos, audio] = await Promise.all([
 			generations.outputs(projectId, [node.id], "video", canvasId),
@@ -86,7 +87,7 @@ export function createClipService(
 					run.projectId !== projectId ||
 					run.canvasId !== (canvasId ?? projectId) ||
 					run.nodeId !== source.id ||
-					run.kind !== source.type ||
+					run.kind !== nodeGenerationKind(source.type) ||
 					run.status !== "succeeded"
 				)
 					throw new ClipError(
@@ -116,13 +117,13 @@ export function createClipService(
 		if (audioAsset?.mimeType !== "audio/mpeg")
 			throw new ClipError(
 				"BAD_REQUEST",
-				"Generate speech or choose project speech first.",
+				"Generate audio or choose a project audio file first.",
 			);
 		const settings = clipSettingsSchema.parse(node.data.clipSettings ?? {});
 		if (settings.narrationStartMs >= videoAsset.durationMs)
 			throw new ClipError(
 				"BAD_REQUEST",
-				"Narration must start before the video ends.",
+				"Audio must start before the video ends.",
 			);
 		const plan: ClipPlan = {
 			...settings,

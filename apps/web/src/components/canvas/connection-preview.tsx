@@ -59,7 +59,7 @@ export function ConnectionPreview({
 	const results = {
 		text: generation?.textResults,
 		image: generation?.imageResults,
-		speech: generation?.speechResults,
+		audio: generation?.speechResults,
 		video: generation?.videoResults,
 	};
 	const output = connectedOutput(
@@ -127,7 +127,7 @@ export function ConnectionPreview({
 					{output.assetId && input.source.type === "image" ? (
 						<AssetPreview key={output.assetId} assetId={output.assetId} />
 					) : null}
-					{output.assetId && input.source.type === "speech" ? (
+					{output.assetId && input.source.type === "audio" ? (
 						<AudioPreview
 							key={output.assetId}
 							assetId={output.assetId}
@@ -135,7 +135,7 @@ export function ConnectionPreview({
 								input.source.data.mediaSource === "project"
 									? (media.assets.find((asset) => asset.id === output.assetId)
 											?.transcript ?? null)
-									: (results.speech?.get(input.source.id)?.transcript ?? null)
+									: (results.audio?.get(input.source.id)?.transcript ?? null)
 							}
 						/>
 					) : null}

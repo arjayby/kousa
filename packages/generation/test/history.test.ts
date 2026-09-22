@@ -3,6 +3,7 @@ import {
 	type CanvasDocument,
 	type CanvasNode,
 	createCanvasNode,
+	generationNodeKind,
 } from "@kousa/projects/canvas";
 import { createProjectService } from "@kousa/projects/service";
 import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
@@ -97,7 +98,7 @@ beforeEach(async () => {
 it.each(["text", "image", "video", "speech"] as const)(
 	"browses frozen %s details and prepares separate zero-cost selection/restoration",
 	async (kind) => {
-		node.type = kind;
+		node.type = generationNodeKind(kind);
 		node.data.aspectRatio = "16:9";
 		node.data.duration = 10;
 		node.data.voiceDirection = "Calm";
@@ -258,7 +259,7 @@ it("retains chosen text through an active job, forbids restoring active settings
 it("uses the chosen text for future downstream work and freezes already queued inputs", async () => {
 	const first = await success(node, "Version one");
 	await success(node, "Version two");
-	const downstream = createCanvasNode("speech", { x: 300, y: 0 });
+	const downstream = createCanvasNode("audio", { x: 300, y: 0 });
 	downstream.data.content = "Closing words";
 	graph.nodes.push(downstream);
 	graph.edges.push({

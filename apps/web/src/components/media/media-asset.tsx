@@ -4,14 +4,14 @@ import { playgroundMediaUrl } from "@kousa/generation/playground-contracts";
 import { mediaUrl } from "@kousa/media/contracts";
 import type { GalleryAsset } from "@kousa/media/gallery-contracts";
 import { Button, buttonVariants } from "@kousa/ui/components/button";
-import { DownloadIcon, FilmIcon, MicIcon } from "lucide-react";
+import { AudioLinesIcon, DownloadIcon, FilmIcon } from "lucide-react";
 import { useState } from "react";
 
 export function assetKind(asset: GalleryAsset) {
 	return asset.mimeType === "video/mp4"
 		? "Video"
 		: asset.mimeType === "audio/mpeg"
-			? "Speech"
+			? "Audio"
 			: "Image";
 }
 
@@ -53,12 +53,12 @@ export function MediaThumbnail({ asset }: { asset: GalleryAsset }) {
 			/>
 		);
 	}
-	const Icon = assetKind(asset) === "Video" ? FilmIcon : MicIcon;
+	const Icon = assetKind(asset) === "Video" ? FilmIcon : AudioLinesIcon;
 	return (
 		<span className="flex flex-col items-center gap-3 text-muted-foreground">
 			<Icon className="size-10" aria-hidden="true" />
 			<span className="text-xs">
-				{assetKind(asset) === "Video" ? "Play video" : "Listen to speech"}
+				{assetKind(asset) === "Video" ? "Play video" : "Listen to audio"}
 			</span>
 		</span>
 	);

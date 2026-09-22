@@ -73,7 +73,7 @@ export function StoredMediaPanel({
 			setError(
 				isVideo
 					? "Choose an H.264 MP4 up to 12 seconds and 20 MB."
-					: "Choose MP3 speech up to 3 minutes and 10 MB.",
+					: "Choose MP3 audio up to 3 minutes and 10 MB.",
 			);
 			return;
 		}
@@ -97,11 +97,11 @@ export function StoredMediaPanel({
 	}
 	return (
 		<section
-			aria-label={isVideo ? "Video source" : "Speech source"}
+			aria-label={isVideo ? "Video source" : "Audio source"}
 			className="flex flex-col gap-4 border-t pt-4"
 		>
 			<h3 className="font-medium text-sm">
-				{isVideo ? "Video source" : "Speech source"}
+				{isVideo ? "Video source" : "Audio source"}
 			</h3>
 			<FieldGroup>
 				<Field data-disabled={!canEdit || pending}>
@@ -164,7 +164,7 @@ export function StoredMediaPanel({
 				{canEdit ? (
 					<Field data-disabled={pending}>
 						<FieldLabel htmlFor="stored-media-upload">
-							Upload {isVideo ? "video" : "speech"}
+							Upload {isVideo ? "video" : "audio"}
 						</FieldLabel>
 						<Input
 							id="stored-media-upload"

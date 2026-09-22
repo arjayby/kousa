@@ -50,7 +50,7 @@ Generated text can exceed the input limit when combined at a downstream node. Su
 
 ## Speech workflows
 
-Speech reads the connected Text step's new output followed by the Speech node's own script. It reads that text verbatim, with no prompt labels added. A Text → Text → Speech chain narrates the final connected Text output. The preview shows the saved voice and delivery direction, including the original settings when resuming.
+Speech reads the connected Text step's new output followed by the Audio node's own script. It reads that text verbatim, with no prompt labels added. A Text → Text → Speech chain narrates the final connected Text output. The preview shows the saved voice and delivery direction, including the original settings when resuming.
 
 Standalone Speech costs 2 Kousa credits, Text → Speech costs 3, and Text → Text → Speech costs 4. No public HTTPS media origin is needed. The configured speech model still requires paid Gateway access; the preview explains this but does not inspect account funding.
 
@@ -120,4 +120,4 @@ These checks require paid Gateway access and a reachable [public HTTPS image ori
 
 ## Narrated video exports
 
-Speech → Video Audio is a composition connection. AI workflow planning keeps speech and video as separate outputs, and video generation ignores that audio connection. Generate both branches, then use **Narrated clip** on the Video node to combine their saved files. See [clip composition](clip-composition.md).
+Audio → Video Audio is a composition connection. AI workflow planning keeps speech and video as separate outputs, and video generation ignores that audio connection. Generate both branches, then use **Clip with audio** on the Video node to combine their saved files. See [clip composition](clip-composition.md).

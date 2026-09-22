@@ -34,7 +34,7 @@ function fixture() {
 	const prompt = createCanvasNode("text", { x: 280, y: -80 });
 	const image = createCanvasNode("image", { x: 660, y: -80 });
 	const video = createCanvasNode("video", { x: 1040, y: 200 });
-	const speech = createCanvasNode("speech", { x: 660, y: 340 });
+	const speech = createCanvasNode("audio", { x: 660, y: 340 });
 	const document: CanvasDocument = {
 		version: 1,
 		nodes: [brief, prompt, image, video, speech],
@@ -173,7 +173,7 @@ describe("canvas selection copying", () => {
 			expect(node.data.content).toBe("Keep this prompt");
 			if (node.type === "image")
 				expect(node.data.imageSource).toBe("generated");
-			if (node.type === "video" || node.type === "speech")
+			if (node.type === "video" || node.type === "audio")
 				expect(node.data.mediaSource).toBe("generated");
 		}
 		expect(copy.edges).toHaveLength(document.edges.length);
@@ -255,7 +255,7 @@ describe("canvas selection copying", () => {
 		const sources = [
 			createCanvasNode("text", { x: 0, y: 0 }),
 			createCanvasNode("image", { x: 0, y: 0 }),
-			createCanvasNode("speech", { x: 0, y: 0 }),
+			createCanvasNode("audio", { x: 0, y: 0 }),
 			createCanvasNode("video", { x: 0, y: 0 }),
 		];
 		const targets = Array.from({ length: 150 }, () =>

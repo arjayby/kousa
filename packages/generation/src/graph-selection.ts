@@ -17,7 +17,7 @@ export function graphDependencies(graph: Graph) {
 		if (
 			target?.type === "video" &&
 			edge.targetHandle === "audio" &&
-			source?.type === "speech"
+			source?.type === "audio"
 		)
 			continue;
 		// Reference inputs consume fixed project assets without regenerating them.

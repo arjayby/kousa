@@ -2,6 +2,7 @@ import {
 	type CanvasDocument,
 	type CanvasNode,
 	createCanvasNode,
+	nodeGenerationKind,
 } from "@kousa/projects/canvas";
 import { expect, it } from "vitest";
 import { graphFreshness, inputSnapshot, resolveInputs } from "../src/freshness";
@@ -10,8 +11,8 @@ it.each<[CanvasNode["type"], Partial<CanvasNode["data"]>]>([
 	["text", { content: "New prompt" }],
 	["text", { textModel: "amazon/nova-lite" }],
 	["image", { aspectRatio: "16:9" }],
-	["speech", { voiceId: "another-voice" }],
-	["speech", { voiceDirection: "Quietly" }],
+	["audio", { voiceId: "another-voice" }],
+	["audio", { voiceDirection: "Quietly" }],
 	["video", { duration: 10 }],
 	["video", { aspectRatio: "9:16" }],
 ])(
@@ -23,7 +24,7 @@ it.each<[CanvasNode["type"], Partial<CanvasNode["data"]>]>([
 		const run = {
 			id: crypto.randomUUID(),
 			nodeId: node.id,
-			kind,
+			kind: nodeGenerationKind(kind),
 			output: kind === "text" ? "Result" : null,
 			assetId: kind === "text" ? null : crypto.randomUUID(),
 			resolvedInputs: resolveInputs(inputSnapshot(graph, node.id), []),

@@ -1,6 +1,6 @@
 # Node generation history
 
-Select a Text, Image, Video, or Speech node and open **Generation history** in its settings. History includes individual generations and workflow child attempts, newest first. Each entry shows the person who ran it, timestamps, status, model, saved generation settings, and whether credits are reserved, charged, or released. Load older attempts with **Load older generations**.
+Select a Text, Image, Video, or Audio node and open **Generation history** in its settings. History includes individual generations and workflow child attempts, newest first. Each entry shows the person who ran it, timestamps, status, model, saved generation settings, and whether credits are reserved, charged, or released. Load older attempts with **Load older generations**.
 
 Text outputs can be copied or downloaded. Images, videos, and speech use the existing private project previews and downloads. The frozen provider prompt or script is available for every attempt. Failed attempts retain their error and released-credit status.
 

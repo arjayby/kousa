@@ -29,7 +29,7 @@ describe("guided canvas examples", () => {
 				const snapshot =
 					step.kind === "image"
 						? imageInputSnapshot
-						: step.kind === "speech"
+						: step.kind === "audio"
 							? speechInputSnapshot
 							: videoInputSnapshot;
 				expect(() => snapshot(example.document, step.nodeId)).not.toThrow();

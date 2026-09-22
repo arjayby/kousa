@@ -11,7 +11,7 @@ it("copies all authoring settings with fresh IDs and excludes assets and runtime
 		createCanvasNode("text", { x: 10, y: -20 }),
 		createCanvasNode("image", { x: 400, y: 0 }),
 		createCanvasNode("video", { x: 800, y: 0 }),
-		createCanvasNode("speech", { x: 400, y: 400 }),
+		createCanvasNode("audio", { x: 400, y: 400 }),
 	];
 	for (const node of nodes)
 		Object.assign(node.data, {

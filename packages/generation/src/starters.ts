@@ -2,6 +2,7 @@ import {
 	type CanvasDocument,
 	type CanvasEdge,
 	createCanvasNode,
+	generationNodeKind,
 } from "@kousa/projects/canvas";
 
 export const starterKinds = [
@@ -111,14 +112,17 @@ export function createCanvasStarter(
 		kind === "speech"
 			? "The coast wakes slowly. Golden light reaches the pastel houses, and the first boats head out to sea."
 			: "A quiet coastal town at sunrise, pastel houses and soft golden light. Cinematic wide shot.";
-	const output = createCanvasNode(kind === "image-video" ? "image" : kind, {
-		x: origin.x + 380,
-		y: origin.y,
-	});
+	const output = createCanvasNode(
+		kind === "image-video" ? "image" : generationNodeKind(kind),
+		{
+			x: origin.x + 380,
+			y: origin.y,
+		},
+	);
 	output.data.label =
 		output.type === "image"
 			? "First frame"
-			: output.type === "speech"
+			: output.type === "audio"
 				? "Narration"
 				: "The scene";
 	output.data.aspectRatio = "16:9";

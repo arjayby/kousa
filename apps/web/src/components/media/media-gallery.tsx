@@ -54,7 +54,7 @@ const filters = [
 	{ value: "all", label: "All media" },
 	{ value: "image", label: "Images" },
 	{ value: "video", label: "Videos" },
-	{ value: "speech", label: "Speech" },
+	{ value: "speech", label: "Audio" },
 ] as const;
 
 export function MediaGallery({
@@ -100,7 +100,7 @@ export function MediaGallery({
 				<div className="flex flex-col gap-1">
 					<h1 className="font-semibold text-2xl">Media</h1>
 					<p className="text-muted-foreground">
-						Generated images, videos, and speech from your playground and
+						Generated images, videos, and audio from your playground and
 						projects.
 					</p>
 				</div>
@@ -215,7 +215,7 @@ export function MediaGallery({
 						<EmptyDescription>
 							{filtered
 								? "Try another search or media type."
-								: "Your completed images, videos, speech, and narrated clips will appear here."}
+								: "Your completed images, videos, audio, and narrated clips will appear here."}
 						</EmptyDescription>
 					</EmptyHeader>
 					{filtered ? (

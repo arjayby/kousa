@@ -27,7 +27,7 @@ const audio = new Uint8Array(
 );
 let db: Awaited<ReturnType<typeof createGenerationTestDatabase>>;
 let projectId: string;
-let node = createCanvasNode("speech", { x: 0, y: 0 });
+let node = createCanvasNode("audio", { x: 0, y: 0 });
 let graph: CanvasDocument;
 let media: ReturnType<typeof createMediaService>;
 let artifacts = memoryArtifacts();
@@ -96,7 +96,7 @@ afterAll(async () => {
 });
 beforeEach(async () => {
 	projectId = await db.reset();
-	node = createCanvasNode("speech", { x: 0, y: 0 });
+	node = createCanvasNode("audio", { x: 0, y: 0 });
 	node.data.content = "Welcome to Kousa.";
 	node.data.voiceDirection = "Warm and calm";
 	graph = { version: 1, nodes: [node], edges: [] };

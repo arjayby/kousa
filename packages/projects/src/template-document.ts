@@ -38,7 +38,7 @@ export function copyTemplateDocument(raw: unknown): CanvasDocument {
 					? { ...node.data.clipSettings }
 					: undefined,
 				...(node.type === "image" ? { imageSource: "generated" as const } : {}),
-				...(node.type === "video" || node.type === "speech"
+				...(node.type === "video" || node.type === "audio"
 					? { mediaSource: "generated" as const }
 					: {}),
 			},

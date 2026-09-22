@@ -274,7 +274,7 @@ it("requires editor access and leaves connected narration for clip composition",
 	await expect(
 		service().generate("viewer", await request()),
 	).rejects.toMatchObject({ code: "FORBIDDEN" });
-	const source = createCanvasNode("speech", { x: 0, y: 0 });
+	const source = createCanvasNode("audio", { x: 0, y: 0 });
 	graph.nodes.push(source);
 	graph.edges.push({
 		id: crypto.randomUUID(),

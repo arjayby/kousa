@@ -59,9 +59,9 @@ import {
 } from "@tanstack/react-query";
 import {
 	ArrowUpRightIcon,
+	AudioLinesIcon,
 	ImageIcon,
 	LoaderCircleIcon,
-	MicIcon,
 	SparklesIcon,
 	TypeIcon,
 	VideoIcon,
@@ -79,7 +79,7 @@ const kinds = [
 	{ id: "image", label: "Image", icon: ImageIcon },
 	{ id: "video", label: "Video", icon: VideoIcon },
 	{ id: "text", label: "Text", icon: TypeIcon },
-	{ id: "speech", label: "Speech", icon: MicIcon },
+	{ id: "speech", label: "Audio", icon: AudioLinesIcon },
 ] as const;
 const draftSchema = z.object({
 	kind: z.enum(["image", "text", "video", "speech"]),
@@ -388,6 +388,11 @@ export function Playground({
 											</ToggleGroupItem>
 										))}
 									</ToggleGroup>
+									{draft.kind === "speech" ? (
+										<FieldDescription>
+											Audio generation currently supports speech.
+										</FieldDescription>
+									) : null}
 								</Field>
 								<OptionField
 									id="playground-model"

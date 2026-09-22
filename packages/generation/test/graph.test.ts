@@ -105,7 +105,7 @@ beforeEach(async () => {
 });
 
 it("plans ancestors in order, excludes unrelated nodes, and detects stale prompts", async () => {
-	const extra = createCanvasNode("speech", { x: 0, y: 0 });
+	const extra = createCanvasNode("audio", { x: 0, y: 0 });
 	graph.nodes.push(extra);
 	const planned = await planGraph(graph, c.id);
 	expect(planned.plan.map((step) => step.nodeId)).toEqual([a.id, b.id, c.id]);
@@ -288,7 +288,7 @@ it("rejects cycles, unsupported connections and empty prompts before charging", 
 	graph.edges.push(connect(c.id, a.id));
 	await expect(planGraph(graph, c.id)).rejects.toThrow("cycle");
 	graph.edges.pop();
-	a.type = "speech";
+	a.type = "audio";
 	await expect(planGraph(graph, c.id)).rejects.toThrow(
 		"connected text nodes only",
 	);

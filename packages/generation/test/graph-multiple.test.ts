@@ -2,7 +2,11 @@ import { readFileSync } from "node:fs";
 import { URL } from "node:url";
 import { createGenerationTestDatabase } from "@kousa/db/testing-generation";
 import { createMediaService } from "@kousa/media/service";
-import { type CanvasDocument, createCanvasNode } from "@kousa/projects/canvas";
+import {
+	type CanvasDocument,
+	createCanvasNode,
+	nodeGenerationKind,
+} from "@kousa/projects/canvas";
 import { createProjectService } from "@kousa/projects/service";
 import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { graphFreshness } from "../src/freshness";
@@ -27,17 +31,14 @@ const audio = new Uint8Array(
 const video = new Uint8Array(
 	readFileSync(new URL("../../media/test/fixtures/clip.mp4", import.meta.url)),
 );
-const node = (
-	kind: "text" | "image" | "video" | "speech",
-	ordinal: number,
-) => ({
+const node = (kind: "text" | "image" | "video" | "audio", ordinal: number) => ({
 	...createCanvasNode(kind, { x: ordinal * 200, y: 0 }),
 	id: `00000000-0000-4000-8000-${String(ordinal).padStart(12, "0")}`,
 });
 let idea = node("text", 1);
 let picture = node("image", 2);
 let clip = node("video", 3);
-let narration = node("speech", 4);
+let narration = node("audio", 4);
 let graph: CanvasDocument;
 let projectId: string;
 let db: Awaited<ReturnType<typeof createGenerationTestDatabase>>;
@@ -115,7 +116,7 @@ beforeEach(async () => {
 	picture = node("image", 2);
 	clip = node("video", 3);
 	clip.data.content = "Pan slowly";
-	narration = node("speech", 4);
+	narration = node("audio", 4);
 	graph = {
 		version: 1,
 		nodes: [idea, picture, clip, narration],
@@ -463,7 +464,10 @@ it("includes workflow children in history with restorable authored settings", as
 			graphRunId: input.id,
 			status: "succeeded",
 			creditState: "charged",
-			settings: { kind: node.type, content: node.data.content },
+			settings: {
+				kind: nodeGenerationKind(node.type),
+				content: node.data.content,
+			},
 		});
 	}
 });

@@ -3,7 +3,11 @@ import type {
 	GenerationStore,
 } from "@kousa/db/generation-store";
 import type { MediaService } from "@kousa/media/service";
-import { createCanvasNode } from "@kousa/projects/canvas";
+import {
+	createCanvasNode,
+	generationNodeKind,
+	nodeLabels,
+} from "@kousa/projects/canvas";
 import type { ProjectService } from "@kousa/projects/service";
 import { imageSizes, isRunActive } from "./contracts";
 import {
@@ -45,12 +49,15 @@ function publicRun(run: GenerationRun) {
 }
 export type PlaygroundRun = ReturnType<typeof publicRun>;
 function nodeFor(settings: AuthoredSettings, id: string) {
-	const node = createCanvasNode(settings.kind, { x: 0, y: 0 });
+	const node = createCanvasNode(generationNodeKind(settings.kind), {
+		x: 0,
+		y: 0,
+	});
 	node.id = id;
 	node.data = {
 		...node.data,
 		...settingsPatch(settings),
-		label: `${settings.kind[0]?.toUpperCase()}${settings.kind.slice(1)} from Playground`,
+		label: `${nodeLabels[node.type]} from Playground`,
 	};
 	return node;
 }
@@ -249,7 +256,7 @@ export function createPlaygroundService(
 			);
 			node.data.selectedRunId = imported.id;
 			if (node.type === "image") node.data.imageSource = "generated";
-			if (node.type === "video" || node.type === "speech")
+			if (node.type === "video" || node.type === "audio")
 				node.data.mediaSource = "generated";
 			return { node };
 		},

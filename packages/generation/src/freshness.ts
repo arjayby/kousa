@@ -1,5 +1,6 @@
 import type { ResolvedInputs } from "@kousa/db/schema/generation-inputs";
 import type { CanvasDocument } from "@kousa/projects/canvas";
+import { nodeGenerationKind } from "@kousa/projects/canvas";
 import { graphDependencies } from "./graph-selection";
 import {
 	imageInputSnapshot,
@@ -36,7 +37,8 @@ type Snapshot = {
 export function inputSnapshot(graph: CanvasDocument, nodeId: string) {
 	const kind = graph.nodes.find((node) => node.id === nodeId)?.type;
 	if (kind === "video") return { kind, ...videoInputSnapshot(graph, nodeId) };
-	if (kind === "speech") return { kind, ...speechInputSnapshot(graph, nodeId) };
+	if (kind === "audio")
+		return { kind: "speech" as const, ...speechInputSnapshot(graph, nodeId) };
 	if (kind === "image") return { kind, ...imageInputSnapshot(graph, nodeId) };
 	return { kind: "text" as const, ...textInputSnapshot(graph, nodeId) };
 }
@@ -124,7 +126,7 @@ export function graphFreshness(graph: CanvasDocument, results: Result[]) {
 		const run = node.data.selectedRunId
 			? byId.get(node.data.selectedRunId)
 			: latest.get(node.id);
-		if (run?.nodeId === node.id && run.kind === node.type)
+		if (run?.nodeId === node.id && run.kind === nodeGenerationKind(node.type))
 			chosen.set(node.id, run);
 	}
 	const dependencies = graphDependencies(graph);

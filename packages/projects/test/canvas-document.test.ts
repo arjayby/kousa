@@ -41,6 +41,40 @@ function merge(a: Y.Doc, b: Y.Doc) {
 }
 
 describe("portable shared canvas document", () => {
+	it("reads a legacy speech CRDT as audio and preserves shared editing", () => {
+		const audio = createCanvasNode("audio", { x: 0, y: 0 });
+		audio.data.label = "Saved narration";
+		audio.data.content = "Original script";
+		audio.data.selectedRunId = crypto.randomUUID();
+		const doc = new Y.Doc();
+		Y.applyUpdate(
+			doc,
+			seedCanvasDocument({ ...emptyCanvas(), nodes: [audio] }),
+		);
+		const raw = doc.getMap<Y.Map<unknown>>(graphKeys.nodes).get(audio.id);
+		if (!raw) throw new Error("Missing shared node");
+		raw.set("type", "speech");
+		const model = createCanvasDocumentModel(doc);
+		expect(model.read()).toEqual({
+			document: { ...emptyCanvas(), nodes: [audio] },
+			rejected: 0,
+		});
+		model.editText(audio.id, "content", (text) =>
+			text.insert(text.length, " edited"),
+		);
+		expect(model.read().document.nodes[0]).toMatchObject({
+			type: "audio",
+			data: {
+				content: "Original script edited",
+				selectedRunId: audio.data.selectedRunId,
+			},
+		});
+		model.history.undo();
+		expect(model.read().document.nodes[0]?.data.content).toBe(
+			"Original script",
+		);
+		doc.destroy();
+	});
 	it("shares, restores, and removes image attachments without losing concurrent edits", () => {
 		const { a, b, image, first, second } = fixture();
 		const assetId = crypto.randomUUID();
@@ -357,7 +391,7 @@ it("syncs image generation settings and output selection independently of concur
 });
 
 it("persists speech model and voice changes while preserving concurrent shared scripts", () => {
-	const node = createCanvasNode("speech", { x: 0, y: 0 });
+	const node = createCanvasNode("audio", { x: 0, y: 0 });
 	node.data.speechModel = "model-a";
 	node.data.voiceId = "voice-a";
 	const seed = seedCanvasDocument({ ...emptyCanvas(), nodes: [node] });

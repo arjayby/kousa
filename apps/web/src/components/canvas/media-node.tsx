@@ -9,7 +9,12 @@ import {
 import { Badge } from "@kousa/ui/components/badge";
 import { cn } from "@kousa/ui/lib/utils";
 import { Handle, type NodeProps, Position } from "@xyflow/react";
-import { FileTextIcon, ImageIcon, MicIcon, VideoIcon } from "lucide-react";
+import {
+	AudioLinesIcon,
+	FileTextIcon,
+	ImageIcon,
+	VideoIcon,
+} from "lucide-react";
 import { memo } from "react";
 import { clipStatusLabels, useNodeClip } from "./canvas-clips";
 import {
@@ -33,19 +38,19 @@ export const nodeIcons = {
 	text: FileTextIcon,
 	image: ImageIcon,
 	video: VideoIcon,
-	speech: MicIcon,
+	audio: AudioLinesIcon,
 };
 export const nodeDescriptions = {
 	text: "Prompts, ideas, and scripts",
 	image: "Visuals and image references",
 	video: "Scenes and moving images",
-	speech: "Voiceovers and narration",
+	audio: "Speech, music, and sound effects",
 };
 const placeholders = {
 	text: "Write a prompt or bring an idea to life.",
 	image: "Describe the image you want to create.",
 	video: "Describe a scene and how it moves.",
-	speech: "Write the words you want to hear.",
+	audio: "Generate speech or upload music and sound effects.",
 };
 
 export const MediaNode = memo(function MediaNode({
@@ -140,7 +145,7 @@ export const MediaNode = memo(function MediaNode({
 				{kind === "video" && videoAssetId ? (
 					<VideoPreview key={videoAssetId} assetId={videoAssetId} compact />
 				) : null}
-				{kind === "speech" && speechAssetId ? (
+				{kind === "audio" && speechAssetId ? (
 					<AudioPreview
 						key={speechAssetId}
 						assetId={speechAssetId}
@@ -169,7 +174,7 @@ export const MediaNode = memo(function MediaNode({
 					</p>
 				) : (kind === "image" && assetId) ||
 					(kind === "video" && videoAssetId) ||
-					(kind === "speech" && speechAssetId) ? null : (
+					(kind === "audio" && speechAssetId) ? null : (
 					<div className="flex flex-col items-center gap-2 py-3 text-center text-muted-foreground">
 						<Icon className="size-6 opacity-50" aria-hidden="true" />
 						<p className="max-w-44 text-xs leading-relaxed">

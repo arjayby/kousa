@@ -116,7 +116,7 @@ it("plans video and speech branches with shared text generated once", async () =
 			},
 			{
 				key: "speech",
-				kind: "speech",
+				kind: "audio",
 				label: "Narration",
 				prompt: "",
 				aspectRatio: "1:1",
@@ -224,6 +224,24 @@ it("persists a private proposal without charging or editing the shared canvas", 
 	await expect(
 		service().compose("owner", { ...input, message: "Changed request" }),
 	).rejects.toMatchObject({ code: "CONFLICT" });
+});
+
+it("loads saved speech proposals as audio for history and replay", async () => {
+	const input = request();
+	await db.chat.claim({ ...input, userId: "owner" });
+	const audio = createCanvasNode("audio", { x: 0, y: 0 });
+	const proposal = {
+		message: "Saved speech workflow",
+		graph: { ...emptyCanvas(), nodes: [{ ...audio, type: "speech" }] },
+		targetIds: [audio.id],
+		credits: 2,
+	};
+	await db.chat.finish(input.id, { proposal });
+	const history = await service().history("owner", input);
+	expect(history.replies[0]?.proposal?.graph.nodes).toEqual([audio]);
+	expect(
+		(await service().compose("owner", input)).proposal?.graph.nodes,
+	).toEqual([audio]);
 });
 
 it("requires edit access and rejects another person's or canvas's conversation", async () => {

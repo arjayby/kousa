@@ -4,6 +4,7 @@ import type {
 } from "@kousa/db/generation-store";
 import type { GraphStep } from "@kousa/db/schema/graph-runs";
 import type { CanvasNode } from "@kousa/projects/canvas";
+import { nodeGenerationKind } from "@kousa/projects/canvas";
 import { z } from "zod";
 import { defaultSpeechVoice, imageSizes } from "./contracts";
 import { GenerationError } from "./input";
@@ -36,7 +37,7 @@ export function captureSettings(
 	modelId: string,
 ): AuthoredSettings {
 	return authoredSettingsSchema.parse({
-		kind: node.type,
+		kind: nodeGenerationKind(node.type),
 		content: node.data.content,
 		modelId,
 		aspectRatio: node.data.aspectRatio,

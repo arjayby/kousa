@@ -21,8 +21,8 @@ This project was created with [Better-T-Stack](https://github.com/AmanVarshney01
 - **Branch copying** - Duplicate selections or copy/paste nodes with their settings and internal connections, including between projects
 - **Node generation history** - Browse attempts, reuse saved outputs, and restore authored settings without starting a generation
 - **Run management** - Browse canvas runs, inspect credit usage, stop unfinished work, and resume cancelled workflows
-- **Project media library** - Search and filter saved media, preview and download files, and reuse images, videos, and speech on the canvas
-- **Narrated clips** - Combine video and speech with timing/volume controls and durable server exports
+- **Project media library** - Search and filter saved media, preview and download files, and reuse images, videos, and audio on the canvas
+- **Clips with audio** - Combine video with speech, music, or sound effects with timing/volume controls and durable server exports
 - **Workflow templates** - Save private workflow snapshots and create fresh projects with the same prompts, models, settings, and connections
 - **Resend email** - Expiring invitations bound to a verified email, with roles and invitation status
 - **Biome** - Linting and formatting
@@ -62,6 +62,8 @@ Use **New canvas** in project settings or the canvas header to add a workspace, 
 
 Open **Playground** to generate text, images, video, or speech without setting up a project. See [Playground](docs/playground.md) for personal history, model switching, and canvas imports.
 
+Use an **Audio** node for generated speech or uploaded MP3 music, ambience, and sound effects. Existing Speech nodes load as Audio with their settings and history preserved. See [Audio nodes](docs/audio-nodes.md).
+
 Select an Image node and choose **Create variations** to prepare 2–8 prompts and sizes together, then review their combined generation cost. See [image variations](docs/image-variations.md).
 
 Open **Chat** on the canvas to describe a workflow, refine its proposed nodes and connections, and add them in one undoable edit. Planning is free; generation uses the existing credit review. See [canvas chat](docs/canvas-chat.md).
@@ -72,7 +74,7 @@ Choose **Run affected steps** from the toolbar or a node inspector. Changed-inpu
 
 Open **Media library** in the canvas toolbar to browse project files. See [project media](docs/project-media.md) for supported formats, access rules, and local storage.
 
-Connect Speech to a Video node’s Audio input and use **Narrated clip** to export a finished MP4. See [clip creation and renderer setup](docs/clip-composition.md). Local rendering needs no new environment variables; hosted rendering is opt-in and requires Workers Paid.
+Connect an Audio node to a Video node’s Audio input and use **Clip with audio** to export a finished MP4. See [clip creation and renderer setup](docs/clip-composition.md). Local rendering needs no new environment variables; hosted rendering is opt-in and requires Workers Paid.
 
 Choose **Save template** on a canvas, then open **My templates** on the dashboard to reuse, rename, or delete it. New projects keep the workflow setup and start without media files, run history, or collaborators. See [workflow templates](docs/workflow-templates.md).
 

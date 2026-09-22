@@ -27,6 +27,35 @@ const edge = (
 });
 
 describe("canvas graph rules", () => {
+	it("loads legacy speech nodes as audio without changing settings or connections", () => {
+		const script = node("text");
+		const audio = node("audio");
+		audio.data = {
+			...audio.data,
+			label: "Custom narration",
+			content: "Keep my script",
+			voiceDirection: "Calm",
+			voiceId: "saved-voice",
+			speechModel: "saved-model",
+			assetId: crypto.randomUUID(),
+			selectedRunId: crypto.randomUUID(),
+		};
+		const video = node("video");
+		const graph = {
+			...emptyCanvas(),
+			nodes: [script, audio, video],
+			edges: [
+				edge(script.id, audio.id, "script"),
+				edge(audio.id, video.id, "audio"),
+			],
+		};
+		expect(
+			canvasDocumentSchema.parse({
+				...graph,
+				nodes: [script, { ...audio, type: "speech" }, video],
+			}),
+		).toEqual(graph);
+	});
 	it("does not replace a missing historical image with an old attachment", () => {
 		const data = {
 			imageSource: "generated" as const,
@@ -66,7 +95,7 @@ describe("canvas graph rules", () => {
 	it("allows fan-out but prevents multiple links to one input", () => {
 		const a = node("text");
 		const b = node("image");
-		const c = node("speech");
+		const c = node("audio");
 		const first = edge(a.id, b.id, "prompt");
 		const graph = { nodes: [a, b, c], edges: [first] };
 		expect(connectionError(graph, edge(a.id, c.id, "script"))).toBeNull();
@@ -88,7 +117,7 @@ describe("canvas graph rules", () => {
 	it("deleting a node removes only its attached edges", () => {
 		const a = node("text");
 		const b = node("image");
-		const c = node("speech");
+		const c = node("audio");
 		const toB = edge(a.id, b.id, "prompt");
 		const toC = edge(a.id, c.id, "script");
 		const graph = { ...emptyCanvas(), nodes: [a, b, c], edges: [toB, toC] };

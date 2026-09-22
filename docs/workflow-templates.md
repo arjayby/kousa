@@ -15,7 +15,7 @@ The library also supports **Rename** and **Delete**. Deleting a template removes
 
 All four node types retain their labels, authored prompts/scripts, model selections, aspect ratios, duration, voice settings, narrated-clip timing and volume settings, positions, and connections. Templates do not update when the source canvas changes. Save another snapshot to capture later edits.
 
-Media attachments, generated text and media results, generation history, clip exports, billing records, collaborators, and collaboration state are excluded. Image, video, and speech nodes start in generated-source mode without an attached asset. If a setup relies on an uploaded reference or existing media, select that media again in the new project.
+Media attachments, generated text and media results, generation history, clip exports, billing records, collaborators, and collaboration state are excluded. Image, video, and audio nodes start in generated-source mode without an attached asset. If a setup relies on an uploaded reference or existing media, select that media again in the new project.
 
 Every copy receives fresh node and connection IDs, remapped connections, and a separate collaboration room. The creator owns the new private project and can invite collaborators normally. Creating a project does not run the workflow or spend AI credits.
 

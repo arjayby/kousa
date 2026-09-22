@@ -5,6 +5,7 @@ import type {
 import type { MediaStore } from "@kousa/db/media-store";
 import { imageMimeTypes } from "@kousa/media/contracts";
 import type { CanvasNode } from "@kousa/projects/canvas";
+import { nodeGenerationKind } from "@kousa/projects/canvas";
 import type { ProjectService } from "@kousa/projects/service";
 import {
 	generateInput,
@@ -180,7 +181,7 @@ export function createGenerationService(
 				runId,
 				canvasId,
 			);
-			if (!node || !detail || detail.run.kind !== node.type)
+			if (!node || !detail || detail.run.kind !== nodeGenerationKind(node.type))
 				throw new GenerationError(
 					"BAD_REQUEST",
 					"This generation is unavailable for this node.",
@@ -191,7 +192,7 @@ export function createGenerationService(
 					store,
 					projectId,
 					nodeId,
-					node.type,
+					nodeGenerationKind(node.type),
 					runId,
 					canvasId,
 				);
@@ -208,7 +209,7 @@ export function createGenerationService(
 					...(node.type === "image"
 						? { imageSource: "generated" as const }
 						: {}),
-					...(node.type === "video" || node.type === "speech"
+					...(node.type === "video" || node.type === "audio"
 						? { mediaSource: "generated" as const }
 						: {}),
 				};
@@ -305,7 +306,7 @@ export function createGenerationService(
 			}
 			const { document } = await projects.getCanvas(actorId, input);
 			const node = document.nodes.find((node) => node.id === input.nodeId);
-			const kind = node?.type;
+			const kind = node ? nodeGenerationKind(node.type) : undefined;
 			if (
 				!node ||
 				(kind !== "text" &&
@@ -315,7 +316,7 @@ export function createGenerationService(
 			)
 				throw new GenerationError(
 					"BAD_REQUEST",
-					"Choose a text, image, video, or speech node to generate.",
+					"Choose a text, image, video, or audio node to generate.",
 				);
 			const configured = {
 				text: jobs.textConfigured,

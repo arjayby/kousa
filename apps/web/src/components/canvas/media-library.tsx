@@ -70,7 +70,7 @@ const filters = [
 	{ value: "all", label: "All" },
 	{ value: "image", label: "Images" },
 	{ value: "video", label: "Videos" },
-	{ value: "audio", label: "Speech" },
+	{ value: "audio", label: "Audio" },
 ] as const;
 
 function assetKind(asset: PublicAsset) {

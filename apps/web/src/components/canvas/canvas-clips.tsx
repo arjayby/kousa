@@ -169,8 +169,8 @@ export function ClipMonitor() {
 					<DialogHeader>
 						<DialogTitle>Create clip</DialogTitle>
 						<DialogDescription>
-							Combine saved video and narration. No AI generation credits are
-							used. Rendering continues if you close this tab.
+							Combine saved video and audio. No AI generation credits are used.
+							Rendering continues if you close this tab.
 						</DialogDescription>
 					</DialogHeader>
 					{clips.review ? (
@@ -180,7 +180,7 @@ export function ClipMonitor() {
 								{(clips.review.value.plan.durationMs / 1000).toFixed(1)} seconds
 							</p>
 							<p>
-								Narration starts at{" "}
+								Audio starts at{" "}
 								{clips.review.value.plan.narrationStartMs / 1000}s · Volume{" "}
 								{Math.round(clips.review.value.plan.narrationVolume * 100)}%
 							</p>
@@ -189,8 +189,8 @@ export function ClipMonitor() {
 								{Math.round(clips.review.value.plan.videoVolume * 100)}%
 							</p>
 							<p className="text-muted-foreground">
-								The clip keeps the video length. Narration beyond the end is
-								trimmed; shorter narration leaves the remaining video intact.
+								The clip keeps the video length. Audio beyond the end is
+								trimmed; shorter audio leaves the remaining video intact.
 							</p>
 							{!clips.review.value.configured ? (
 								<p role="alert">The server renderer is not configured yet.</p>
@@ -245,27 +245,27 @@ export function ClipPanel({
 	const settings = clipSettingsSchema.parse(node.data.clipSettings ?? {});
 	return (
 		<section
-			aria-label="Create narrated clip"
+			aria-label="Create clip with audio"
 			className="flex flex-col gap-4 border-t pt-4"
 		>
-			<h3 className="font-medium text-sm">Narrated clip</h3>
+			<h3 className="font-medium text-sm">Clip with audio</h3>
 			<p className="text-muted-foreground text-xs">
-				Connect a Speech node to Audio. Choose existing outputs, then combine
-				them into an MP4.
+				Connect an Audio node to the Audio input. Choose existing outputs, then
+				combine them into an MP4.
 			</p>
 			<FieldGroup>
 				{(
 					[
 						{
 							key: "narrationStartMs",
-							label: "Narration start (seconds)",
+							label: "Audio start (seconds)",
 							scale: 1000,
 							max: 11.999,
 							step: 0.1,
 						},
 						{
 							key: "narrationVolume",
-							label: "Narration volume (%)",
+							label: "Audio volume (%)",
 							scale: 0.01,
 							max: 200,
 							step: 1,

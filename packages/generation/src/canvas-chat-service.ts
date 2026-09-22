@@ -2,6 +2,7 @@ import type {
 	CanvasChatRow,
 	CanvasChatStore,
 } from "@kousa/db/canvas-chat-store";
+import { canvasDocumentSchema } from "@kousa/projects/canvas";
 import type { ProjectService } from "@kousa/projects/service";
 import {
 	type ChatProposal,
@@ -15,13 +16,19 @@ import { defaultTextModel } from "./contracts";
 import { GenerationError } from "./input";
 import type { TextProvider } from "./providers";
 
+function readProposal(raw: unknown): ChatProposal | null {
+	if (!raw) return null;
+	const proposal = raw as ChatProposal;
+	return { ...proposal, graph: canvasDocumentSchema.parse(proposal.graph) };
+}
+
 function publicReply(row: CanvasChatRow) {
 	return {
 		id: row.id,
 		message: row.message,
 		previousId: row.previousId,
 		status: row.status,
-		proposal: row.proposal as ChatProposal | null,
+		proposal: readProposal(row.proposal),
 		error: row.error,
 		createdAt: row.createdAt.toISOString(),
 	};
@@ -123,7 +130,7 @@ export function createCanvasChatService(
 							previous
 								? {
 										message: previous.message,
-										proposal: previous.proposal as ChatProposal,
+										proposal: readProposal(previous.proposal) as ChatProposal,
 									}
 								: null,
 						),

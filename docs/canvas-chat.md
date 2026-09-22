@@ -10,7 +10,7 @@ Choose **Add to canvas** to insert the proposed nodes and connections as one sha
 
 ## Current scope
 
-- Creates new text, image, video, and speech nodes, with up to 8 nodes and 16 connections per proposal.
+- Creates new text, image, video, and audio nodes, with up to 8 nodes and 16 connections per proposal.
 - Uses supported generation connections and default models. The server checks the graph, prompts, supported inputs, cycles, and execution limits before saving a proposal.
 - Can ask a clarifying question instead of creating nodes.
 - Refines a complete proposal before insertion. It does not read or modify existing canvas nodes, inspect uploaded images, browse links, publish, or export. After insertion, use the node inspector to edit settings and prompts.

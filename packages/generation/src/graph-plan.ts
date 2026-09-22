@@ -83,7 +83,7 @@ export function graphOutputIds(graph: Pick<CanvasDocument, "nodes" | "edges">) {
 					!(
 						kinds.get(e.target) === "video" &&
 						e.targetHandle === "audio" &&
-						kinds.get(e.source) === "speech"
+						kinds.get(e.source) === "audio"
 					),
 			)
 			.map((edge) => edge.source),
@@ -127,11 +127,11 @@ export async function planGraph(
 			node.type !== "text" &&
 			node.type !== "image" &&
 			node.type !== "video" &&
-			node.type !== "speech"
+			node.type !== "audio"
 		)
 			throw new GenerationError(
 				"BAD_REQUEST",
-				"Choose text, image, video, or speech nodes for this workflow.",
+				"Choose text, image, video, or audio nodes for this workflow.",
 			);
 		visiting.add(id);
 		for (const source of dependencies.get(id) ?? []) visit(source);
@@ -149,7 +149,7 @@ export async function planGraph(
 		ordered.map(async (nodeId): Promise<GraphStep> => {
 			const node = nodes.get(nodeId);
 			if (!node) throw new Error("Missing planned node");
-			if (node.type === "speech") {
+			if (node.type === "audio") {
 				const snapshot = speechInputSnapshot(graph, nodeId);
 				if (
 					!speechModels.some((model) => model.id === snapshot.modelId) ||

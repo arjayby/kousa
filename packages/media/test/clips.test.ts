@@ -38,7 +38,7 @@ let db: Awaited<ReturnType<typeof createGenerationTestDatabase>>;
 let projectId: string;
 let graph: CanvasDocument;
 let video = createCanvasNode("video", { x: 0, y: 0 });
-let speech = createCanvasNode("speech", { x: 0, y: 0 });
+let speech = createCanvasNode("audio", { x: 0, y: 0 });
 const dispatch = vi.fn(async (_id: string) => {});
 const render = vi.fn(async () => fixture("narrated-clip.mp4"));
 const media = () => createMediaService(db.media, db.projects, storage);
@@ -75,7 +75,7 @@ beforeEach(async () => {
 	render.mockClear();
 	dispatch.mockClear();
 	video = createCanvasNode("video", { x: 0, y: 0 });
-	speech = createCanvasNode("speech", { x: 200, y: 0 });
+	speech = createCanvasNode("audio", { x: 200, y: 0 });
 	const v = await media().upload("owner", projectId, {
 		name: "source.mp4",
 		mimeType: "video/mp4",
@@ -176,7 +176,7 @@ it("rejects viewers, outsiders, missing sources, wrong media and stale previews"
 	graph.edges = [];
 	await db.setGraph(projectId, graph);
 	await expect(service().preview("owner", input)).rejects.toThrow(
-		"Connect a Speech",
+		"Connect an Audio",
 	);
 	expect(dispatch).not.toHaveBeenCalled();
 });

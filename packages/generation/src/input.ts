@@ -130,12 +130,12 @@ export async function generationInputHash(
 	nodeId: string,
 ) {
 	const kind = graph.nodes.find((node) => node.id === nodeId)?.type;
-	if (kind !== "image" && kind !== "speech" && kind !== "video")
+	if (kind !== "image" && kind !== "audio" && kind !== "video")
 		return textInputHash(graph, nodeId);
 	const snapshot =
 		kind === "video"
 			? videoInputSnapshot(graph, nodeId)
-			: kind === "speech"
+			: kind === "audio"
 				? speechInputSnapshot(graph, nodeId)
 				: imageInputSnapshot(graph, nodeId);
 	// Keep hashes stable for saved text-to-image workflows created before references.
@@ -181,10 +181,10 @@ export function buildImagePrompt(
 
 export function speechInputSnapshot(graph: CanvasDocument, nodeId: string) {
 	const node = graph.nodes.find((n) => n.id === nodeId);
-	if (node?.type !== "speech")
+	if (node?.type !== "audio")
 		throw new GenerationError(
 			"BAD_REQUEST",
-			"Select a speech node to generate.",
+			"Select an Audio node to generate speech.",
 		);
 	const sources = connectedText(graph, nodeId);
 	return {

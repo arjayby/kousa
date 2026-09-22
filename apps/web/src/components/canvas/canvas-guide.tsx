@@ -134,9 +134,9 @@ export function CanvasGuide({
 						</li>
 					</ol>
 					<p>
-						Video output is silent. Speech → Video Audio is composition:
-						generate or upload both files, then open Narrated clip. It does not
-						send audio to the video model.
+						Video output is silent. Audio → Video Audio is composition: generate
+						or upload both files, then open Clip with audio. It does not send
+						audio to the video model.
 					</p>
 				</section>
 				<section
@@ -147,7 +147,7 @@ export function CanvasGuide({
 					<p>
 						Use Upload media, drop files onto the canvas, or paste copied files
 						while the canvas is focused. Images: PNG/JPEG/WebP, 10 MB, 40
-						megapixels. Speech: MP3, 10 MB, 3 minutes. Video: H.264 MP4 with
+						megapixels. Audio: MP3, 10 MB, 3 minutes. Video: H.264 MP4 with
 						optional AAC audio, 20 MB, 12 seconds.
 					</p>
 					<p>
@@ -211,7 +211,7 @@ export function StarterProgress({
 			!(
 				step.kind === "image"
 					? generation.imageResults
-					: step.kind === "speech"
+					: step.kind === "audio"
 						? generation.speechResults
 						: generation.videoResults
 			).get(step.nodeId)?.assetId,

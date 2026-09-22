@@ -22,7 +22,7 @@ export function searchCanvasNodes(nodes: readonly CanvasNode[], query: string) {
 	return nodes.flatMap((node) => {
 		const prompt = [
 			node.data.content,
-			node.type === "speech" ? node.data.voiceDirection : "",
+			node.type === "audio" ? node.data.voiceDirection : "",
 		]
 			.join(" ")
 			.replace(/\s+/g, " ")
