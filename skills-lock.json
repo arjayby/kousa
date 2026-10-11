@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "skills": {
+    "better-auth-best-practices": {
+      "source": "better-auth/skills",
+      "sourceType": "github",
+      "skillPath": "better-auth/best-practices/SKILL.md",
+      "computedHash": "0c30be0e118c2b7a0c4c57bd9e63bf110c7e420a79ec6ce7997153f3b1e066ee"
+    },
+    "better-auth-security-best-practices": {
+      "source": "better-auth/skills",
+      "sourceType": "github",
+      "skillPath": "security/SKILL.md",
+      "computedHash": "7a230edf3a24ce18162cb4379f59b6a19b8d24ca04db530609d0f15cede556dc"
+    },
+    "build-audit-logs": {
+      "source": "evlog.dev",
+      "sourceUrl": "https://www.evlog.dev",
+      "sourceType": "well-known",
+      "computedHash": "f4e231625b13dd38467916aed00e666bf460a3671768c0c8251f379fd31637f5",
+      "wellKnownDigest": "sha256:dcfb5246d719d3f1822fb5fef5f4b0661f9ed8fd6ca4497b20285236d8e10ae2"
+    },
+    "email-and-password-best-practices": {
+      "source": "better-auth/skills",
+      "sourceType": "github",
+      "skillPath": "better-auth/emailAndPassword/SKILL.md",
+      "computedHash": "863886759f729081e265941f4f72c503835d55a1f34f6d63cebe6571159fff4a"
+    },
+    "hono": {
+      "source": "honojs/skills",
+      "sourceType": "github",
+      "skillPath": "skills/hono/SKILL.md",
+      "computedHash": "f469bac28a53d010bb47bd61109d0cfebe9a4f3fd407310746114549886b5870"
+    },
+    "neon-postgres": {
+      "source": "neondatabase/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/neon-postgres/SKILL.md",
+      "computedHash": "b9763d379a3c5039e5555540a1333b1c529e2365d4f0b8fe2998ba41509814c5"
+    },
+    "review-logging-patterns": {
+      "source": "evlog.dev",
+      "sourceUrl": "https://www.evlog.dev",
+      "sourceType": "well-known",
+      "computedHash": "7f883fe916056701c8348f2495f8ef5fffcdbfc24d78ca36c0a39788a4f30b5c",
+      "wellKnownDigest": "sha256:27e7feb7a65f2236f1b8ff681b09158d39ada90aa2df5df8e6c346bc19672794"
+    },
+    "shadcn": {
+      "source": "shadcn/ui",
+      "sourceType": "github",
+      "skillPath": "skills/shadcn/SKILL.md",
+      "computedHash": "da388f632cd83783c02967446e21941c9ee8291ccb43ba74c23f7d4e9b7c298c"
+    },
+    "turborepo": {
+      "source": "vercel/turborepo",
+      "sourceType": "github",
+      "skillPath": "skills/turborepo/SKILL.md",
+      "computedHash": "9681d8dfeb5e6cdff767f1bcaba5d7ac55732a9d6c02ee120f44229f8ec25e7e"
+    },
+    "vercel-composition-patterns": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/composition-patterns/SKILL.md",
+      "computedHash": "f98931159fa9c7fed043bcd18a891a46dcf89ababa38df13a4c5b7b30dc0ce07"
+    },
+    "vercel-react-best-practices": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/react-best-practices/SKILL.md",
+      "computedHash": "3219a1944e404ffc14d1d9d6aef6dd2e3855b81387ee0a044ccbfe14d34c2357"
+    },
+    "web-design-guidelines": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/web-design-guidelines/SKILL.md",
+      "computedHash": "a6a44d5498f7e8f68289902f3dedfc6f38ae0cee1e96527c80724cf27f727c2a"
+    }
+  }
+}

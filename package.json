@@ -1,0 +1,40 @@
+{
+  "name": "kousa",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "check-types": "turbo run check-types",
+    "dev:web": "turbo run dev:bare -F web --",
+    "dev:server": "turbo run dev:bare -F hono --",
+    "db:push": "turbo run db:push -F @kousa/db --",
+    "db:studio": "turbo run db:studio -F @kousa/db --",
+    "db:generate": "turbo run db:generate -F @kousa/db --",
+    "db:migrate": "turbo run db:migrate -F @kousa/db --",
+    "deploy": "turbo run deploy -F @kousa/infra --",
+    "destroy": "turbo run destroy -F @kousa/infra --",
+    "env:generate": "varlock codegen --path ./apps/web/ && varlock codegen --path ./apps/server/ && varlock codegen --path ./packages/db/",
+    "postinstall": "varlock codegen --path ./apps/web/ && varlock codegen --path ./apps/server/ && varlock codegen --path ./packages/db/",
+    "check": "oxlint && oxfmt --write"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@kousa/config": "workspace:*",
+    "@types/node": "catalog:",
+    "lefthook": "^2.1.12",
+    "oxfmt": "^0.66.0",
+    "oxlint": "^1.81.0",
+    "turbo": "^2.10.12",
+    "typescript": "catalog:",
+    "varlock": "catalog:"
+  },
+  "packageManager": "pnpm@11.24.0"
+}
