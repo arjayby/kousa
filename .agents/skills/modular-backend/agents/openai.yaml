@@ -1,0 +1,4 @@
+interface:
+  display_name: "Modular backend"
+  short_description: "Feature modules and Effect services for Kousa"
+  default_prompt: "Use $modular-backend to organize this backend change into feature modules with clear oRPC, Effect, and persistence boundaries."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bulletproof React"
+  short_description: "Feature boundaries for Kousa's React frontend"
+  default_prompt: "Use $bulletproof-react to organize this frontend change around feature ownership, oRPC, and existing workspace boundaries."
