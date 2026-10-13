@@ -26,16 +26,20 @@
     "check": "pnpm run lint && pnpm run format:check",
     "services:up": "docker compose -f compose.local.yaml up -d",
     "services:down": "docker compose -f compose.local.yaml down",
-    "services:logs": "docker compose -f compose.local.yaml logs -f"
+    "services:logs": "docker compose -f compose.local.yaml logs -f",
+    "test:e2e": "e2e run",
+    "check-types:e2e": "tsc --project tests/e2e/tsconfig.json"
   },
   "dependencies": {
     "zod": "catalog:"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
+    "@e2e-dev/web": "^0.14.0",
     "@kousa/config": "workspace:*",
     "@shadcn/lint": "^0.2.1",
     "@types/node": "catalog:",
+    "e2e": "^0.19.0",
     "lefthook": "^2.1.12",
     "oxfmt": "^0.66.0",
     "oxlint": "^1.81.0",

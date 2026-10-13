@@ -56,3 +56,6 @@ coverage
 .cache
 tmp
 temp
+
+# TesterArmy e2e output
+.e2e/
