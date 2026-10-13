@@ -1,10 +1,30 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["typescript", "unicorn", "oxc"],
+  "jsPlugins": ["@shadcn/lint"],
+  "settings": {
+    "shadcn": {
+      "ui": "@kousa/ui/components"
+    }
+  },
   "categories": {
     "correctness": "error"
   },
   "rules": {},
+  "overrides": [
+    {
+      "files": ["apps/server/src/env.server.ts"],
+      "rules": {
+        "typescript/triple-slash-reference": "off"
+      }
+    },
+    {
+      "files": ["apps/web/src/**/*.{ts,tsx}"],
+      "rules": {
+        "shadcn/require-static-classes": "error"
+      }
+    }
+  ],
   "env": {
     "builtin": true
   }

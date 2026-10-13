@@ -20,7 +20,13 @@
     "destroy": "turbo run destroy -F @kousa/infra --",
     "env:generate": "varlock codegen --path ./apps/web/ && varlock codegen --path ./apps/server/ && varlock codegen --path ./packages/db/",
     "postinstall": "varlock codegen --path ./apps/web/ && varlock codegen --path ./apps/server/ && varlock codegen --path ./packages/db/",
-    "check": "oxlint && oxfmt --write"
+    "lint": "oxlint",
+    "format": "oxfmt --write",
+    "format:check": "oxfmt --check",
+    "check": "pnpm run lint && pnpm run format:check",
+    "services:up": "docker compose -f compose.local.yaml up -d",
+    "services:down": "docker compose -f compose.local.yaml down",
+    "services:logs": "docker compose -f compose.local.yaml logs -f"
   },
   "dependencies": {
     "zod": "catalog:"
@@ -28,6 +34,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
     "@kousa/config": "workspace:*",
+    "@shadcn/lint": "^0.2.1",
     "@types/node": "catalog:",
     "lefthook": "^2.1.12",
     "oxfmt": "^0.66.0",

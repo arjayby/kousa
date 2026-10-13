@@ -28,3 +28,5 @@ catalog:
   "@types/react-dom": ^19.2.7
   tailwindcss: ^4.3.3
   drizzle-orm: 1.0.0-rc.4
+minimumReleaseAgeExclude:
+  - effect@4.0.3
