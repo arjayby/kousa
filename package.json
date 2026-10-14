@@ -7,11 +7,11 @@
   ],
   "type": "module",
   "scripts": {
-    "dev": "turbo run dev",
+    "dev": "turbo run dev --filter=server --filter=web",
     "build": "turbo run build",
     "check-types": "turbo run check-types",
-    "dev:web": "turbo run dev:bare -F web --",
-    "dev:server": "turbo run dev:bare -F hono --",
+    "dev:web": "pnpm --filter web run dev",
+    "dev:server": "pnpm --filter server run dev",
     "db:push": "turbo run db:push -F @kousa/db --",
     "db:studio": "turbo run db:studio -F @kousa/db --",
     "db:generate": "turbo run db:generate -F @kousa/db --",
@@ -24,11 +24,14 @@
     "format": "oxfmt --write",
     "format:check": "oxfmt --check",
     "check": "pnpm run lint && pnpm run format:check",
-    "services:up": "docker compose -f compose.local.yaml up -d",
+    "services:up": "docker compose -f compose.local.yaml up -d --wait",
     "services:down": "docker compose -f compose.local.yaml down",
     "services:logs": "docker compose -f compose.local.yaml logs -f",
     "test:e2e": "e2e run",
-    "check-types:e2e": "tsc --project tests/e2e/tsconfig.json"
+    "check-types:e2e": "tsc --project tests/e2e/tsconfig.json",
+    "db:migrate:local": "pnpm --filter @kousa/db run db:migrate:local",
+    "db:generate:local": "pnpm --filter @kousa/db run db:generate:local",
+    "test:local": "pnpm --filter @kousa/db run test:local && pnpm --filter server run test:local"
   },
   "dependencies": {
     "zod": "catalog:"

@@ -1,11 +1,22 @@
-import { createAuth as createConfiguredAuth } from "@kousa/auth";
-import { type Database, createDb } from "@kousa/db";
+import { createAuth } from "@kousa/auth";
+import { closeDb, createDb, type Database } from "@kousa/db";
+import type { EvlogVariables } from "evlog/hono";
 
 import { ENV } from "./env.server";
 
-export function getDb(): Database {
-  return createDb(ENV);
-}
-export async function createAuth(database?: Database) {
-  return createConfiguredAuth(ENV, database ?? (await getDb()));
+export type ServerEnvironment = EvlogVariables & {
+  Variables: {
+    db: Database;
+    auth: ReturnType<typeof createAuth>;
+  };
+};
+
+export async function createRequestServices() {
+  const db = createDb(ENV);
+  try {
+    return { db, auth: createAuth(ENV, db) };
+  } catch (error) {
+    await closeDb(db);
+    throw error;
+  }
 }

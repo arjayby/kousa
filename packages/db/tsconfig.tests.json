@@ -1,0 +1,5 @@
+{
+  "extends": "@kousa/config/tsconfig.base.json",
+  "compilerOptions": { "noEmit": true },
+  "include": ["tests/**/*.ts", "scripts/**/*.ts", "drizzle.local.config.ts"]
+}

@@ -6,7 +6,9 @@
     "build": "tsc -b ../../packages/api && tsdown",
     "check-types": "tsc -b ../../packages/api && tsc --noEmit",
     "compile": "bun build --compile --no-compile-autoload-dotenv --minify --sourcemap --bytecode ./src/index.ts --outfile server",
-    "env:generate": "varlock codegen"
+    "env:generate": "varlock codegen",
+    "dev": "CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV=false wrangler dev --config local/wrangler.jsonc --local",
+    "test:local": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "@clickhouse/client-web": "^1.24.0",
@@ -17,6 +19,7 @@
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",
     "better-auth": "catalog:",
+    "drizzle-orm": "catalog:",
     "effect": "4.0.3",
     "evlog": "^2.28.1",
     "hono": "^4.13.7",
@@ -25,10 +28,13 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
+    "@hono/cli": "1.0.0-rc.6",
     "@kousa/config": "workspace:*",
     "@kousa/infra": "workspace:*",
     "@types/node": "catalog:",
     "tsdown": "^0.23.0",
-    "typescript": "catalog:"
+    "tsx": "^4.23.15",
+    "typescript": "catalog:",
+    "wrangler": "^4.149.0"
   }
 }

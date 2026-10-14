@@ -22,7 +22,12 @@ export default {
             "{port}",
             "--strictPort",
           ],
-          env: { VITE_SERVER_URL: "http://127.0.0.1:9" },
+          env: {
+            VITE_SERVER_URL: "http://127.0.0.1:9",
+            // e2e isolates child environments. Preserve pnpm's store and CI mode.
+            CI: process.env.CI ?? "false",
+            ...(process.env.PNPM_HOME ? { PNPM_HOME: process.env.PNPM_HOME } : {}),
+          },
           log: ".e2e/logs/web.log",
         },
       },

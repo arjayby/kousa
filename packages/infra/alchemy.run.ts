@@ -15,13 +15,14 @@ const managedDatabase = Effect.gen(function* () {
   const runtimeUrl = database.pooledConnectionUri.pipe(Output.map(Redacted.make));
 
   return {
-    runtimeEnv: { DATABASE_URL: runtimeUrl },
+    runtimeEnv: { DATABASE_MODE: "neon-http" as const, DATABASE_URL: runtimeUrl },
   };
 });
 
 export const databaseEnv = managedDatabase.pipe(Effect.map(({ runtimeEnv }) => runtimeEnv));
 
 export const databaseBindings = {
+  DATABASE_MODE: databaseEnv.pipe(Effect.map(({ DATABASE_MODE }) => DATABASE_MODE)),
   DATABASE_URL: databaseEnv.pipe(Effect.map(({ DATABASE_URL }) => DATABASE_URL)),
 };
 
