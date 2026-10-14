@@ -59,3 +59,7 @@ temp
 
 # TesterArmy e2e output
 .e2e/
+
+# Wrangler local state and secrets
+.wrangler/
+.dev.vars*

@@ -36,7 +36,7 @@ Create `tests/e2e/<feature>.e2e.ts` and use accessible roles and labels for loca
 Follow the project skill at `.agents/skills/e2e/SKILL.md`.
 
 The initial suite checks signup/sign-in switching and signup validation in the browser.
-It supplies an anonymous session response because the local backend is not configured yet.
+It supplies an anonymous session response to keep frontend checks independent of the backend.
 The config points API requests at a local unused port. These tests do not verify account creation or backend authentication.
 
 For tests that need the backend, add a separate target with a local API and database.
@@ -55,3 +55,5 @@ pnpm test:e2e --last-failed
 ```
 
 See the [TesterArmy e2e documentation](https://e2e.tester.army/docs/quickstart) for additional fixtures and runner options.
+
+See [Run Kousa locally](stack-setup.md#verify-local-persistence-and-authentication) for real backend auth verification.
