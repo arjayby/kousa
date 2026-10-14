@@ -41,7 +41,7 @@ export function createAuth(
         createCustomerOnSignUp: true,
         use: [
           checkout({
-            products: [{ productId: "your-product-id", slug: "pro" }],
+            products: [{ productId: "ffd28cbf-8918-474f-bf23-57ced81eebf2", slug: "pro" }],
             successUrl: env.POLAR_SUCCESS_URL,
             authenticatedUsersOnly: true,
           }),

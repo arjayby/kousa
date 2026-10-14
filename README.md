@@ -102,6 +102,7 @@ cd packages/infra && pnpm exec alchemy deploy --stage production
 
 ## Git Hooks and Formatting
 
+- Install Git hooks: `pnpm lefthook install`
 - Run checks: `pnpm run check`
 
 ## Project Structure
