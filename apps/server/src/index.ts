@@ -48,6 +48,23 @@ app.use(
   }),
 );
 
+app.use("*", async (c, next) => {
+  const path = c.req.path;
+  const isApi = path.startsWith("/rpc/") || path.startsWith("/api-reference/");
+  const writes = !["GET", "HEAD", "OPTIONS"].includes(c.req.method);
+  if (isApi && writes) {
+    const origin = c.req.header("Origin");
+    const trusted = [ENV.CORS_ORIGIN, new URL(ENV.BETTER_AUTH_URL).origin];
+    if ((origin && !trusted.includes(origin)) || (!origin && c.req.header("Cookie"))) {
+      return c.json(
+        { defined: false, code: "FORBIDDEN", status: 403, message: "Untrusted request origin" },
+        403,
+      );
+    }
+  }
+  await next();
+});
+
 app.on(["POST", "GET"], "/api/auth/*", async (c) => c.get("auth").handler(c.req.raw));
 
 export const apiHandler = new OpenAPIHandler(appRouter, {

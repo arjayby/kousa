@@ -1,6 +1,6 @@
 # Run Kousa locally
 
-Run the Vite frontend and Hono backend against PostgreSQL and ClickHouse in OrbStack. Local startup uses Wrangler's Workers runtime. It does not evaluate the Alchemy deployment stack or require cloud credentials.
+Run the Vite frontend and Hono backend against PostgreSQL, ClickHouse, and a Mailpit verification inbox in OrbStack. Local startup uses Wrangler's Workers runtime. It does not evaluate the Alchemy deployment stack or require cloud credentials.
 
 ## Start the application
 
@@ -33,6 +33,27 @@ To start either app separately, run `pnpm dev:server` or `pnpm dev:web`.
 Run `pnpm services:down` to stop the databases. Run `pnpm services:up` to start them again. Both named volumes retain their data. Run `pnpm services:logs` to inspect database logs.
 
 PostgreSQL exposes port 5432 and ClickHouse exposes HTTP port 8123 on `127.0.0.1` only. The database credentials in `compose.local.yaml` are development defaults. The volumes are `kousa-local_postgres-data` and `kousa-local_clickhouse-data`.
+
+Mailpit exposes its inbox and HTTP API at [localhost:8025](http://localhost:8025), bound to `127.0.0.1` only. Its SMTP port is not published. Captured messages are temporary and disappear when the container is removed.
+
+## Create a Workspace and invite a member
+
+1. Sign up or sign in, then open **Dashboard**.
+2. Enter a Workspace name and select **Create workspace**. Signup alone creates no Workspace.
+3. Enter the invitee's email address, choose Admin or Viewer, and select **Create invitation**.
+4. Copy the invitation link and share it with the invitee.
+5. Open that link as the invitee. Sign up or sign in with the matching email.
+6. Select **Send verification email** if the email is unverified.
+7. Open the verification message in [the local inbox](http://localhost:8025), then follow its link.
+8. Select **Accept invitation**.
+
+The invitation grants one Membership, expires after seven days, and cannot be reused. Creating another invitation for the same email replaces the previous link. Invitations never change an existing member's Role.
+
+Workspace URLs and the switcher select the active Workspace for each browser tab. Owners can rename the Workspace, change non-owner Roles, remove members, and revoke invitations. Admins and Viewers can leave. Transferring ownership makes the former Owner an Admin and cancels pending invitations.
+
+Use **Refresh workspace** to reload current access and team settings. The server checks current Membership on each workspace request. Website setup remains outside this session. The minimal Website schema and authorization operation use seeded Websites in integration tests.
+
+Production invitation acceptance is disabled until production verification email delivery is configured. The local inbox does not send mail to real recipients.
 
 ## Configure local connections
 
@@ -81,9 +102,11 @@ pnpm check-types
 
 The auth test uses the real Better Auth Drizzle adapter for signup, signin, session lookup, and invalid-password rejection. It blocks external network calls. The Workers integration test starts a separate local Wrangler process on an available port. It verifies signup, session lookup, and signout, and runs a ClickHouse health and read/write check inside the Worker.
 
+Workspace integration tests exercise the oRPC operation boundary with real Better Auth identities and isolated PostgreSQL data. They cover permissions, tenant isolation, invitation lifecycle, session revocation behavior, and concurrent ownership transfer and invitation acceptance. PostgreSQL enforces one Membership per User and Workspace, valid non-owner Roles, and an Owner who remains a member.
+
 Auth fixtures use unique email addresses and are deleted after each test. ClickHouse smoke checks create uniquely named Memory tables and drop them in cleanup. The smoke route exists only in the test Worker entry point. It is absent from the application entry point.
 
-The existing auth-form browser suite supplies an anonymous session response. It covers frontend forms and navigation. The local integration suite supplies the real backend auth coverage.
+The auth-form browser suite supplies an anonymous session response and covers frontend forms and navigation. The workspace browser suite uses the real local Worker, PostgreSQL, and verification inbox. See [Run browser tests](browser-tests.md).
 
 ## Preserve production deployment
 

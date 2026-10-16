@@ -2,6 +2,7 @@ import type { Context as ApiContext } from "@kousa/api/context";
 import type { Context as HonoContext } from "hono";
 
 import type { ServerEnvironment } from "./services";
+import { ENV } from "./env.server";
 
 export type CreateContextOptions = {
   context: HonoContext<ServerEnvironment>;
@@ -15,6 +16,13 @@ export async function createContext({ context }: CreateContextOptions): Promise<
   return {
     db,
     session,
+    invitationAcceptanceEnabled: ENV.DATABASE_MODE === "local",
+    billingEnabled: ENV.DATABASE_MODE !== "local",
+    reportFailure: (cause) => {
+      context.get("log").set({
+        workspaceFailure: { type: cause instanceof Error ? cause.name : "UnknownFailure" },
+      });
+    },
   };
 }
 

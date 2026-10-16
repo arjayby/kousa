@@ -12,6 +12,7 @@ import { Skeleton } from "@kousa/ui/components/skeleton";
 import { Link, useNavigate } from "@tanstack/react-router";
 
 import { authClient } from "@/lib/auth-client";
+import { queryClient } from "@/utils/orpc";
 
 export default function UserMenu() {
   const navigate = useNavigate();
@@ -23,7 +24,7 @@ export default function UserMenu() {
 
   if (!session) {
     return (
-      <Link to="/login">
+      <Link to="/login" search={{ redirect: "/dashboard" }}>
         <Button variant="outline">Sign In</Button>
       </Link>
     );
@@ -44,8 +45,10 @@ export default function UserMenu() {
             onClick={() => {
               authClient.signOut({
                 fetchOptions: {
-                  onSuccess: () => {
-                    navigate({
+                  onSuccess: async () => {
+                    await queryClient.cancelQueries();
+                    queryClient.clear();
+                    await navigate({
                       to: "/",
                     });
                   },

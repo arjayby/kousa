@@ -81,15 +81,27 @@ importers:
       '@e2e-dev/web':
         specifier: ^0.14.0
         version: 0.14.0(e2e@0.19.0)
+      '@kousa/api':
+        specifier: workspace:*
+        version: link:packages/api
       '@kousa/config':
         specifier: workspace:*
         version: link:packages/config
+      '@kousa/db':
+        specifier: workspace:*
+        version: link:packages/db
+      '@orpc/client':
+        specifier: 'catalog:'
+        version: 1.15.5
       '@shadcn/lint':
         specifier: ^0.2.1
         version: 0.2.1
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 1.0.0-rc.4(@cloudflare/workers-types@5.20261011.1)(@effect/sql-d1@4.0.3(effect@4.0.3))(@effect/sql-sqlite-do@4.0.3(effect@4.0.3))(@electric-sql/pglite@0.3.15)(@libsql/client@0.17.4)(@neondatabase/serverless@1.2.0)(@types/pg@8.23.1)(effect@4.0.3)(pg@8.23.1)(valibot@1.2.0(typescript@6.0.3))(zod@4.6.5)
       e2e:
         specifier: ^0.19.0
         version: 0.19.0
@@ -305,6 +317,9 @@ importers:
       '@orpc/zod':
         specifier: 'catalog:'
         version: 1.15.5(@orpc/contract@1.15.5)(@orpc/server@1.15.5(ws@8.22.0))(ws@8.22.0)(zod@4.6.5)
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 1.0.0-rc.4(@cloudflare/workers-types@5.20261011.1)(@effect/sql-d1@4.0.3(effect@4.0.3))(@effect/sql-sqlite-do@4.0.3(effect@4.0.3))(@electric-sql/pglite@0.3.15)(@libsql/client@0.17.4)(@neondatabase/serverless@1.2.0)(@types/pg@8.23.1)(effect@4.0.3)(pg@8.23.1)(valibot@1.2.0(typescript@6.0.3))(zod@4.6.5)
       effect:
         specifier: 4.0.3
         version: 4.0.3
@@ -406,7 +421,7 @@ importers:
         version: link:../config
       alchemy:
         specifier: 2.0.0-beta.80
-        version: 2.0.0-beta.80(@effect/platform-bun@4.0.3(effect@4.0.3))(@effect/platform-node@4.0.3(effect@4.0.3)(redis@6.3.0))(@types/node@26.6.5)(@types/react@19.3.0)(effect@4.0.3)(hono@4.11.4)(pg@8.23.1)(typescript@6.0.3)(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(ws@8.22.0)
+        version: 2.0.0-beta.80(@effect/platform-bun@4.0.3(effect@4.0.3))(@effect/platform-node@4.0.3(effect@4.0.3)(redis@6.3.0))(@types/node@26.6.5)(@types/react@19.3.0)(drizzle-orm@1.0.0-rc.4(@cloudflare/workers-types@5.20261011.1)(@effect/sql-d1@4.0.3(effect@4.0.3))(@effect/sql-sqlite-do@4.0.3(effect@4.0.3))(@electric-sql/pglite@0.3.15)(@libsql/client@0.17.4)(@neondatabase/serverless@1.2.0)(@types/pg@8.23.1)(effect@4.0.3)(pg@8.23.1)(valibot@1.2.0(typescript@6.0.3))(zod@4.6.5))(effect@4.0.3)(hono@4.11.4)(pg@8.23.1)(typescript@6.0.3)(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(ws@8.22.0)
       effect:
         specifier: 4.0.3
         version: 4.0.3
@@ -8267,7 +8282,7 @@ snapshots:
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
 
-  alchemy@2.0.0-beta.80(@effect/platform-bun@4.0.3(effect@4.0.3))(@effect/platform-node@4.0.3(effect@4.0.3)(redis@6.3.0))(@types/node@26.6.5)(@types/react@19.3.0)(effect@4.0.3)(hono@4.11.4)(pg@8.23.1)(typescript@6.0.3)(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(ws@8.22.0):
+  alchemy@2.0.0-beta.80(@effect/platform-bun@4.0.3(effect@4.0.3))(@effect/platform-node@4.0.3(effect@4.0.3)(redis@6.3.0))(@types/node@26.6.5)(@types/react@19.3.0)(drizzle-orm@1.0.0-rc.4(@cloudflare/workers-types@5.20261011.1)(@effect/sql-d1@4.0.3(effect@4.0.3))(@effect/sql-sqlite-do@4.0.3(effect@4.0.3))(@electric-sql/pglite@0.3.15)(@libsql/client@0.17.4)(@neondatabase/serverless@1.2.0)(@types/pg@8.23.1)(effect@4.0.3)(pg@8.23.1)(valibot@1.2.0(typescript@6.0.3))(zod@4.6.5))(effect@4.0.3)(hono@4.11.4)(pg@8.23.1)(typescript@6.0.3)(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(ws@8.22.0):
     dependencies:
       '@alchemy.run/cloudflare-runtime': 2.0.0-beta.80(@distilled.cloud/cloudflare@1.0.0-rc.13(effect@4.0.3))(@effect/platform-bun@4.0.3(effect@4.0.3))(@effect/platform-node@4.0.3(effect@4.0.3)(redis@6.3.0))(@types/node@26.6.5)(effect@4.0.3)(rolldown@1.2.5)(typescript@6.0.3)(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       '@alchemy.run/floci': 2.0.0-beta.80(effect@4.0.3)
@@ -8309,6 +8324,7 @@ snapshots:
     optionalDependencies:
       '@effect/platform-bun': 4.0.3(effect@4.0.3)
       '@effect/platform-node': 4.0.3(effect@4.0.3)(redis@6.3.0)
+      drizzle-orm: 1.0.0-rc.4(@cloudflare/workers-types@5.20261011.1)(@effect/sql-d1@4.0.3(effect@4.0.3))(@effect/sql-sqlite-do@4.0.3(effect@4.0.3))(@electric-sql/pglite@0.3.15)(@libsql/client@0.17.4)(@neondatabase/serverless@1.2.0)(@types/pg@8.23.1)(effect@4.0.3)(pg@8.23.1)(valibot@1.2.0(typescript@6.0.3))(zod@4.6.5)
       pg: 8.23.1
       vite: 8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
       ws: 8.22.0
