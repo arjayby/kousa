@@ -39,9 +39,13 @@
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
     "@e2e-dev/web": "^0.14.0",
+    "@kousa/api": "workspace:*",
     "@kousa/config": "workspace:*",
+    "@kousa/db": "workspace:*",
+    "@orpc/client": "catalog:",
     "@shadcn/lint": "^0.2.1",
     "@types/node": "catalog:",
+    "drizzle-orm": "catalog:",
     "e2e": "^0.19.0",
     "lefthook": "^2.1.12",
     "oxfmt": "^0.66.0",

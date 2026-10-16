@@ -6,6 +6,7 @@ import { polar, checkout, portal } from "@polar-sh/better-auth";
 import { betterAuth } from "better-auth";
 
 import { createPolarClient } from "./lib/payments";
+import { sendLocalVerificationEmail } from "./lib/verification-email";
 
 export type AuthConfig = {
   DATABASE_MODE: DatabaseConfig["DATABASE_MODE"];
@@ -29,6 +30,12 @@ export function createAuth(
     }),
     trustedOrigins: [env.CORS_ORIGIN, ...desktopOrigins],
     emailAndPassword: { enabled: true },
+    emailVerification: local
+      ? {
+          sendVerificationEmail: ({ user, url }) =>
+            sendLocalVerificationEmail({ email: user.email, url }),
+        }
+      : undefined,
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
     advanced: {

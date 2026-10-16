@@ -1,8 +1,10 @@
 import type { RouterClient } from "@orpc/server";
 
 import { protectedProcedure, publicProcedure } from "../index";
+import { workspacesRouter } from "../modules/workspaces/router";
 
 export const appRouter = {
+  workspaces: workspacesRouter,
   healthCheck: publicProcedure.handler(() => {
     return "OK";
   }),
@@ -10,6 +12,7 @@ export const appRouter = {
     return {
       message: "This is private",
       user: context.session?.user,
+      billingEnabled: context.billingEnabled,
     };
   }),
 };

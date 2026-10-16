@@ -17,6 +17,7 @@
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",
+    "drizzle-orm": "catalog:",
     "effect": "4.0.3",
     "zod": "catalog:"
   },

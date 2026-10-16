@@ -2,18 +2,21 @@ import { Button } from "@kousa/ui/components/button";
 import { Input } from "@kousa/ui/components/input";
 import { Label } from "@kousa/ui/components/label";
 import { useForm } from "@tanstack/react-form";
-import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import z from "zod";
 
 import { authClient } from "@/lib/auth-client";
+import { queryClient } from "@/utils/orpc";
 
 import Loader from "./loader";
 
-export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
-  const navigate = useNavigate({
-    from: "/",
-  });
+export default function SignUpForm({
+  onSwitchToSignIn,
+  redirectTo = "/dashboard",
+}: {
+  onSwitchToSignIn: () => void;
+  redirectTo?: string;
+}) {
   const { isPending } = authClient.useSession();
 
   const form = useForm({
@@ -31,9 +34,8 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
         },
         {
           onSuccess: () => {
-            navigate({
-              to: "/dashboard",
-            });
+            queryClient.clear();
+            window.location.assign(redirectTo);
             toast.success("Sign up successful");
           },
           onError: (error) => {
