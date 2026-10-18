@@ -89,6 +89,12 @@ export const website = pgTable(
     workspaceId: text("workspace_id")
       .notNull()
       .references(() => workspace.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    hostname: text("hostname").notNull(),
+    publicTrackingId: text("public_tracking_id").notNull().unique(),
   },
-  (table) => [index("website_workspace_idx").on(table.workspaceId)],
+  (table) => [
+    index("website_workspace_idx").on(table.workspaceId),
+    uniqueIndex("website_workspace_hostname_idx").on(table.workspaceId, table.hostname),
+  ],
 );

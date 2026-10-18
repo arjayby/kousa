@@ -47,6 +47,10 @@ The auth-form suite checks signup/sign-in switching and signup validation. It in
 
 The workspace suite uses real backend requests. It covers creation and switching across tabs, invitation acceptance with email verification, Role changes, ownership transfer, removal, departure, and revoked access. Cache regression journeys block requests to verify that inactive revoked Workspaces and former Owner team data cannot reappear from the cache. API journeys also reject forged request origins and attempts to invoke mutations with GET.
 
+Website journeys in the same suite cover creation, normalized hostnames, listing, direct navigation and reload, edits, retained drafts after invalid or duplicate input, pending saves, installation instructions, and stable public tracking IDs. They exercise Admin creation, Viewer read-only access and empty states, Membership revocation, and Website URLs with the wrong Workspace.
+
+The browser runner cannot grant OS clipboard permissions. Website copy tests replace only the Clipboard API boundary to verify the exact copied values and success and denial feedback. The text-selection fallback is checked in the browser. These tests do not establish OS clipboard permission or real tracking: the Session 4 SDK and collector are unavailable.
+
 Use disposable test accounts for new journeys. Keep session interception out of tests that claim backend authentication or authorization coverage. Credentials for browser fills are registered with the runner. API fixtures generate temporary passwords and establish real sessions.
 
 ## Inspect a failure

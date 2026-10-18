@@ -18,6 +18,10 @@ export async function createContext({ context }: CreateContextOptions): Promise<
     session,
     invitationAcceptanceEnabled: ENV.DATABASE_MODE === "local",
     billingEnabled: ENV.DATABASE_MODE !== "local",
+    trackingScript: {
+      url: ENV.TRACKING_SCRIPT_URL || null,
+      allowLocalHttp: ENV.DATABASE_MODE === "local",
+    },
     reportFailure: (cause) => {
       context.get("log").set({
         workspaceFailure: { type: cause instanceof Error ? cause.name : "UnknownFailure" },

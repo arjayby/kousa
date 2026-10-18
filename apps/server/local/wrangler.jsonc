@@ -13,6 +13,7 @@
     "CORS_ORIGIN": "http://localhost:3001",
     "POLAR_ACCESS_TOKEN": "",
     "POLAR_SUCCESS_URL": "http://localhost:3001",
+    "TRACKING_SCRIPT_URL": "http://localhost:3000/tracker.js",
     "CLICKHOUSE_URL": "http://127.0.0.1:8123",
     "CLICKHOUSE_DATABASE": "kousa",
     "CLICKHOUSE_USERNAME": "kousa",

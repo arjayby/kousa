@@ -51,9 +51,32 @@ The invitation grants one Membership, expires after seven days, and cannot be re
 
 Workspace URLs and the switcher select the active Workspace for each browser tab. Owners can rename the Workspace, change non-owner Roles, remove members, and revoke invitations. Admins and Viewers can leave. Transferring ownership makes the former Owner an Admin and cancels pending invitations.
 
-Use **Refresh workspace** to reload current access and team settings. The server checks current Membership on each workspace request. Website setup remains outside this session. The minimal Website schema and authorization operation use seeded Websites in integration tests.
+Use **Refresh workspace** to reload current access and team settings. The server checks current Membership on each workspace request.
 
 Production invitation acceptance is disabled until production verification email delivery is configured. The local inbox does not send mail to real recipients.
+
+## Create a Website and copy its installation instructions
+
+1. Open a Workspace where you are Owner or Admin.
+2. Under **Websites**, enter a **Website name** and **Website hostname**. A hostname or HTTP or HTTPS URL is accepted.
+3. Select **Create website**. The detail page shows the saved hostname and **Website setup saved**.
+4. Copy the **Public tracking ID** or **Installation snippet**. If copying fails, select the text and copy it manually.
+5. To change the name or hostname, edit **Website settings** and select **Save website**. Both identifiers stay the same.
+6. Select **Back to websites** to return to the Workspace's Website list.
+
+Owner and Admin can create and edit Websites. Viewer can read settings and installation instructions. Websites remain in their Workspace. Deletion, archiving, and transfer between Workspaces are deferred.
+
+The saved hostname omits the URL's scheme, port, path, query, and fragment. For example, `https://WWW.Example.com:8080/docs` becomes `www.example.com`. Apex, www, and other subdomains are separate Websites. Hostnames are unique within each Workspace, and the same hostname can exist in another Workspace. Registration does not prove domain ownership.
+
+Use a separate Website for `localhost` development. IP-address and wildcard hostnames are not accepted. The public tracking ID is separate from the internal resource ID and grants no settings or analytics access.
+
+### Prepare the future tracking script
+
+The tracking SDK and event collector belong to Session 4 and are unavailable in Session 3. The installation screen displays instructions and a future SDK snippet. It does not verify installation or receive tracking events.
+
+Local Worker configuration reserves `TRACKING_SCRIPT_URL=http://localhost:3000/tracker.js`. No script is served at that path yet. When the SDK becomes available, place the script once in each page's `<head>` or shared layout.
+
+The operator configures one `TRACKING_SCRIPT_URL` for each environment. The Alchemy configuration passes this optional value to the server. Deployed configuration requires HTTPS. HTTP is accepted only for loopback hosts in local database mode. Missing configuration displays a labeled placeholder template containing `YOUR_SCRIPT_URL`; configure the URL before using that template. Changing the script URL does not change Website identifiers.
 
 ## Configure local connections
 
@@ -103,6 +126,10 @@ pnpm check-types
 The auth test uses the real Better Auth Drizzle adapter for signup, signin, session lookup, and invalid-password rejection. It blocks external network calls. The Workers integration test starts a separate local Wrangler process on an available port. It verifies signup, session lookup, and signout, and runs a ClickHouse health and read/write check inside the Worker.
 
 Workspace integration tests exercise the oRPC operation boundary with real Better Auth identities and isolated PostgreSQL data. They cover permissions, tenant isolation, invitation lifecycle, session revocation behavior, and concurrent ownership transfer and invitation acceptance. PostgreSQL enforces one Membership per User and Workspace, valid non-owner Roles, and an Owner who remains a member.
+
+Website integration tests cover creation, listing, reads, edits, hostname normalization, stable identifiers, permissions, cross-Workspace denial, duplicate hostnames under concurrent writes, and snippet configuration. They use the same isolated PostgreSQL database and real Better Auth sessions. Session 3 migrations add required Website settings and unique hostname and tracking-ID constraints.
+
+The Session 3 migration requires the legacy Website table to be empty. Both local databases met this condition. If manually seeded Session 2 Website stubs remain, stop before applying the migration. Prepare a reviewed migration that adds nullable settings columns, backfills known names, hostnames, and generated public tracking IDs, then applies the required constraints. Do not fabricate hostnames or delete retained rows to bypass the migration.
 
 Auth fixtures use unique email addresses and are deleted after each test. ClickHouse smoke checks create uniquely named Memory tables and drop them in cleanup. The smoke route exists only in the test Worker entry point. It is absent from the application entry point.
 
