@@ -17,8 +17,16 @@ The tenant that owns websites and groups Users through membership. A Workspace r
 _Avoid_: Account, personal website collection
 
 **Website**:
-A website whose activity Kousa measures and that belongs to a Workspace.
+A separately configured analytics property with one primary hostname that belongs to exactly one Workspace.
 _Avoid_: Workspace
+
+**Primary hostname**:
+The exact hostname represented by a Website. Apex hostnames, www hostnames, and other subdomains represent separate Websites.
+_Avoid_: Website URL, domain group
+
+**Public tracking ID**:
+A stable public identifier that identifies one Website for tracking and is distinct from its internal identifier. It grants no access to Website settings or analytics.
+_Avoid_: API key, secret, Website ID
 
 **Membership**:
 The relationship between a User and a Workspace, with one Role that applies to every Website in that Workspace. A User can have Memberships in several Workspaces, but only one Membership in each.

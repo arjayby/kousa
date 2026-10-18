@@ -79,6 +79,16 @@ export function useWorkspaceAccessCache() {
         const id = workspaceIdSchema.safeParse(query.meta?.workspaceId);
         if (action.type === "error" && id.success && isAccessFailure(action.error)) {
           if (
+            query.meta?.websiteResource &&
+            accessErrorSchema.parse(action.error).code === "NOT_FOUND"
+          ) {
+            void queryClient.invalidateQueries({
+              queryKey: orpc.workspaces.get.queryOptions({ input: { workspaceId: id.data } })
+                .queryKey,
+            });
+            return;
+          }
+          if (
             query.meta?.requiresOwner &&
             accessErrorSchema.parse(action.error).code === "FORBIDDEN"
           ) {

@@ -410,6 +410,7 @@ test("concurrent acceptance grants one Membership and production acceptance fail
       session: invitee.session,
       invitationAcceptanceEnabled: false,
       billingEnabled: true,
+      trackingScript: { url: null, allowLocalHttp: false },
       reportFailure: () => undefined,
     },
   });
@@ -444,7 +445,7 @@ test("Website access requires both current Membership and the matching Workspace
   });
   const websiteId = crypto.randomUUID();
   await fixture.db.execute(
-    sql`INSERT INTO website (id, workspace_id) VALUES (${websiteId}, ${acme.id})`,
+    sql`INSERT INTO website (id, workspace_id, name, hostname, public_tracking_id) VALUES (${websiteId}, ${acme.id}, 'Seeded', 'example.com', ${crypto.randomUUID()})`,
   );
   assert.deepEqual(await viewer.client.workspaces.website({ workspaceId: acme.id, websiteId }), {
     id: websiteId,
@@ -484,7 +485,7 @@ test("the reusable Website operation allows Owner and Admin configuration but re
   });
   const websiteId = websiteIdSchema.parse(crypto.randomUUID());
   await fixture.db.execute(
-    sql`INSERT INTO website (id, workspace_id) VALUES (${websiteId}, ${workspace.id})`,
+    sql`INSERT INTO website (id, workspace_id, name, hostname, public_tracking_id) VALUES (${websiteId}, ${workspace.id}, 'Seeded', 'example.com', ${crypto.randomUUID()})`,
   );
   const configure = (userId: string) =>
     Effect.runPromise(
@@ -535,6 +536,7 @@ test("authentication, validation, and tenant checks protect Workspace mutations"
       session: null,
       invitationAcceptanceEnabled: true,
       billingEnabled: false,
+      trackingScript: { url: null, allowLocalHttp: true },
       reportFailure: () => undefined,
     },
   });

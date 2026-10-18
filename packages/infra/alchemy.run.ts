@@ -40,6 +40,7 @@ export const server = Cloudflare.Worker("server", {
     BETTER_AUTH_URL: Cloudflare.Worker.URL,
     POLAR_ACCESS_TOKEN: Config.Redacted("POLAR_ACCESS_TOKEN"),
     POLAR_SUCCESS_URL: Config.String("POLAR_SUCCESS_URL"),
+    TRACKING_SCRIPT_URL: Config.String("TRACKING_SCRIPT_URL").pipe(Config.withDefault("")),
   },
   dev: {
     port: 3000,

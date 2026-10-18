@@ -48,7 +48,7 @@ function rows<S extends z.ZodType>({ db, query, schema }: { db: Database; query:
   });
 }
 
-function access({ db, userId, workspaceId }: WorkspaceActor) {
+export function authorizeWorkspace({ db, userId, workspaceId }: WorkspaceActor) {
   return Effect.gen(function* () {
     const [found] = yield* rows({
       db,
@@ -68,7 +68,7 @@ function access({ db, userId, workspaceId }: WorkspaceActor) {
 
 function ownerAccess(actor: WorkspaceActor) {
   return Effect.gen(function* () {
-    const found = yield* access(actor);
+    const found = yield* authorizeWorkspace(actor);
     if (found.role !== "owner")
       return yield* new WorkspaceError({ code: "FORBIDDEN", message: "Owner permission required" });
     return found;
@@ -160,7 +160,7 @@ export function getWorkspace({
   userId: UserId;
   workspaceId: WorkspaceId;
 }) {
-  return access({ db, userId, workspaceId }).pipe(
+  return authorizeWorkspace({ db, userId, workspaceId }).pipe(
     Effect.map((found) => workspaceSchema.parse(found)),
   );
 }
@@ -230,7 +230,7 @@ export function removeMember(actor: WorkspaceActor & { targetUserId: UserId }) {
 
 export function leaveWorkspace(actor: WorkspaceActor) {
   return Effect.gen(function* () {
-    const current = yield* access(actor);
+    const current = yield* authorizeWorkspace(actor);
     if (current.role === "owner") {
       return yield* new WorkspaceError({
         code: "BAD_REQUEST",

@@ -6,6 +6,7 @@ import { closeDb, createDb } from "@kousa/db";
 import { user } from "@kousa/db/schema/auth";
 import { createRouterClient } from "@orpc/server";
 import { appRouter } from "@kousa/api/routers/index";
+import type { Context } from "@kousa/api/context";
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
@@ -18,7 +19,13 @@ export const localAuthConfig = {
   POLAR_SUCCESS_URL: "http://localhost:3001",
 } satisfies Parameters<typeof createAuth>[0];
 
-export function workspaceFixture(t: TestContext) {
+export function workspaceFixture(
+  t: TestContext,
+  trackingScript: Context["trackingScript"] = {
+    url: "http://localhost:3000/tracker.js",
+    allowLocalHttp: true,
+  },
+) {
   const db = createDb({
     DATABASE_MODE: "local",
     DATABASE_URL: "postgresql://kousa:kousa_local@127.0.0.1:5432/kousa_test",
@@ -62,6 +69,7 @@ export function workspaceFixture(t: TestContext) {
         session,
         invitationAcceptanceEnabled: true,
         billingEnabled: false,
+        trackingScript,
         reportFailure: () => undefined,
       },
     });
@@ -94,6 +102,7 @@ export function workspaceFixture(t: TestContext) {
         session,
         invitationAcceptanceEnabled: true,
         billingEnabled: false,
+        trackingScript,
         reportFailure: () => undefined,
       },
     });

@@ -10,11 +10,253 @@ import { z } from "zod";
 
 const emails: string[] = [];
 
+test("sets up a Website with a normalized hostname and copies future-SDK installation instructions", async ({
+  app,
+  screen,
+  browser,
+}) => {
+  if (!app.baseUrl) throw new Error("Local app URL unavailable");
+  const owner = await apiUser(app.baseUrl, "Website Owner");
+  const workspace = await owner.client.workspaces.create({ name: "Website Team" });
+  await browser.setCookies(owner.browserCookies);
+  await app.open(`/workspaces/${workspace.id}`);
+  await expect(screen.getByRole("heading", "Websites", { exact: true })).toBeVisible();
+  await expect(screen.getByText("No websites yet", { exact: true })).toBeVisible();
+  await screen.getByLabel("Website name", { exact: true }).fill("Marketing");
+  await screen
+    .getByLabel("Website hostname", { exact: true })
+    .fill("https://WWW.Example.com:8080/docs?x=1");
+  await screen.getByRole("button", "Create website", { exact: true }).click();
+  await expect(screen.getByRole("heading", "Marketing", { exact: true })).toBeVisible();
+  await expect(browser).toHaveURL(/\/workspaces\/[a-f0-9-]+\/websites\/[a-f0-9-]+$/);
+  await expect(screen.getByText("Saved hostname: www.example.com", { exact: true })).toBeVisible();
+  await expect(screen.getByText("Website setup saved", { exact: true })).toBeVisible();
+  await expect(screen.getByRole("alert")).toContainText("Tracking SDK unavailable");
+  const sites = await owner.client.websites.list({ workspaceId: workspace.id });
+  const site = sites[0];
+  if (!site) throw new Error("Website was not saved");
+  await expect(screen.getByLabel("Public tracking ID", { exact: true })).toHaveValue(
+    site.publicTrackingId,
+  );
+  await expect(screen.getByLabel("Installation snippet", { exact: true })).toHaveValue(
+    `<script defer src="http://localhost:3000/tracker.js" data-tracking-id="${site.publicTrackingId}"></script>`,
+  );
+  // The runner cannot grant OS clipboard permissions. Replace only that browser boundary.
+  await browser.evaluate(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (text: string) => {
+          window.copiedWebsiteText = text;
+        },
+      },
+    });
+    return null;
+  });
+  await screen.getByRole("button", "Copy tracking ID", { exact: true }).click();
+  await expect(screen.getByRole("status", "Tracking ID copy result")).toContainText("Copied");
+  await expect(await browser.evaluate(() => window.copiedWebsiteText ?? null)).toBe(
+    site.publicTrackingId,
+  );
+  await screen.getByRole("button", "Copy snippet", { exact: true }).click();
+  await expect(screen.getByRole("status", "Snippet copy result")).toContainText("Copied");
+  await expect(await browser.evaluate(() => window.copiedWebsiteText ?? null)).toBe(
+    `<script defer src="http://localhost:3000/tracker.js" data-tracking-id="${site.publicTrackingId}"></script>`,
+  );
+  await screen.getByRole("heading", "Installation instructions", { exact: true }).scrollIntoView();
+  await app.screenshot("website-installation");
+  await browser.reload();
+  await expect(screen.getByRole("heading", "Marketing", { exact: true })).toBeVisible();
+  await screen.getByRole("link", "Back to websites", { exact: true }).click();
+  await expect(
+    screen.getByRole("link", "Marketing www.example.com", { exact: true }),
+  ).toBeVisible();
+});
+
 declare global {
   interface Window {
     workspaceTestTab?: Window | null;
+    copiedWebsiteText?: string;
   }
 }
+
+test("Website edits keep identifiers stable and retain form input after validation or duplicate errors", async ({
+  app,
+  screen,
+  browser,
+}) => {
+  if (!app.baseUrl) throw new Error("Local app URL unavailable");
+  const owner = await apiUser(app.baseUrl, "Editor");
+  const workspace = await owner.client.workspaces.create({ name: "Editing Team" });
+  const website = await owner.client.websites.create({
+    workspaceId: workspace.id,
+    name: "Original",
+    hostname: "example.com",
+  });
+  await owner.client.websites.create({
+    workspaceId: workspace.id,
+    name: "Other",
+    hostname: "www.example.com",
+  });
+  await browser.setCookies(owner.browserCookies);
+  await app.open(`/workspaces/${workspace.id}/websites/${website.id}`);
+  await screen.getByLabel("Website name", { exact: true }).fill("Keep this draft");
+  await screen.getByLabel("Website hostname", { exact: true }).fill("www.example.com");
+  await screen.getByRole("button", "Save website", { exact: true }).click();
+  await expect(
+    screen.getByText("This hostname already exists in this Workspace", { exact: true }),
+  ).toBeVisible();
+  await expect(screen.getByLabel("Website name", { exact: true })).toHaveValue("Keep this draft");
+  await expect(screen.getByRole("heading", "Original", { exact: true })).toBeVisible();
+  await screen.getByLabel("Website hostname", { exact: true }).fill("bad host");
+  await screen.getByRole("button", "Save website", { exact: true }).click();
+  await expect(screen.getByLabel("Website hostname", { exact: true })).toHaveAttribute(
+    "aria-invalid",
+    "true",
+  );
+  await expect(screen.getByLabel("Website name", { exact: true })).toHaveValue("Keep this draft");
+  await screen
+    .getByLabel("Website hostname", { exact: true })
+    .fill("https://moved.example.com/path");
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await browser.route("**/rpc/websites/update", async (route) => {
+    await held;
+    await route.continue();
+  });
+  try {
+    await screen.getByRole("button", "Save website", { exact: true }).click();
+    await expect(screen.getByRole("button", "Saving...", { exact: true })).toBeDisabled();
+    await expect(screen.getByLabel("Website name", { exact: true })).toBeDisabled();
+  } finally {
+    release();
+  }
+  await expect(screen.getByRole("heading", "Keep this draft", { exact: true })).toBeVisible();
+  await expect(
+    screen.getByText("Saved hostname: moved.example.com", { exact: true }),
+  ).toBeVisible();
+  await expect(screen.getByLabel("Public tracking ID", { exact: true })).toHaveValue(
+    website.publicTrackingId,
+  );
+  await expect(
+    await owner.client.websites.get({ workspaceId: workspace.id, websiteId: website.id }),
+  ).toEqual({ ...website, name: "Keep this draft", hostname: "moved.example.com" });
+  await browser.unroute("**/rpc/websites/update");
+});
+
+test("an Admin creates a Website, Viewer access is read-only, and revocation clears its saved setup", async ({
+  app,
+  screen,
+  browser,
+}) => {
+  if (!app.baseUrl) throw new Error("Local app URL unavailable");
+  const owner = await apiUser(app.baseUrl, "Owner");
+  const member = await apiUser(app.baseUrl, "Admin");
+  const workspace = await owner.client.workspaces.create({ name: "Website Roles" });
+  const empty = await owner.client.workspaces.create({ name: "Empty Viewer Workspace" });
+  const db = createDb({
+    DATABASE_MODE: "local",
+    DATABASE_URL: "postgresql://kousa:kousa_local@127.0.0.1:5432/kousa_test",
+  });
+  try {
+    await db.execute(
+      sql`INSERT INTO membership (workspace_id, user_id, role) VALUES (${workspace.id}, ${member.user.id}, 'admin'), (${empty.id}, ${member.user.id}, 'viewer')`,
+    );
+  } finally {
+    await closeDb(db);
+  }
+  await browser.setCookies(member.browserCookies);
+  await app.open(`/workspaces/${workspace.id}`);
+  await screen.getByLabel("Website name", { exact: true }).fill("Development");
+  await screen.getByLabel("Website hostname", { exact: true }).fill("http://localhost:5173");
+  await screen.getByRole("button", "Create website", { exact: true }).click();
+  await expect(screen.getByRole("heading", "Development", { exact: true })).toBeVisible();
+  const websiteUrl = await browser.url();
+  await expect(screen.getByRole("button", "Save website", { exact: true })).toBeVisible();
+  await owner.client.workspaces.setRole({
+    workspaceId: workspace.id,
+    targetUserId: member.user.id,
+    role: "viewer",
+  });
+  await screen.getByRole("button", "Refresh website", { exact: true }).click();
+  await expect(screen.getByRole("button", "Save website", { exact: true })).toHaveCount(0);
+  await expect(
+    screen.getByRole("heading", "Installation instructions", { exact: true }),
+  ).toBeVisible();
+  await browser.evaluate(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async () => {
+          throw new Error("Clipboard denied");
+        },
+      },
+    });
+    return null;
+  });
+  await screen.getByRole("button", "Copy snippet", { exact: true }).click();
+  await expect(screen.getByRole("status", "Snippet copy result")).toContainText("Unable to copy");
+  await screen.getByLabel("Installation snippet", { exact: true }).focus();
+  await expect(
+    await browser.evaluate(() => {
+      const field = document.activeElement;
+      return (
+        field instanceof HTMLTextAreaElement &&
+        field.selectionStart === 0 &&
+        field.selectionEnd === field.value.length
+      );
+    }),
+  ).toBe(true);
+  await app.open(`/workspaces/${empty.id}`);
+  await expect(
+    screen.getByText("Ask an Owner or Admin to create a website for this workspace.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(screen.getByRole("button", "Create website", { exact: true })).toHaveCount(0);
+  await app.open(websiteUrl);
+  await expect(screen.getByRole("heading", "Development", { exact: true })).toBeVisible();
+  await expect(screen.getByRole("button", "Refresh website", { exact: true })).toBeEnabled();
+  await owner.client.workspaces.removeMember({
+    workspaceId: workspace.id,
+    targetUserId: member.user.id,
+  });
+  await screen.getByRole("button", "Refresh website", { exact: true }).click();
+  await expect(screen.getByText("Website unavailable", { exact: true })).toBeVisible();
+  await expect(screen.getByLabel("Public tracking ID", { exact: true })).toHaveCount(0);
+  await expect(screen.getByRole("heading", "Development", { exact: true })).toHaveCount(0);
+});
+
+test("Website URLs cannot cross Workspace boundaries and a missing Website does not remove valid Workspace access", async ({
+  app,
+  screen,
+  browser,
+}) => {
+  if (!app.baseUrl) throw new Error("Local app URL unavailable");
+  const owner = await apiUser(app.baseUrl, "Owner");
+  const first = await owner.client.workspaces.create({ name: "First Website Workspace" });
+  const second = await owner.client.workspaces.create({ name: "Second Website Workspace" });
+  const website = await owner.client.websites.create({
+    workspaceId: first.id,
+    name: "Private Website",
+    hostname: "example.com",
+  });
+  await browser.setCookies(owner.browserCookies);
+  await app.open(`/workspaces/${first.id}/websites/${website.id}`);
+  await expect(screen.getByRole("heading", "Private Website", { exact: true })).toBeVisible();
+  await app.open(`/workspaces/${second.id}/websites/${website.id}`);
+  await expect(screen.getByText("Website unavailable", { exact: true })).toBeVisible();
+  await expect(screen.getByRole("heading", "Private Website", { exact: true })).toHaveCount(0);
+  await expect(screen.getByLabel("Public tracking ID", { exact: true })).toHaveCount(0);
+  await screen.getByRole("link", "Back to websites", { exact: true }).click();
+  await expect(
+    screen.getByRole("heading", "Second Website Workspace", { exact: true }),
+  ).toBeVisible();
+  await expect(screen.getByText("No websites yet", { exact: true })).toBeVisible();
+  await expect(screen.getByRole("button", "Create website", { exact: true })).toBeVisible();
+});
 
 async function apiUser(baseUrl: string, name: string) {
   const origin = new URL(baseUrl).origin;

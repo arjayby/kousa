@@ -6,13 +6,20 @@ import { Field, FieldLabel } from "@kousa/ui/components/field";
 import { NativeSelect, NativeSelectOption } from "@kousa/ui/components/native-select";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 
 import { orpc } from "@/utils/orpc";
 import { OwnerTeam } from "./owner-team";
 import { WorkspaceSettings } from "./workspace-settings";
 import { forgetWorkspace, refreshWorkspace } from "../api/cache";
 
-export function WorkspaceScreen({ workspaceId }: { workspaceId: WorkspaceId }) {
+export function WorkspaceScreen({
+  workspaceId,
+  children,
+}: {
+  workspaceId: WorkspaceId;
+  children: ReactNode;
+}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const workspace = useQuery(
@@ -90,6 +97,7 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: WorkspaceId }) {
       >
         Refresh workspace
       </Button>
+      {children}
       {workspace.data.role === "owner" ? (
         <>
           <WorkspaceSettings workspaceId={workspaceId} name={workspace.data.name} />
